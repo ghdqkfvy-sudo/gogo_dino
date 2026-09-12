@@ -2488,6 +2488,8 @@ function openNumberStudy(){
 }
 function exitNumberStudy(){
   nsStopMic();
+  const nativeTTS = nsNativeTTS();
+  if(nativeTTS){ try{ nativeTTS.stop().catch(()=>{}); }catch(e){} }
   try{ speechSynthesis.cancel(); }catch(e){}
   go('screen-home');
 }
@@ -2524,6 +2526,7 @@ function nsNextNumber(){
 
 function nsGoStage(stage){
   ns.stage = stage;
+  nsDemoRunId++; // 다른 단계로 넘어가면 데모(쓰는 법 보기) 애니메이션이 남아있던 캔버스에 계속 그리지 않도록 확실히 멈춤
   nsStopMic();
   const card = document.getElementById('nsStageCard');
   if(!card) return;
@@ -2567,7 +2570,30 @@ function nsPickKoreanVoice(){
     return voices.find(v => /^ko/i.test(v.lang)) || null;
   }catch(e){ return null; }
 }
+// 안드로이드 웹뷰는 브라우저용 Web Speech API(speechSynthesis)가 아예 없거나(기기에 따라
+// "이 기기에서는 소리를 들려줄 수 없어요"), 있어도 음성 목록이 비어서 소리가 안 나는 경우가
+// 흔합니다. 그래서 이 앱(APK)으로 실행 중일 땐 진짜 안드로이드 시스템 TTS를 쓰는 네이티브
+// 플러그인(@capacitor-community/text-to-speech)을 우선 쓰고, 그게 없는 일반 브라우저/미리보기
+// 환경(Netlify를 브라우저로 열었을 때, 이 아티팩트 미리보기 등)에서만 Web Speech API로 대체합니다.
+function nsNativeTTS(){
+  try{ return (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null; }
+  catch(e){ return null; }
+}
 function nsSpeakNumber(n){
+  const native = NS_NATIVE_NAMES[n];
+  const sino = NS_SINO_NAMES[n];
+  const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
+
+  const nativeTTS = nsNativeTTS();
+  if(nativeTTS){
+    try{
+      nativeTTS.stop().catch(()=>{});
+      nativeTTS.speak({ text, lang:'ko-KR', rate:0.85, pitch:1.1, volume:1.0, category:'ambient' })
+        .catch(()=> toast('소리 재생에 문제가 있었어요 🔇'));
+    }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
+    return;
+  }
+
   if(!('speechSynthesis' in window)){
     toast('이 기기에서는 소리를 들려줄 수 없어요 🔇');
     return;
@@ -2576,9 +2602,6 @@ function nsSpeakNumber(n){
     try{
       speechSynthesis.cancel();
       if(speechSynthesis.paused) speechSynthesis.resume();
-      const native = NS_NATIVE_NAMES[n];
-      const sino = NS_SINO_NAMES[n];
-      const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
       const u = new SpeechSynthesisUtterance(text);
       const koVoice = nsPickKoreanVoice();
       if(koVoice) u.voice = koVoice;
@@ -2645,12 +2668,17 @@ function nsPlayDemo(){
       return;
     }
     const pts = strokes[idx];
+    if(!pts || pts.length === 0){ playStroke(idx+1); return; } // 방어적 처리 - 정상 경로에선 발생하지 않음
     const dur = strokeDurs[idx];
     placePencil(pts[0][0], pts[0][1]);
     const t0 = performance.now();
     function frame(t){
       if(runId !== nsDemoRunId || !nsIsActive()) return;
-      const p = Math.min(1, (t - t0) / dur);
+      // 2026-09-13: requestAnimationFrame이 넘겨주는 t가 (특히 첫 프레임에서) t0로 쓴
+      // performance.now()보다 더 이른 시각일 수 있어서(브라우저마다 프레임 타임스탬프 기준이
+      // 미묘하게 달라서 생기는 현상), p가 아주 살짝 음수가 되면서 배열 인덱스가 음수가 되어
+      // "Cannot read properties of undefined" 에러가 났었습니다. 아래쪽도 0으로 고정합니다.
+      const p = Math.max(0, Math.min(1, (t - t0) / dur));
       const idxF = p * (pts.length - 1);
       const i0 = Math.floor(idxF);
       const frac = idxF - i0;
@@ -2824,23 +2852,46 @@ function nsStartMicCheck(){
     analyser.fftSize = 512;
     src.connect(analyser);
     const data = new Uint8Array(analyser.frequencyBinCount);
-    let heard = false, elapsed = 0;
-    if(hint) hint.textContent = '듣고 있어요... 🎧';
+    let elapsed = 0;
+    // 처음 잠깐(약 0.3초)은 "조용한 상태의 잡음 크기(바닥소음)"만 측정합니다 - 기기/방마다
+    // 마이크 감도와 주변 소음이 달라서, 고정된 숫자 하나만으로는 어떤 기기에선 숨소리에도
+    // 바로 반응하고 어떤 기기에선 크게 말해도 반응 안 하는 문제가 있었습니다. 이 기기의
+    // 바닥소음을 기준으로 "그보다 확실히 커야" 통과되게 합니다.
+    const CALIBRATE_FRAMES = 18;
+    let calibSamples = [];
+    let noiseFloor = 0.02;
+    let sustained = 0;
+    const SUSTAIN_NEEDED = 6; // 약 0.1초 이상 계속 커야 "말했다"로 인정 (순간적인 딸깍 소리 등 오탐 방지)
+    if(hint) hint.textContent = '잠깐만요... 🤫';
     function tick(){
       if(!nsIsActive()){ nsStopMic(); return; }
       analyser.getByteTimeDomainData(data);
       let sum = 0;
       for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
       const rms = Math.sqrt(sum/data.length);
-      if(rms > 0.06) heard = true;
       elapsed++;
-      if(heard){
+
+      if(elapsed <= CALIBRATE_FRAMES){
+        calibSamples.push(rms);
+        if(elapsed === CALIBRATE_FRAMES){
+          const avg = calibSamples.reduce((a,b)=>a+b,0) / calibSamples.length;
+          noiseFloor = avg;
+          if(hint) hint.textContent = '🎤 지금 말해볼까요?';
+        }
+        ns._micRAF = requestAnimationFrame(tick);
+        return;
+      }
+
+      const threshold = Math.max(noiseFloor * 2.6, 0.09);
+      if(rms > threshold) sustained++; else sustained = 0;
+
+      if(sustained >= SUSTAIN_NEEDED){
         if(hint) hint.textContent = '아주 잘 들렸어요! 👍';
         nsStopMic(); try{ actx.close(); }catch(e){}
         nsUnlockTrace();
         return;
       }
-      if(elapsed > 240){ // 약 4초 넘게 소리가 없으면 막히지 않게 그냥 통과
+      if(elapsed > CALIBRATE_FRAMES + 300){ // 약 5초 넘게 못 들으면 막히지 않게 그냥 통과
         if(hint) hint.textContent = '괜찮아요, 그냥 써볼까요!';
         nsStopMic(); try{ actx.close(); }catch(e){}
         nsUnlockTrace();
