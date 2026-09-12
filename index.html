@@ -435,6 +435,7 @@
 
 <!-- ============ HOME ============ -->
 <audio id="bgmPlayer" loop preload="none"></audio>
+<audio id="enginePlayer" loop preload="none"></audio>
 <div id="screen-home" class="screen active">
   <h1>🦖 고고 컬러링 스튜디오</h1>
   <div class="sub">프로토타입 v0.3 · prunnnn.com / saegchil.co.kr 도안으로 받은 실제 캐릭터 6종 적용</div>
@@ -493,7 +494,7 @@
   <div class="topbar">
     <button class="backbtn" onclick="go('screen-charpick')">←</button>
     <h1 style="margin:0;" id="colorTitle">색칠하기</h1>
-    <button class="pill ghost" id="bgmToggleBtn" onclick="toggleBgmMute()" title="배경음악 켜기/끄기" style="margin-left:auto; padding:8px 12px; font-size:16px;"></button>
+    <button class="pill ghost bgm-toggle-btn" onclick="toggleBgmMute()" title="배경음악 켜기/끄기" style="margin-left:auto; padding:8px 12px; font-size:16px;">🔊</button>
   </div>
   <div class="work-wrap">
     <div class="canvas-card">
@@ -541,6 +542,7 @@
   <div class="topbar">
     <button class="backbtn" onclick="go('screen-fieldselect')">←</button>
     <h1 style="margin:0;" id="fieldTitle">숲속</h1>
+    <button class="pill ghost bgm-toggle-btn" onclick="toggleBgmMute()" title="배경음악 켜기/끄기" style="margin-left:auto; padding:8px 12px; font-size:16px;">🔊</button>
   </div>
   <div class="scene forest" id="sceneEl"></div>
   <div class="sub" style="margin-top:12px;">저장된 친구들:</div>
@@ -562,7 +564,8 @@
   <div class="topbar">
     <button class="backbtn" onclick="stopTrack(); go('screen-trackpick')">←</button>
     <h1 style="margin:0;" id="trackTitle">트랙 모드</h1>
-    <button class="pill ghost" style="margin-left:auto;" onclick="restartTrack()">🔁 처음부터</button>
+    <button class="pill ghost bgm-toggle-btn" onclick="toggleBgmMute()" title="배경음악 켜기/끄기" style="margin-left:auto; padding:8px 12px; font-size:16px;">🔊</button>
+    <button class="pill ghost" onclick="restartTrack()">🔁 처음부터</button>
   </div>
   <div class="track-wrap">
     <canvas id="trackCanvas"></canvas>
@@ -726,20 +729,24 @@ const FRANCHISES = {
   robocarpoli: { label:'로보카폴리', emoji:'🚓', color:'#2f7fd1', tint:'#eaf3fc' },
 };
 
-// ---- 색칠하기 화면 배경음악(OST) ----
-// 프랜차이즈별로 한 곡씩 매핑합니다. 실제 mp3 파일은 audio/ 폴더에 사용자가 직접 넣어줘야 해요
-// (저작권이 있는 공식 OST라 Claude가 대신 구해서 넣을 수 없습니다 - 개인 소장 음원을 넣어주세요).
-const BGM_MAP = {
-  gogodino:    'audio/gogodino_ost.mp3',
-  robocarpoli: 'audio/poli_ost.mp3',
+// ---- 배경음악(BGM) / 효과음(SFX) ----
+// 화면별로 곡을 매핑합니다. color/track의 실제 mp3는 사용자가 소장한 정식 음원(OST)을
+// 받아서 넣었고, field(숲/바다/사막)와 track의 엔진음·점프음은 저작권 걱정 없는
+// 자체 제작(합성) 사운드입니다. audio/ 폴더에 실제 파일이 있어야 재생됩니다.
+const BGM_SOURCES = {
+  color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3' },
+  field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3' },
+  track: { race: 'audio/track_ost.mp3' },
 };
+const BGM_SCREENS = new Set(['screen-color','screen-field','screen-track']);
 const BGM_STORAGE_KEY = 'gogodino_bgm_muted_v1';
 let bgmMuted = false;
 try{ bgmMuted = localStorage.getItem(BGM_STORAGE_KEY) === '1'; }catch(e){}
 let bgmFadeTimer = null;
-let bgmCurrentFranchise = null;
+let bgmCurrentPath = null;
 
 function bgmEl(){ return document.getElementById('bgmPlayer'); }
+function engineEl(){ return document.getElementById('enginePlayer'); }
 
 function bgmClearFade(){ if(bgmFadeTimer){ clearInterval(bgmFadeTimer); bgmFadeTimer = null; } }
 
@@ -761,52 +768,113 @@ function bgmFadeTo(target, ms, thenPause){
   }, 40);
 }
 
-// startColoring()에서 캐릭터의 franchise를 넘겨 호출합니다. 같은 프랜차이즈면 이미 재생 중인
-// 곡을 그대로 이어가고(처음부터 다시 재생하지 않음), 다른 프랜차이즈로 바뀔 때만 곡을 전환합니다.
-function playFranchiseBGM(franchise){
-  const src = BGM_MAP[franchise];
+// 같은 곡(path)이 이미 재생 중이면 그대로 이어가고(처음부터 다시 재생하지 않음),
+// 다른 곡으로 바뀔 때만 페이드 아웃 없이 부드럽게 전환합니다.
+function playBGM(path, vol){
   const el = bgmEl();
-  if(!el || !src) return;
-  if(bgmCurrentFranchise === franchise && !el.paused){ bgmClearFade(); bgmFadeTo(bgmMuted?0:0.35, 200); return; }
-  bgmCurrentFranchise = franchise;
+  if(!el || !path) return;
+  vol = vol == null ? 0.32 : vol;
+  if(bgmCurrentPath === path && !el.paused){ bgmClearFade(); bgmFadeTo(bgmMuted?0:vol, 200); return; }
+  bgmCurrentPath = path;
   bgmClearFade();
   el.pause();
-  el.src = src;
+  el.src = path;
   el.currentTime = 0;
+  el.loop = true;
   el.volume = 0;
   if(!bgmMuted){
-    el.play().then(()=> bgmFadeTo(0.35, 500)).catch(()=>{ /* 자동재생이 막혔다면 음소거 버튼으로 다시 시도 가능 */ });
+    el.play().then(()=> bgmFadeTo(vol, 500)).catch(()=>{ /* 자동재생이 막혔다면 음소거 버튼으로 다시 시도 가능 */ });
   }
 }
+
+function playFranchiseBGM(franchise){ playBGM(BGM_SOURCES.color[franchise], 0.35); }
+function playFieldBGM(field){ playBGM(BGM_SOURCES.field[field], 0.28); }
+function playTrackBGM(){ playBGM(BGM_SOURCES.track.race, 0.3); }
 
 function stopBGM(){
   const el = bgmEl();
   if(!el) return;
-  bgmCurrentFranchise = null;
+  bgmCurrentPath = null;
   bgmFadeTo(0, 400, true);
 }
 
 function toggleBgmMute(){
   bgmMuted = !bgmMuted;
   try{ localStorage.setItem(BGM_STORAGE_KEY, bgmMuted ? '1' : '0'); }catch(e){}
-  const btn = document.getElementById('bgmToggleBtn');
-  if(btn) btn.textContent = bgmMuted ? '🔇' : '🔊';
+  updateBgmButtons();
   const el = bgmEl();
-  if(!el) return;
-  if(bgmMuted){
-    bgmFadeTo(0, 250);
-  }else if(bgmCurrentFranchise){
-    if(el.paused){ el.volume = 0; el.play().then(()=>bgmFadeTo(0.35,300)).catch(()=>{}); }
-    else bgmFadeTo(0.35, 300);
+  if(el){
+    if(bgmMuted){ bgmFadeTo(0, 250); }
+    else if(bgmCurrentPath){
+      if(el.paused){ el.volume = 0; el.play().then(()=>bgmFadeTo(0.32,300)).catch(()=>{}); }
+      else bgmFadeTo(0.32, 300);
+    }
   }
+  const eEl = engineEl();
+  if(eEl && bgmMuted) eEl.volume = 0;
+}
+
+function updateBgmButtons(){
+  document.querySelectorAll('.bgm-toggle-btn').forEach(b=>{ b.textContent = bgmMuted ? '🔇' : '🔊'; });
 }
 
 document.addEventListener('visibilitychange', ()=>{
   const el = bgmEl();
-  if(!el || !bgmCurrentFranchise) return;
-  if(document.hidden){ el.pause(); }
-  else if(!bgmMuted){ el.play().catch(()=>{}); }
+  const eEl = engineEl();
+  if(document.hidden){
+    if(el && bgmCurrentPath) el.pause();
+    if(eEl) eEl.pause();
+  }else{
+    if(!bgmMuted){
+      if(el && bgmCurrentPath) el.play().catch(()=>{});
+      if(eEl && track) eEl.play().catch(()=>{});
+    }
+  }
 });
+
+// ---- 트랙 모드 전용: 엔진 루프음 + 점프 효과음 (전부 자체 제작 합성 사운드) ----
+const SFX_JUMP = 'audio/jump.mp3';
+const ENGINE_LOOP_SRC = 'audio/engine_loop.mp3';
+
+function playEngineLoop(){
+  const el = engineEl();
+  if(!el) return;
+  el.src = ENGINE_LOOP_SRC;
+  el.loop = true;
+  el.currentTime = 0;
+  el.playbackRate = 0.75;
+  el.volume = bgmMuted ? 0 : 0.12;
+  if(!bgmMuted) el.play().catch(()=>{});
+}
+
+function stopEngineLoop(){
+  const el = engineEl();
+  if(!el) return;
+  el.pause();
+  el.currentTime = 0;
+}
+
+// trackTick()에서 매 프레임 호출 - 차 속도에 맞춰 엔진음 피치/음량을 부드럽게 변화시킵니다.
+function updateEngineSound(){
+  if(!track) return;
+  const el = engineEl();
+  if(!el) return;
+  const speed = Math.hypot(track.car.chassis.velocity.x, track.car.chassis.velocity.y);
+  const n = Math.max(0, Math.min(1, speed/9));
+  el.playbackRate = 0.75 + n*1.15;
+  const target = bgmMuted ? 0 : (0.12 + n*0.28);
+  el.volume += (target - el.volume) * 0.2;
+}
+
+// 짧은 효과음은 겹쳐 재생될 수 있어(연속 점프 등) 매번 새 Audio를 만들어 재생합니다.
+function playSfx(path, vol){
+  if(bgmMuted) return;
+  try{
+    const a = new Audio(path);
+    a.volume = vol == null ? 0.6 : vol;
+    a.play().catch(()=>{});
+  }catch(e){}
+}
 
 const PALETTE = [
   '#ff2d55','#ff5c7a','#ff8fab','#ffb3c6',           // 빨강·핑크
@@ -1128,7 +1196,7 @@ let currentField = 'forest';
 
 function go(id){
   if(id !== 'screen-field' && typeof stopFieldAnim === 'function') stopFieldAnim();
-  if(id !== 'screen-color') stopBGM();
+  if(!BGM_SCREENS.has(id)) stopBGM();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -1188,8 +1256,6 @@ async function startColoring(def, resumeSnap){
   renderPatternRow();
   go('screen-color');
   playFranchiseBGM(def.franchise);
-  const bgmBtn = document.getElementById('bgmToggleBtn');
-  if(bgmBtn) bgmBtn.textContent = bgmMuted ? '🔇' : '🔊';
   const host = document.getElementById('svgHost');
   host.innerHTML = '<div class="loading-box">불러오는 중... 🦖</div>';
 
@@ -1732,6 +1798,7 @@ function openField(field){
   // 기본값으로 배치되는 문제가 있었습니다. go()로 먼저 화면을 보이게 한 다음에 재야
   // 실제 크기를 정확히 잴 수 있습니다.
   go('screen-field');
+  playFieldBGM(field);
   renderScene();
   renderGalleryStrip();
 }
@@ -2209,6 +2276,7 @@ function stopTrack(){
   if(track && track.resizeHandler) window.removeEventListener('resize', track.resizeHandler);
   track = null;
   trackDrivePower = 0;
+  stopEngineLoop();
 }
 
 function restartTrack(){
@@ -2219,6 +2287,8 @@ async function startTrack(snap){
   stopTrack();
   document.getElementById('trackTitle').textContent = snap.name + ' 트랙 모드';
   go('screen-track');
+  playTrackBGM();
+  playEngineLoop();
 
   const errEl = document.getElementById('trackError');
   if(errEl) errEl.hidden = true;
@@ -2346,6 +2416,7 @@ function trackJump(){
   });
   track.jumpCooldown = TRACK_JUMP_COOLDOWN;
   trackToast('⤴️ 점프!');
+  playSfx(SFX_JUMP, 0.55);
 }
 
 function trackToast(msg){
@@ -2360,6 +2431,7 @@ function trackToast(msg){
 function trackTick(){
   if(!track) return;
   applyTrackDriveInput();
+  updateEngineSound();
   // 한 프레임(1000/60ms)을 통째로 한 번에 시뮬레이션하면, 빠르게 떨어지거나 달리는
   // 순간에 바퀴가 얇은 바닥을 미처 못 보고 뚫고 지나가(터널링) "땅으로 푹 꺼지는"
   // 현상이 생길 수 있습니다. 같은 시간을 더 작은 두 번의 스텝으로 나눠서 계산하면
@@ -3281,6 +3353,7 @@ loadPersistedState();
 renderCharGrid();
 renderFieldSelect();
 initTrackControls();
+updateBgmButtons();
 
 // 나중에 태블릿 앱(웹뷰)으로 감쌌을 때 와이파이가 잠깐 끊겨도 마지막 버전으로는
 // 계속 실행되도록 서비스 워커를 등록합니다. (지원 안 하는 환경이면 조용히 무시)
