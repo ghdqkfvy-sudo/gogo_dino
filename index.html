@@ -107,7 +107,8 @@
     flex:1 1 552px; max-width:720px;
   }
   .canvas-card canvas{width:100%; height:auto; touch-action:none; cursor:pointer; border-radius:12px; display:block;}
-  #svgHost{touch-action:none;}
+  #svgHost{touch-action:none; overflow:hidden; border-radius:12px;}
+  #colorCanvasEl{transform-origin:center center;}
   .loading-box{display:flex; align-items:center; justify-content:center; height:280px; font-size:14px; color:var(--ink-soft);}
   .toolpanel{flex:1 1 260px; max-width:320px;}
   /* 내보내기(저장/갤러리) 상자는 색깔 고르기 칸 아래로 밀려나 있던 것을, 색깔 고르기 칸
@@ -402,7 +403,7 @@
   .ns-big-btn{width:100%; font-size:15.5px; padding:14px 10px;}
   .ns-demo-wrap{position:relative; width:300px; max-width:100%;}
   .ns-demo-wrap canvas{width:100%; height:auto; display:block; background:var(--surface-soft); border-radius:16px; box-shadow:inset 0 0 0 2px var(--line);}
-  .ns-pencil{position:absolute; top:-14px; left:0; font-size:30px; transform:translateX(-50%); opacity:0; transition:opacity .15s;}
+  .ns-pencil{position:absolute; top:0; left:0; font-size:30px; transform:translateX(-50%) rotate(-38deg); opacity:0; transition:opacity .15s; pointer-events:none;}
   .ns-trace-round{font-family:'Jua'; font-size:15px; color:var(--ink-soft);}
   .ns-mic-gate{
     display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface-soft);
@@ -458,7 +459,7 @@
       <div class="sub" style="margin:0;">읽고 · 듣고 · 따라쓰기</div>
     </div>
     <div class="home-card study-card disabled" onclick="pressCard(this, ()=>toast('한글공부는 곧 준비할게요! 🚧'))">
-      <div class="emoji">🈶</div><b>한글공부</b>
+      <div class="emoji" style="font-family:'Jua'; font-size:40px;">가나다</div><b>한글공부</b>
       <div class="sub" style="margin:0;">곧 만나요!</div>
     </div>
     <div class="home-card study-card disabled" onclick="pressCard(this, ()=>toast('영어공부는 곧 준비할게요! 🚧'))">
@@ -496,7 +497,9 @@
       <div class="action-row">
         <button class="pill ghost" id="transformBtn" onclick="toggleForm()">🔄 변신!</button>
         <button class="pill ghost" onclick="resetColors()">↩️ 다시 칠하기</button>
+        <button class="pill ghost" onclick="resetCanvasZoom()">🔍 확대 초기화</button>
       </div>
+      <div class="sub" style="margin:6px 0 0;">🤏 손가락 두 개로 벌리면 확대, 오므리면 축소돼요!</div>
     </div>
     <div class="toolpanel">
       <div class="tool-section">
@@ -1116,9 +1119,23 @@ function stampStroke(label, x0, y0, x1, y1, tool){
 // ---- 크레용 색칠: 이 터치 동안 "처음 닿은 영역 하나"에만 잠깁니다. 손가락이 그 영역
 // 밖으로 나가 다른 부위를 스치더라도(=드래그로 경계를 넘어가도) 절대 번지지 않고,
 // 손을 떼면 잠금이 풀립니다. 색깔이든 문양이든 동일하게 드래그로 계속 칠할 수 있습니다.
+// 손가락 두 개 = 확대/이동(핀치줌+팬), 손가락 한 개 = 색칠 - 실제로 그림 앱들이 쓰는 방식과
+// 동일합니다. getBoundingClientRect가 CSS transform(scale/translate)까지 반영해서 값을 주기
+// 때문에, 캔버스를 확대해도 붓질 좌표 계산(pointAt/extend)은 그대로 정확하게 맞습니다.
+const NS_COLOR_ZOOM_MAX = 3;
 function attachDragPaint(canvas){
   let lockedLabel = null;
   let lastX = null, lastY = null;
+  const pointers = new Map(); // pointerId -> {x,y} (client 좌표)
+  let pinch = null;
+
+  canvas._zoom = { scale:1, tx:0, ty:0 };
+  function applyZoom(){
+    const z = canvas._zoom;
+    canvas.style.transform = `translate(${z.tx}px, ${z.ty}px) scale(${z.scale})`;
+  }
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
 
   function pointAt(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
@@ -1149,17 +1166,48 @@ function attachDragPaint(canvas){
   }
 
   canvas.addEventListener('pointerdown', (e)=>{
-    lockedLabel = null; lastX = null; lastY = null;
-    canvas.setPointerCapture(e.pointerId);
-    begin(e.clientX, e.clientY);
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size >= 2){
+      // 두 번째 손가락이 닿는 순간 - 진행 중이던 붓질은 취소하고 핀치 모드로 전환
+      lockedLabel = null; lastX = null; lastY = null;
+      const pts = Array.from(pointers.values());
+      pinch = { startDist: dist(pts[0], pts[1]) || 1, startScale: canvas._zoom.scale, startMid: mid(pts[0], pts[1]), startTX: canvas._zoom.tx, startTY: canvas._zoom.ty };
+    } else {
+      lockedLabel = null; lastX = null; lastY = null;
+      begin(e.clientX, e.clientY);
+    }
   });
   canvas.addEventListener('pointermove', (e)=>{
+    if(!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size >= 2 && pinch){
+      const pts = Array.from(pointers.values());
+      const newDist = dist(pts[0], pts[1]) || 1;
+      const newMid = mid(pts[0], pts[1]);
+      canvas._zoom.scale = Math.min(NS_COLOR_ZOOM_MAX, Math.max(1, pinch.startScale * (newDist / pinch.startDist)));
+      canvas._zoom.tx = pinch.startTX + (newMid.x - pinch.startMid.x);
+      canvas._zoom.ty = pinch.startTY + (newMid.y - pinch.startMid.y);
+      applyZoom();
+      return;
+    }
     if(e.buttons===0) return;
     if(lockedLabel===null){ begin(e.clientX, e.clientY); return; } // 배경에서 눌렀다가 영역으로 들어온 경우
     extend(e.clientX, e.clientY);
   });
-  canvas.addEventListener('pointerup', ()=>{ lockedLabel = null; lastX = null; lastY = null; });
-  canvas.addEventListener('pointercancel', ()=>{ lockedLabel = null; lastX = null; lastY = null; });
+  function release(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size < 2) pinch = null;
+    if(pointers.size === 0){ lockedLabel = null; lastX = null; lastY = null; }
+  }
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+}
+function resetCanvasZoom(){
+  const canvas = document.getElementById('colorCanvasEl');
+  if(!canvas) return;
+  canvas._zoom = { scale:1, tx:0, ty:0 };
+  canvas.style.transform = 'translate(0px,0px) scale(1)';
 }
 
 function renderColorRow(){
@@ -2352,6 +2400,62 @@ const NS_SESSION_TARGET = 10;        // 이 개수를 배우면 보상 영상
 // 보호자가 전달해준 "고고다이노 공룡탐험대 시즌5" 실제 에피소드 10개 (YouTube 공식 embed - 재배포 아님)
 const REWARD_VIDEOS = ['gH2z4FE1Jao','-8C64eTSXVs','8wkmZsa8_ho','ekyj8kBMv_E','LMnGbfgxgRA','_12NwGgyL58','YHcvKaIs7lg','NEb0NQP6eA0','NcrKF2bm0ng','1ScmgfmYKqA'];
 
+// ---------------- 숫자 획순 데이터 (0~100 x 0~140 좌표계, 숫자 하나당 획 1~2개) ----------------
+// 실제로 펜이 지나가는 순서대로 좌표를 찍어두고, Catmull-Rom 스플라인으로 부드럽게 이어서
+// "왼쪽에서 오른쪽으로 밀려나오는" 게 아니라 진짜 손으로 쓰듯 획 순서대로 그려지게 합니다.
+// 이 좌표가 안내선(따라쓰기)에도 그대로 쓰여서, 데모에서 본 궤적과 따라 쓰는 안내선이 항상 같습니다.
+const NS_DIGIT_STROKES = {
+  0: [[[50,14],[68,20],[80,45],[84,70],[80,95],[68,120],[50,126],[32,120],[20,95],[16,70],[20,45],[32,20],[50,14]]],
+  1: [[[36,28],[50,14],[50,70],[50,126]]],
+  2: [[[24,34],[30,16],[50,12],[68,20],[73,38],[62,56],[38,82],[22,108],[20,126],[50,126],[82,126]]],
+  3: [[[22,24],[46,13],[66,17],[73,34],[65,50],[48,58],[65,66],[75,84],[70,108],[50,127],[27,121],[17,104]]],
+  4: [
+    [[66,14],[58,46],[50,74],[42,98],[16,98],[86,98]],
+    [[64,14],[64,60],[64,126]],
+  ],
+  5: [[[72,16],[24,16],[19,54],[42,47],[63,57],[71,84],[57,116],[33,120],[19,106]]],
+  6: [[[66,18],[44,16],[27,34],[17,64],[17,96],[30,120],[52,124],[68,113],[70,90],[57,74],[36,75],[23,89]]],
+  7: [[[18,16],[50,16],[82,16],[55,70],[36,126]]],
+  8: [[[50,18],[66,27],[68,44],[54,58],[40,70],[28,88],[30,108],[50,124],[70,108],[72,88],[60,70],[46,58],[32,44],[34,27],[50,18]]],
+  9: [[[62,50],[66,32],[54,18],[36,17],[22,28],[17,48],[22,66],[40,73],[58,68],[62,50],[58,72],[48,98],[34,120],[24,132]]],
+};
+const NS_DIGIT_SPACE_W = 100, NS_DIGIT_SPACE_H = 140; // 위 좌표계의 가로/세로 크기
+
+// Catmull-Rom 스플라인으로 waypoint 사이를 촘촘한 점들로 채웁니다(직선 연결이 아니라 곡선으로 이어짐).
+function nsCatmullRomSample(points, samplesPerSeg){
+  samplesPerSeg = samplesPerSeg || 14;
+  if(points.length < 2) return points.slice();
+  const out = [];
+  const n = points.length;
+  for(let i=0; i<n-1; i++){
+    const p0 = points[i-1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i+1];
+    const p3 = points[i+2] || p2;
+    for(let s=0; s<samplesPerSeg; s++){
+      const t = s/samplesPerSeg, t2 = t*t, t3 = t2*t;
+      const x = 0.5*((2*p1[0]) + (-p0[0]+p2[0])*t + (2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2 + (-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3);
+      const y = 0.5*((2*p1[1]) + (-p0[1]+p2[1])*t + (2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2 + (-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3);
+      out.push([x,y]);
+    }
+  }
+  out.push(points[n-1]);
+  return out;
+}
+function nsStrokeLength(points){
+  let len = 0;
+  for(let i=1;i<points.length;i++) len += Math.hypot(points[i][0]-points[i-1][0], points[i][1]-points[i-1][1]);
+  return len;
+}
+const nsDigitPathCache = new Map();
+function nsGetDigitStrokes(digit){
+  if(nsDigitPathCache.has(digit)) return nsDigitPathCache.get(digit);
+  const raw = NS_DIGIT_STROKES[digit] || NS_DIGIT_STROKES[0];
+  const dense = raw.map(stroke => nsCatmullRomSample(stroke, 14));
+  nsDigitPathCache.set(digit, dense);
+  return dense;
+}
+
 let ns = {
   settings: { rangeMin:0, rangeMax:9, micGateOn:true },
   session: { completed:0 },
@@ -2445,62 +2549,127 @@ function nsRenderRevealStage(){
     <button class="pill ns-big-btn" id="nsToDemo">다음: 쓰는 법 보기 ✏️</button>
   `;
 }
-function nsSpeakNumber(n){
+// 일부 브라우저/웹뷰는 음성 목록(voices)이 페이지 로드 직후엔 비어있다가 조금 뒤에
+// 'voiceschanged' 이벤트로 채워집니다. 그 전에 speak()를 부르면 소리가 전혀 안 나는
+// 경우가 있어서, 목록이 찰 때까지(최대 600ms) 기다린 다음 말하게 합니다.
+function nsEnsureVoicesReady(cb){
+  if(!('speechSynthesis' in window)){ cb(); return; }
+  const voices = speechSynthesis.getVoices();
+  if(voices && voices.length){ cb(); return; }
+  let done = false;
+  const finish = ()=>{ if(done) return; done = true; cb(); };
+  try{ speechSynthesis.onvoiceschanged = finish; }catch(e){}
+  setTimeout(finish, 600); // voiceschanged를 아예 안 쏘는 환경도 있어 무한정 기다리지 않음
+}
+function nsPickKoreanVoice(){
   try{
-    if(!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const native = NS_NATIVE_NAMES[n];
-    const sino = NS_SINO_NAMES[n];
-    const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ko-KR'; u.rate = 0.85; u.pitch = 1.05;
-    speechSynthesis.speak(u);
-  }catch(e){ /* TTS 미지원 환경 - 조용히 무시 */ }
+    const voices = speechSynthesis.getVoices() || [];
+    return voices.find(v => /^ko/i.test(v.lang)) || null;
+  }catch(e){ return null; }
+}
+function nsSpeakNumber(n){
+  if(!('speechSynthesis' in window)){
+    toast('이 기기에서는 소리를 들려줄 수 없어요 🔇');
+    return;
+  }
+  nsEnsureVoicesReady(()=>{
+    try{
+      speechSynthesis.cancel();
+      if(speechSynthesis.paused) speechSynthesis.resume();
+      const native = NS_NATIVE_NAMES[n];
+      const sino = NS_SINO_NAMES[n];
+      const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
+      const u = new SpeechSynthesisUtterance(text);
+      const koVoice = nsPickKoreanVoice();
+      if(koVoice) u.voice = koVoice;
+      u.lang = 'ko-KR'; u.rate = 0.85; u.pitch = 1.05;
+      u.onerror = ()=>{ if(!koVoice) toast('이 기기에 한국어 음성이 설치되어 있지 않은 것 같아요 🔇'); };
+      speechSynthesis.speak(u);
+      // 일부 안드로이드 웹뷰는 speak() 직후 바로 멈춰있는 상태로 남는 버그가 있어 한 번 깨워줍니다.
+      setTimeout(()=>{ try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }, 150);
+    }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
+  });
 }
 
 // ---------------- 2단계: 쓰는 법 데모(애니메이션, 다시보기 가능) ----------------
+const NS_DEMO_CANVAS_W = 300, NS_DEMO_CANVAS_H = 420; // 100x140 좌표계와 정확히 3배 비율(왜곡 없음)
 function nsRenderDemoStage(){
   return `
     <div class="ns-demo-wrap">
-      <canvas id="nsDemoCanvas" width="300" height="380"></canvas>
+      <canvas id="nsDemoCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <div class="ns-pencil" id="nsPencil">✏️</div>
     </div>
     <button class="pill ghost ns-big-btn" id="nsReplayDemo">🔁 다시 보기</button>
     <button class="pill ns-big-btn" id="nsToTrace">나도 써볼래요! ✍️</button>
   `;
 }
-// 실제 숫자 글꼴 모양을 캔버스 클리핑으로 왼쪽→오른쪽으로 "써지는 것처럼" 드러냅니다.
-// (손글씨 획순을 정확히 재현하는 대신, 항상 올바른 숫자 모양이 보장되는 안전한 방식)
+// 예전엔 숫자 전체를 왼쪽→오른쪽으로 클리핑해서 드러내기만 해서, 사람이 실제로 손을
+// 움직이는 순서(획순)와 전혀 달라 따라 하기 어려웠습니다. 지금은 실제 획 순서 좌표
+// (NS_DIGIT_STROKES)를 따라 연필이 x,y 둘 다 움직이면서 한 획씩 그려지고, 획이 끝나면
+// 펜을 살짝 들었다가 다음 획 시작점에 내려놓는 것처럼 보이게 합니다.
+let nsDemoRunId = 0;
 function nsPlayDemo(){
   const canvas = document.getElementById('nsDemoCanvas');
   if(!canvas) return;
+  const runId = ++nsDemoRunId; // 다시보기를 연타해도 예전 애니메이션이 계속 겹쳐 그려지지 않도록
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   const pencil = document.getElementById('nsPencil');
-  const dur = 1300;
-  const t0 = performance.now();
+  const SCALE = W / NS_DIGIT_SPACE_W;
+  const OFFY = (H - NS_DIGIT_SPACE_H*SCALE) / 2;
+  const toCanvas = ([x,y]) => [x*SCALE, y*SCALE + OFFY];
+  const strokes = nsGetDigitStrokes(ns.current).map(pts => pts.map(toCanvas));
+  const lens = strokes.map(nsStrokeLength);
+  const totalLen = lens.reduce((a,b)=>a+b,0) || 1;
+  const totalDur = 1700;
+  const strokeDurs = lens.map(l => Math.max(260, totalDur * (l/totalLen)));
+
+  ctx.clearRect(0,0,W,H);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#2e2350';
+  ctx.lineWidth = Math.max(7, SCALE*3.4);
   if(pencil) pencil.style.opacity = '1';
-  function frame(t){
-    if(!nsIsActive()) return;
-    const p = Math.min(1, (t - t0) / dur);
-    ctx.clearRect(0,0,W,H);
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, W*p, H);
-    ctx.clip();
-    ctx.fillStyle = '#2e2350';
-    ctx.font = `bold ${Math.round(H*0.72)}px Jua, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
-    ctx.restore();
-    if(pencil){
-      const w = canvas.getBoundingClientRect().width || W;
-      pencil.style.left = Math.max(6, Math.min(w-6, w*p)) + 'px';
-    }
-    if(p < 1) requestAnimationFrame(frame);
-    else if(pencil) setTimeout(()=>{ pencil.style.opacity = '0'; }, 250);
+
+  function placePencil(cx, cy){
+    if(!pencil) return;
+    const rect = canvas.getBoundingClientRect();
+    const rw = rect.width || W, rh = rect.height || H;
+    pencil.style.left = (rw * (cx/W)) + 'px';
+    pencil.style.top = (rh * (cy/H) - 20) + 'px';
   }
-  requestAnimationFrame(frame);
+
+  function playStroke(idx){
+    if(runId !== nsDemoRunId || !nsIsActive()) return;
+    if(idx >= strokes.length){
+      if(pencil) setTimeout(()=>{ if(runId===nsDemoRunId) pencil.style.opacity = '0'; }, 300);
+      return;
+    }
+    const pts = strokes[idx];
+    const dur = strokeDurs[idx];
+    placePencil(pts[0][0], pts[0][1]);
+    const t0 = performance.now();
+    function frame(t){
+      if(runId !== nsDemoRunId || !nsIsActive()) return;
+      const p = Math.min(1, (t - t0) / dur);
+      const idxF = p * (pts.length - 1);
+      const i0 = Math.floor(idxF);
+      const frac = idxF - i0;
+      const cur = pts[Math.min(i0, pts.length-1)];
+      const nxt = pts[Math.min(i0+1, pts.length-1)];
+      const curX = cur[0] + (nxt[0]-cur[0])*frac;
+      const curY = cur[1] + (nxt[1]-cur[1])*frac;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for(let k=1;k<=i0;k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      ctx.lineTo(curX, curY);
+      ctx.stroke();
+      placePencil(curX, curY);
+      if(p < 1) requestAnimationFrame(frame);
+      else setTimeout(()=> playStroke(idx+1), 180); // 획 사이에 펜을 살짝 드는 느낌의 짧은 정지
+    }
+    requestAnimationFrame(frame);
+  }
+  playStroke(0);
 }
 
 // ---------------- 3단계: 안내선 따라쓰기 ----------------
@@ -2515,8 +2684,8 @@ function nsRenderTraceStage(){
       <div class="ns-mic-hint" id="nsMicHint"></div>
     </div>` : ''}
     <div class="ns-trace-wrap" id="nsTraceWrap" style="${gateOn?'opacity:.35; pointer-events:none;':''}">
-      <canvas id="nsGuideCanvas" width="300" height="380"></canvas>
-      <canvas id="nsDrawCanvas" width="300" height="380"></canvas>
+      <canvas id="nsGuideCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
+      <canvas id="nsDrawCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
     </div>
     <div class="action-row">
       <button class="pill ghost" id="nsClearTrace">↩️ 지우고 다시</button>
@@ -2529,29 +2698,28 @@ function nsSetupTraceCanvases(){
   const draw = document.getElementById('nsDrawCanvas');
   if(!guide || !draw) return;
   const W = guide.width, H = guide.height;
-  const font = `bold ${Math.round(H*0.72)}px Jua, sans-serif`;
+  const SCALE = W / NS_DIGIT_SPACE_W;
+  const OFFY = (H - NS_DIGIT_SPACE_H*SCALE) / 2;
+  const toCanvas = ([x,y]) => [x*SCALE, y*SCALE + OFFY];
+  // 데모(2단계)와 완전히 같은 획 좌표를 그대로 안내선으로 씁니다 - 방금 본 궤적이랑
+  // 지금 따라 그릴 안내선이 항상 일치해야 아이가 헷갈리지 않습니다.
+  const strokes = nsGetDigitStrokes(ns.current).map(pts => pts.map(toCanvas));
 
   const gctx = guide.getContext('2d');
   gctx.clearRect(0,0,W,H);
-  gctx.fillStyle = 'rgba(46,35,80,.3)';
-  gctx.font = font; gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
-  gctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
+  gctx.strokeStyle = 'rgba(46,35,80,.3)';
+  gctx.lineWidth = Math.max(11, SCALE*4.4);
+  gctx.lineCap = 'round'; gctx.lineJoin = 'round';
+  strokes.forEach(pts=>{
+    gctx.beginPath();
+    pts.forEach(([x,y], i)=> i===0 ? gctx.moveTo(x,y) : gctx.lineTo(x,y));
+    gctx.stroke();
+  });
 
-  // 채점용 마스크는 화면에 보이지 않는 캔버스에 진하게 그려서 픽셀만 뽑아냅니다.
-  const mask = document.createElement('canvas');
-  mask.width = W; mask.height = H;
-  const mctx = mask.getContext('2d');
-  mctx.fillStyle = '#000';
-  mctx.font = font; mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
-  mctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
-  const data = mctx.getImageData(0,0,W,H).data;
+  // 채점용 마스크: 안내선을 그릴 때 쓴 점들을 성글게 뽑아서 그대로 사용합니다
+  // (폰트를 다시 그려서 픽셀을 스캔하는 대신, 이미 있는 궤적 점을 재사용 - 더 가볍고 항상 안내선과 정확히 일치).
   const maskPixels = [];
-  const STEP = 5;
-  for(let y=0; y<H; y+=STEP){
-    for(let x=0; x<W; x+=STEP){
-      if(data[(y*W+x)*4+3] > 40) maskPixels.push([x,y]);
-    }
-  }
+  strokes.forEach(pts=>{ pts.forEach(([x,y], i)=>{ if(i % 2 === 0) maskPixels.push([x,y]); }); });
   ns._traceMask = maskPixels;
 
   const dctx = draw.getContext('2d');
@@ -2640,10 +2808,12 @@ function nsStartMicCheck(){
   const micBtn = document.getElementById('nsMicBtn');
   if(micBtn) micBtn.disabled = true;
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    if(hint) hint.textContent = '이 환경에서는 마이크를 쓸 수 없어요, 그냥 써볼까요!';
+    toast('이 화면에서는 마이크를 쓸 수 없어요, 그냥 써볼까요!');
+    if(hint) hint.textContent = '마이크가 지원되지 않는 환경이에요.';
     nsUnlockTrace();
     return;
   }
+  const askedAt = performance.now();
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
     ns._micStream = stream;
     let actx;
@@ -2680,7 +2850,12 @@ function nsStartMicCheck(){
     }
     tick();
   }).catch(()=>{
-    if(hint) hint.textContent = '마이크 권한이 없어요, 그냥 써볼까요!';
+    // 아주 빨리 실패했다면(브라우저의 실제 권한 팝업이 뜰 새도 없이) 안드로이드 앱이라면
+    // 마이크 권한이 아예 허용되어 있지 않은 것일 가능성이 커서, 좀 더 구체적으로 안내합니다.
+    const tooFast = (performance.now() - askedAt) < 250;
+    const msg = tooFast ? '마이크 권한이 꺼져 있어요! (앱을 새로 설치했다면 다시 열 때 허용해주세요)' : '마이크를 쓸 수 없어요, 그냥 써볼까요!';
+    toast(msg);
+    if(hint) hint.textContent = msg;
     nsUnlockTrace();
   });
 }
