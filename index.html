@@ -2411,8 +2411,13 @@ const NS_DIGIT_STROKES = {
   1: [[[36,28],[50,14],[50,70],[50,126]]],
   2: [[[24,34],[30,16],[50,12],[68,20],[73,38],[62,56],[38,82],[22,108],[20,126],[50,126],[82,126]]],
   3: [[[22,24],[46,13],[66,17],[73,34],[65,50],[48,58],[65,66],[75,84],[70,108],[50,127],[27,121],[17,104]]],
+  // 2026-09-13: 예전 좌표는 대각선이 가로선의 왼쪽 끝에서 멈추고 오른쪽으로 이어지는 부분이
+  // 없어서(가로선이 세로선 왼쪽에서만 그려짐), 마치 깃발처럼 보이는 어색한 모양이었습니다.
+  // 실제 숫자 4를 쓰는 순서(① 위에서 대각선으로 내려와 가로선 왼쪽 끝에 닿은 뒤 방향을 꺾어
+  // 세로선을 지나 오른쪽까지 쭉 가로선을 긋기 → ② 세로선을 위에서 아래로 곧게 긋기)를 그대로
+  // 반영해 가로선이 세로선을 확실히 가로지르도록 고쳤습니다.
   4: [
-    [[66,14],[58,46],[50,74],[42,98],[16,98],[86,98]],
+    [[66,14],[56,44],[46,70],[34,92],[18,98],[48,98],[86,98]],
     [[64,14],[64,60],[64,126]],
   ],
   5: [[[72,16],[24,16],[19,54],[42,47],[63,57],[71,84],[57,116],[33,120],[19,106]]],
@@ -2585,13 +2590,36 @@ function nsNativeTTS(){
 // 그대로 읽어줘야 해서(아직 한글을 못 읽는 아이가 화면 글자만으론 뭘 해야 할지 알 수 없음),
 // 실제로 소리를 내는 부분은 nsSpeak(text) 하나로 공통화해서 nsSpeakNumber/nsSpeakTracePrompt가
 // 둘 다 같은 네이티브 TTS ↔ Web Speech API 대체 로직을 그대로 씁니다.
+// 안드로이드 시스템에는 대개 한국어 음성이 여러 개(기본 내장 음성 + 인터넷 기반 "고품질"
+// 음성) 설치돼 있을 수 있는데, 아무것도 지정하지 않으면 보통 더 기계적으로 들리는 기본
+// 음성이 선택됩니다. localService:false(=인터넷 기반, 대개 훨씬 자연스러운 음성)인 한국어
+// 음성이 있으면 그걸 우선 골라 쓰고, 그런 음성이 아예 없는 기기라면 그냥 원래 기본 음성으로
+// 조용히 넘어갑니다(따로 안내 없이 패스) — 목록 조회는 한 번만 하고 결과를 캐시해둡니다.
+let nsNativeVoicesPromise = null;
+function nsGetPreferredNativeVoiceIndex(nativeTTS){
+  if(!nsNativeVoicesPromise){
+    nsNativeVoicesPromise = nativeTTS.getSupportedVoices()
+      .then(res => (res && res.voices) || [])
+      .catch(() => []);
+  }
+  return nsNativeVoicesPromise.then(voices => {
+    if(!voices.length) return undefined;
+    const koVoices = voices.map((v,i)=>({...v, idx:i})).filter(v => /^ko/i.test(v.lang || ''));
+    if(!koVoices.length) return undefined;
+    const network = koVoices.find(v => v.localService === false);
+    return (network || koVoices[0]).idx;
+  });
+}
 function nsSpeak(text){
   const nativeTTS = nsNativeTTS();
   if(nativeTTS){
     try{
       nativeTTS.stop().catch(()=>{});
-      nativeTTS.speak({ text, lang:'ko-KR', rate:0.85, pitch:1.1, volume:1.0, category:'ambient' })
-        .catch(()=> toast('소리 재생에 문제가 있었어요 🔇'));
+      nsGetPreferredNativeVoiceIndex(nativeTTS).then(voiceIdx=>{
+        const opts = { text, lang:'ko-KR', rate:0.85, pitch:1.1, volume:1.0, category:'ambient' };
+        if(voiceIdx !== undefined) opts.voice = voiceIdx;
+        nativeTTS.speak(opts).catch(()=> toast('소리 재생에 문제가 있었어요 🔇'));
+      });
     }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
     return;
   }
@@ -2615,10 +2643,28 @@ function nsSpeak(text){
     }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
   });
 }
+// 한국어 조사 "이에요"/"예요"는 앞 낱말이 받침(자음)으로 끝나는지, 모음으로 끝나는지에
+// 따라 달라집니다. 이걸 구분 안 하고 무조건 "이에요"만 붙이면 "오이에요"(오이=채소 오이로
+// 들림), "구이에요"(구이=고기 구이로 들림), "이이에요"(이가 겹쳐 어색하게 들림), "사이에요"
+// (사이=거리/틈으로 들림)처럼 완전히 다른 낱말로 들리는 문제가 있었습니다. 마지막 글자의
+// 받침 유무를 유니코드 계산으로 가려서 맞는 조사를 골라 붙입니다.
+function nsHasBatchim(word){
+  const ch = word[word.length - 1];
+  const code = ch.charCodeAt(0);
+  if(code < 0xAC00 || code > 0xD7A3) return true; // 한글 완성형 글자가 아니면 안전한 기본값
+  return (code - 0xAC00) % 28 !== 0;
+}
+function nsCopula(word){
+  return nsHasBatchim(word) ? '이에요' : '예요';
+}
 function nsSpeakNumber(n){
   const native = NS_NATIVE_NAMES[n];
   const sino = NS_SINO_NAMES[n];
-  const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
+  // 화면에 이미 숫자가 크게 보이고 있어서, 소리에서까지 "2." 처럼 숫자를 따로 읽게 하면
+  // 기기 TTS가 그 숫자를 자기 방식대로 읽어버려(예: 순서상 이름 앞에 "이"가 한 번 더
+  // 겹쳐 들리는 경우) 헷갈리는 문제가 있었습니다. 숫자 자체는 읽지 않고 이름만 자연스럽게
+  // 읽어줍니다.
+  const text = native ? `${native}, 또는 ${sino}${nsCopula(sino)}.` : `${sino}${nsCopula(sino)}.`;
   nsSpeak(text);
 }
 // 마이크 단계에서 들려주는 "OO! 소리내어 말해볼까요?" 안내 음성 — 아이가 화면 글자를
