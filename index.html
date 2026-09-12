@@ -2473,6 +2473,7 @@ let ns = {
   _drawCtx: null,
   _micStream: null,
   _micRAF: null,
+  _noiseFloorCached: null, // 같은 숫자공부 세션 안에서 재사용하는 바닥소음 값(재계산 생략용)
 };
 
 function nsLoadSettings(){
@@ -2489,6 +2490,7 @@ function nsSaveSettings(){
 
 function openNumberStudy(){
   ns.session = { completed:0 };
+  ns._noiseFloorCached = null; // 새 학습 세션을 시작할 때마다 그 자리의 소음을 다시 잽니다
   updateNsProgress();
   go('screen-numstudy');
   nsNextNumber();
@@ -2925,16 +2927,22 @@ function nsStartMicCheck(){
     src.connect(analyser);
     const data = new Uint8Array(analyser.frequencyBinCount);
     let elapsed = 0;
-    // 처음 잠깐(약 0.3초)은 "조용한 상태의 잡음 크기(바닥소음)"만 측정합니다 - 기기/방마다
-    // 마이크 감도와 주변 소음이 달라서, 고정된 숫자 하나만으로는 어떤 기기에선 숨소리에도
-    // 바로 반응하고 어떤 기기에선 크게 말해도 반응 안 하는 문제가 있었습니다. 이 기기의
-    // 바닥소음을 기준으로 "그보다 확실히 커야" 통과되게 합니다.
-    const CALIBRATE_FRAMES = 18;
+    // 처음 잠깐은 "조용한 상태의 잡음 크기(바닥소음)"만 측정합니다 - 기기/방마다 마이크
+    // 감도와 주변 소음이 달라서, 고정된 숫자 하나만으로는 어떤 기기에선 숨소리에도 바로
+    // 반응하고 어떤 기기에선 크게 말해도 반응 안 하는 문제가 있었습니다. 이 기기의 바닥소음을
+    // 기준으로 "그보다 확실히 커야" 통과되게 합니다.
+    // 2026-09-13: "말하기 시작 → 지금 말해보세요"까지 매번 이 계산을 새로 하느라 느리다는
+    // 피드백이 있어서, 같은 숫자공부 세션 안에서는(같은 자리에 앉아있으니 소음 환경이 크게
+    // 안 바뀐다고 보고) 한 번 잰 바닥소음 값을 재사용해 두 번째 시도부터는 계산 없이 곧바로
+    // "지금 말해볼까요?"가 뜨도록 했고, 맨 처음 재는 시간 자체도 18프레임→10프레임으로 줄여
+    // 더 빨리 끝나게 했습니다.
+    const CALIBRATE_FRAMES = 10;
+    const cachedFloor = ns._noiseFloorCached;
     let calibSamples = [];
-    let noiseFloor = 0.02;
+    let noiseFloor = cachedFloor != null ? cachedFloor : 0.02;
     let sustained = 0;
     const SUSTAIN_NEEDED = 6; // 약 0.1초 이상 계속 커야 "말했다"로 인정 (순간적인 딸깍 소리 등 오탐 방지)
-    if(hint) hint.textContent = '잠깐만요... 🤫';
+    if(hint) hint.textContent = cachedFloor != null ? '🎤 지금 말해볼까요?' : '잠깐만요... 🤫';
     function tick(){
       if(!nsIsActive()){ nsStopMic(); return; }
       analyser.getByteTimeDomainData(data);
@@ -2943,11 +2951,12 @@ function nsStartMicCheck(){
       const rms = Math.sqrt(sum/data.length);
       elapsed++;
 
-      if(elapsed <= CALIBRATE_FRAMES){
+      if(cachedFloor == null && elapsed <= CALIBRATE_FRAMES){
         calibSamples.push(rms);
         if(elapsed === CALIBRATE_FRAMES){
           const avg = calibSamples.reduce((a,b)=>a+b,0) / calibSamples.length;
           noiseFloor = avg;
+          ns._noiseFloorCached = avg; // 이번 세션의 다음 마이크 확인부터는 이 값을 그대로 재사용
           if(hint) hint.textContent = '🎤 지금 말해볼까요?';
         }
         ns._micRAF = requestAnimationFrame(tick);
