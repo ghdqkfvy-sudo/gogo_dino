@@ -1,4 +1,7 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
 <title>고고 컬러링 스튜디오</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,7 +80,7 @@
     box-shadow:0 2px 6px rgba(0,0,0,.22);
   }
   .fr-label{font-family:'Jua'; font-size:16.5px; color:var(--fr-color, #555); font-weight:700;}
-  .char-section-grid{display:flex; gap:16px; flex-wrap:wrap;}
+  .char-section-grid{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
   .char-thumb{
     width:132px; background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:10px;
     text-align:center; cursor:pointer; border:3px solid transparent; transition:border-color .15s;
@@ -85,7 +88,12 @@
   }
   .char-thumb.has-fr{border-top-color:var(--fr-color, transparent);}
   .char-thumb:hover{border-color:var(--lagoon);}
-  .char-thumb img{width:100%; height:90px; object-fit:contain; display:block;}
+  /* 2026-09-12: 예전엔 높이를 90px로 고정해서, 로보카폴리처럼 세로로 긴(폭이 좁은) 원본
+     이미지가 고고다이노(정사각형에 가까운) 그림보다 훨씬 좁고 작게 보였습니다(letterbox로
+     양옆이 비어보임). 높이를 auto로 바꿔서 항상 카드 폭 전체를 채우게 하면 어떤 원본
+     비율이든 "가로 크기"는 똑같이 꽉 차 보이고, 세로가 긴 그림은 카드가 조금 더 길어질
+     뿐 잘리는 부분 없이 원본 그대로 보입니다. */
+  .char-thumb img{width:100%; height:auto; max-height:210px; object-fit:contain; display:block;}
   .char-thumb span:not(.fr-chip){font-size:12.5px; display:block; margin-top:4px;}
   .fr-chip{
     position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
@@ -233,13 +241,13 @@
     position:absolute; right:16px; bottom:16px; background:var(--surface); border:none; border-radius:999px;
     padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:3;
   }
-  .gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap;}
+  .gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap; align-items:flex-start;}
   .gallery-item{
     width:132px; background:var(--surface); border-radius:18px; box-shadow:var(--shadow-sm); padding:10px; text-align:center;
     position:relative; border-top:5px solid transparent;
   }
   .gallery-item.has-fr{border-top-color:var(--fr-color, transparent);}
-  .gallery-item img{width:100%; height:92px; object-fit:contain; display:block;}
+  .gallery-item img{width:100%; height:auto; max-height:210px; object-fit:contain; display:block;}
   .gallery-item div.name{font-size:14px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Jua';}
   .gallery-item button{width:100%; font-size:12.5px; padding:8px 8px; margin-top:6px; border-radius:999px;}
   .note{
@@ -343,26 +351,122 @@
   .save-confirm.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
   .save-confirm .icon{font-size:46px; line-height:1;}
   .save-confirm b{font-family:'Jua'; font-size:16.5px; color:var(--ink);}
-</style><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"></head><body>
+
+  /* 삭제 등 되돌릴 수 없는 동작 전에 한 번 더 확인받는 공용 확인창 (기기 alert/confirm 대신
+     앱 톤에 맞춘 커스텀 팝업 - 저장 완료 팝업(.save-confirm)과 같은 자리에 뜸) */
+  .confirm-overlay{
+    position:fixed; inset:0; background:rgba(46,35,80,.45); z-index:10001;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .confirm-overlay.show{opacity:1; pointer-events:auto;}
+  .confirm-card{
+    background:var(--surface); border-radius:24px; box-shadow:var(--shadow); padding:26px 28px;
+    max-width:300px; width:100%; text-align:center; display:flex; flex-direction:column; gap:16px;
+    transform:scale(.82); transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  .confirm-overlay.show .confirm-card{transform:scale(1);}
+  .confirm-card .msg{font-family:'Jua'; font-size:16px; line-height:1.55; color:var(--ink);}
+  .confirm-card .msg small{display:block; font-family:'Gowun Dodum'; font-size:12px; opacity:.65; margin-top:6px;}
+  .confirm-btn-row{display:flex; gap:10px;}
+  .confirm-card.wide{max-width:360px;}
+
+  /* ---------------- 홈 화면: "친구모드"(기존 3개) / "공부모드"(신규) 구획 구분 ---------------- */
+  .mode-section-head{display:flex; align-items:center; justify-content:center; margin:28px 0 8px;}
+  .home-grid + .mode-section-head{margin-top:34px;}
+  .mode-tag{font-family:'Jua'; font-size:14.5px; padding:7px 20px; border-radius:999px; box-shadow:var(--shadow-sm); letter-spacing:.2px;}
+  .mode-section-head.friend .mode-tag{background:#ffe1e9; color:var(--accent-deep);}
+  .mode-section-head.study .mode-tag{background:#dff1ff; color:#1f6fb2;}
+  .study-card{border:4px solid transparent;}
+  .study-card:hover{border-color:#3aa0e6;}
+  .study-card.disabled{opacity:.5; cursor:default;}
+  .study-card.disabled:hover{border-color:transparent;}
+  /* 버튼을 누르면 살짝 커졌다 작아지는 "통통 튀는" 피드백 (화면 전환은 이 애니메이션이
+     끝난 직후 일어나서 실제로 눈에 보입니다 - pressCard 참고) */
+  @keyframes cardPop{ 0%{transform:scale(1);} 45%{transform:scale(1.14);} 100%{transform:scale(1);} }
+  .home-card.pop{ animation:cardPop .32s ease; }
+
+  /* ---------------- 숫자공부 (공부모드) ---------------- */
+  .ns-progress-row{display:flex; align-items:center; gap:12px; max-width:420px; margin:6px auto 22px;}
+  .ns-progress-bar{flex:1; height:14px; background:var(--surface-soft); border-radius:999px; box-shadow:inset 0 0 0 2px var(--line); overflow:hidden;}
+  .ns-progress-fill{height:100%; width:0%; background:linear-gradient(90deg, var(--lagoon), var(--leaf)); border-radius:999px; transition:width .35s ease;}
+  .ns-progress-label{font-family:'Jua'; font-size:14px; white-space:nowrap;}
+  .ns-stage-card{
+    max-width:420px; margin:0 auto; background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+    padding:26px 22px; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center;
+  }
+  .ns-number-display{font-family:'Jua'; font-size:96px; line-height:1; color:var(--accent-deep);}
+  .ns-number-names{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+  .ns-name-chip{background:var(--surface-soft); border:2px solid var(--lagoon); color:var(--ink); font-family:'Jua'; font-size:16px; padding:6px 16px; border-radius:999px;}
+  .ns-name-chip.alt{border-color:var(--amber);}
+  .ns-big-btn{width:100%; font-size:15.5px; padding:14px 10px;}
+  .ns-demo-wrap{position:relative; width:300px; max-width:100%;}
+  .ns-demo-wrap canvas{width:100%; height:auto; display:block; background:var(--surface-soft); border-radius:16px; box-shadow:inset 0 0 0 2px var(--line);}
+  .ns-pencil{position:absolute; top:-14px; left:0; font-size:30px; transform:translateX(-50%); opacity:0; transition:opacity .15s;}
+  .ns-trace-round{font-family:'Jua'; font-size:15px; color:var(--ink-soft);}
+  .ns-mic-gate{
+    display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface-soft);
+    border-radius:18px; padding:16px; width:100%;
+  }
+  .ns-mic-hint{font-size:12.5px; opacity:.7; min-height:16px;}
+  .ns-trace-wrap{position:relative; width:300px; max-width:100%; transition:opacity .25s;}
+  .ns-trace-wrap canvas{position:absolute; top:0; left:0; width:100%; height:auto; display:block; border-radius:16px;}
+  .ns-trace-wrap canvas#nsGuideCanvas{position:relative; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line);}
+  .ns-trace-wrap canvas#nsDrawCanvas{touch-action:none; cursor:crosshair;}
+  .ns-celebrate-emoji{font-size:64px; line-height:1;}
+  .ns-settings-row{display:flex; align-items:center; gap:8px; justify-content:center; font-family:'Gowun Dodum'; font-size:14px;}
+  .ns-settings-row select{font-size:15px; padding:5px 8px; border-radius:8px; border:1px solid var(--line); background:var(--surface);}
+  .ns-settings-note{font-size:11px; opacity:.6; text-align:center; line-height:1.5;}
+  .ns-settings-toggle{display:flex; align-items:center; gap:8px; font-size:13.5px; justify-content:center; font-family:'Gowun Dodum';}
+  .ns-reward-wrap{max-width:640px; margin:20px auto;}
+  .ns-reward-video{position:relative; width:100%; padding-top:56.25%; border-radius:20px; overflow:hidden; box-shadow:var(--shadow); background:#000;}
+  .ns-reward-video iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+  @media (max-width:480px){
+    .ns-stage-card{padding:20px 14px;}
+    .ns-number-display{font-size:76px;}
+  }
+</style>
+</head>
+<body>
+
 
 <!-- ============ HOME ============ -->
 <div id="screen-home" class="screen active">
   <h1>🦖 고고 컬러링 스튜디오</h1>
   <div class="sub">프로토타입 v0.3 · prunnnn.com / saegchil.co.kr 도안으로 받은 실제 캐릭터 6종 적용</div>
+
+  <div class="mode-section-head friend"><span class="mode-tag">🧸 친구모드</span></div>
   <div class="home-grid">
-    <div class="home-card" onclick="go('screen-fieldselect')">
+    <div class="home-card" onclick="pressCard(this, ()=>go('screen-fieldselect'))">
       <div class="emoji">🌲</div><b>필드로 가기</b>
       <div class="sub" style="margin:0;">저장한 친구들 만나기</div>
     </div>
-    <div class="home-card" onclick="go('screen-charpick')">
+    <div class="home-card" onclick="pressCard(this, ()=>go('screen-charpick'))">
       <div class="emoji">🖍️</div><b>색칠하기</b>
       <div class="sub" style="margin:0;">캐릭터 도안 선택</div>
     </div>
-    <div class="home-card" onclick="openTrackPick()">
+    <div class="home-card" onclick="pressCard(this, ()=>openTrackPick())">
       <div class="emoji">🏎️</div><b>트랙 모드</b>
       <div class="sub" style="margin:0;">변신한 친구들과 질주!</div>
     </div>
   </div>
+
+  <div class="mode-section-head study"><span class="mode-tag">📚 공부모드</span></div>
+  <div class="home-grid">
+    <div class="home-card study-card" onclick="pressCard(this, ()=>openNumberStudy())">
+      <div class="emoji">🔢</div><b>숫자공부</b>
+      <div class="sub" style="margin:0;">읽고 · 듣고 · 따라쓰기</div>
+    </div>
+    <div class="home-card study-card disabled" onclick="pressCard(this, ()=>toast('한글공부는 곧 준비할게요! 🚧'))">
+      <div class="emoji">🈶</div><b>한글공부</b>
+      <div class="sub" style="margin:0;">곧 만나요!</div>
+    </div>
+    <div class="home-card study-card disabled" onclick="pressCard(this, ()=>toast('영어공부는 곧 준비할게요! 🚧'))">
+      <div class="emoji">🔤</div><b>영어공부</b>
+      <div class="sub" style="margin:0;">곧 만나요!</div>
+    </div>
+  </div>
+
   <div class="note">
     <div class="note-line">🖍️ 크레용처럼 실제로 문지른(탭/드래그한) 자리만 색이 남고, 그 부위의 실제 선 밖으로는 절대 번지지 않아요.</div>
     <div class="note-line">🎨 문양도 색칠과 똑같이 붓질한 자리에만 나타나요 — 다만 색 대신 작은 무늬가 반복돼서 원단처럼 보여요.</div>
@@ -474,6 +578,29 @@
   <div class="track-hint-outside">🕹️ 아래 조이스틱으로 달리고 ⤴️ 버튼(또는 조이스틱을 위로 쭉 당기면)으로 점프! 뒤집히면 자동으로 다시 떨어져요.</div>
 </div>
 
+<!-- ============ 숫자공부 (공부모드) ============ -->
+<div id="screen-numstudy" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="exitNumberStudy()">←</button>
+    <h1 style="margin:0;">🔢 숫자공부</h1>
+    <button class="pill ghost" style="margin-left:auto;" onclick="openNumStudySettings()">⚙️ 설정</button>
+  </div>
+  <div class="ns-progress-row">
+    <div class="ns-progress-bar"><div class="ns-progress-fill" id="nsProgressFill"></div></div>
+    <div class="ns-progress-label" id="nsProgressLabel">0 / 10</div>
+  </div>
+  <div class="ns-stage-card" id="nsStageCard"></div>
+</div>
+
+<!-- ============ 숫자공부 보상 영상 ============ -->
+<div id="screen-numreward" class="screen">
+  <div class="ns-reward-wrap">
+    <h1 style="text-align:center;">🎉 오늘 숫자 10개 다 배웠어요! 🎉</h1>
+    <div class="ns-reward-video" id="nsRewardVideoHost"></div>
+    <button class="pill alt" style="margin:18px auto 0; display:block;" onclick="closeNumberReward()">홈으로 갈게요 🏠</button>
+  </div>
+</div>
+
 <!-- 물리 엔진(Matter.js)을 외부 CDN(cdnjs)에서 불러오면, 회사/공용 와이파이나 일부 모바일
      통신사 네트워크에서 그 CDN 도메인 자체가 차단되어 있는 경우 스크립트가 아예 로드되지
      않아서 트랙 모드에 들어갔을 때 하늘색 배경만 보이고 자동차/땅이 안 나오는 문제가
@@ -522,6 +649,35 @@ function showSaveConfirm(name, isUpdate){
   el.classList.add('show');
   clearTimeout(el._hideT);
   el._hideT = setTimeout(()=> el.classList.remove('show'), 1450);
+}
+
+// 삭제처럼 되돌릴 수 없는 동작 전에 "정말 할까요?" 한 번 더 물어보는 공용 확인창.
+// message는 HTML로 그대로 들어가고(직접 만든 문구만 넘기므로 안전), 예를 누르면 onYes 실행.
+function showConfirmDialog(message, onYes){
+  let el = document.getElementById('confirmOverlayEl');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'confirmOverlayEl';
+    el.className = 'confirm-overlay';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div class="confirm-card">
+      <div class="msg">${message}</div>
+      <div class="confirm-btn-row">
+        <button class="pill ghost" style="flex:1" data-act="no">아니요</button>
+        <button class="pill danger" style="flex:1" data-act="yes">네, 삭제</button>
+      </div>
+    </div>`;
+  requestAnimationFrame(()=> el.classList.add('show'));
+  const handler = (e)=>{
+    const btn = e.target.closest('button[data-act]');
+    if(!btn) return;
+    el.classList.remove('show');
+    el.removeEventListener('click', handler);
+    if(btn.dataset.act === 'yes') onYes();
+  };
+  el.addEventListener('click', handler);
 }
 
 // ---------------------------------------------------------------- 캐릭터 카탈로그
@@ -823,6 +979,16 @@ function go(id){
   if(id !== 'screen-field' && typeof stopFieldAnim === 'function') stopFieldAnim();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+}
+
+// 홈 화면 카드를 눌렀을 때 살짝 커졌다 작아지는 "통통" 애니메이션을 잠깐 보여준 다음
+// 화면을 전환합니다(전환 즉시 카드가 화면에서 사라지므로, 애니메이션이 눈에 보이려면
+// 실제 이동 전에 아주 짧게 기다려야 합니다).
+function pressCard(el, fn){
+  el.classList.remove('pop');
+  void el.offsetWidth; // 강제 리플로우 - 같은 클래스를 다시 넣어도 애니메이션이 재생되게
+  el.classList.add('pop');
+  setTimeout(fn, 170);
 }
 
 function renderCharGrid(){
@@ -1508,6 +1674,7 @@ function renderGalleryStrip(){
       <div class="name">${snap.name}</div>
       <button class="pill ${inField?'danger':'alt'}" data-uid="${snap.uid}" data-action="${inField?'remove':'add'}">${inField?'✕ 빼기':'+ 필드'}</button>
       <button class="pill ghost" data-edit-uid="${snap.uid}">✏️ 편집</button>
+      <button class="pill ghost" data-del-uid="${snap.uid}" title="완전히 삭제">🗑️ 삭제</button>
     </div>`;
   }).join('');
   strip.querySelectorAll('button[data-uid]').forEach(btn=>{
@@ -1524,6 +1691,28 @@ function renderGalleryStrip(){
       startColoring(def, snap);
     });
   });
+  strip.querySelectorAll('button[data-del-uid]').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteCharacter(btn.dataset.delUid));
+  });
+}
+
+// 저장된 친구를 완전히 삭제(복구 불가) - 필드에 추가돼 있었다면 모든 필드(숲/바다/사막)에서도
+// 함께 지워집니다. 되돌릴 수 없는 동작이라 삭제 전 확인창을 한 번 띄웁니다.
+function deleteCharacter(uid){
+  const snap = savedCharacters.find(s=>s.uid===uid);
+  if(!snap) return;
+  showConfirmDialog(
+    `<div>${snap.name} 그림을<br>정말 삭제할까요?</div><small>삭제하면 되돌릴 수 없어요.</small>`,
+    ()=>{
+      if(spriteIntervals[uid]){ clearInterval(spriteIntervals[uid]); delete spriteIntervals[uid]; }
+      ['forest','ocean','desert'].forEach(f=>{ fieldFriends[f] = fieldFriends[f].filter(x=>x.uid!==uid); });
+      savedCharacters = savedCharacters.filter(s=>s.uid!==uid);
+      persistState();
+      renderGalleryStrip();
+      renderScene();
+      toast(snap.name + ' 삭제했어요.');
+    }
+  );
 }
 
 function addFriendToField(uid){
@@ -2149,6 +2338,448 @@ function initTrackControls(){
   });
 }
 
+// ================================================================ 숫자공부 (공부모드 - 숫자)
+// 흐름: (1) 숫자 보여주기+발음 듣기 → (2) 쓰는 법 데모(애니메이션, 다시보기 가능) →
+// (3) 안내선 따라쓰기(마이크로 "말하기" 확인 후, 총 3번) → (4) 칭찬 → 다음 숫자.
+// 10개를 다 끝내면 보상으로 고고다이노 영상을 하나 보여줍니다.
+const NS_STORAGE_KEY = 'gogodino_numstudy_v1';
+// 0은 전통적인 순우리말 수사가 없어서(하나/둘/셋...은 1부터) 비워둡니다 - 화면에는 한자어(영)만 나옵니다.
+const NS_NATIVE_NAMES = ['', '하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉'];
+const NS_SINO_NAMES   = ['영','일','이','삼','사','오','육','칠','팔','구'];
+const NS_TRACE_REPEATS = 3;          // 숫자 하나당 따라쓰기 반복 횟수
+const NS_TRACE_COVERAGE_PASS = 0.5;  // 안내선의 이 비율 이상을 덧그려야 통과
+const NS_SESSION_TARGET = 10;        // 이 개수를 배우면 보상 영상
+// 보호자가 전달해준 "고고다이노 공룡탐험대 시즌5" 실제 에피소드 10개 (YouTube 공식 embed - 재배포 아님)
+const REWARD_VIDEOS = ['gH2z4FE1Jao','-8C64eTSXVs','8wkmZsa8_ho','ekyj8kBMv_E','LMnGbfgxgRA','_12NwGgyL58','YHcvKaIs7lg','NEb0NQP6eA0','NcrKF2bm0ng','1ScmgfmYKqA'];
+
+let ns = {
+  settings: { rangeMin:0, rangeMax:9, micGateOn:true },
+  session: { completed:0 },
+  current: null,
+  stage: 'reveal',
+  traceRound: 0,
+  _traceMask: null,
+  _drawCtx: null,
+  _micStream: null,
+  _micRAF: null,
+};
+
+function nsLoadSettings(){
+  try{
+    const raw = localStorage.getItem(NS_STORAGE_KEY);
+    if(!raw) return;
+    const p = JSON.parse(raw);
+    if(p && p.settings) Object.assign(ns.settings, p.settings);
+  }catch(e){ /* 손상된 설정은 무시하고 기본값으로 시작 */ }
+}
+function nsSaveSettings(){
+  try{ localStorage.setItem(NS_STORAGE_KEY, JSON.stringify({settings: ns.settings})); }catch(e){}
+}
+
+function openNumberStudy(){
+  ns.session = { completed:0 };
+  updateNsProgress();
+  go('screen-numstudy');
+  nsNextNumber();
+}
+function exitNumberStudy(){
+  nsStopMic();
+  try{ speechSynthesis.cancel(); }catch(e){}
+  go('screen-home');
+}
+function nsIsActive(){
+  const el = document.getElementById('screen-numstudy');
+  return !!(el && el.classList.contains('active'));
+}
+
+function updateNsProgress(){
+  const fill = document.getElementById('nsProgressFill');
+  const label = document.getElementById('nsProgressLabel');
+  const pct = Math.min(100, (ns.session.completed / NS_SESSION_TARGET) * 100);
+  if(fill) fill.style.width = pct + '%';
+  if(label) label.textContent = `${ns.session.completed} / ${NS_SESSION_TARGET}`;
+}
+
+function nsPickNumber(){
+  const { rangeMin, rangeMax } = ns.settings;
+  const pool = [];
+  for(let i=rangeMin; i<=rangeMax; i++) pool.push(i);
+  if(pool.length===0) pool.push(0);
+  const choices = pool.filter(n=>n!==ns.current);
+  const list = choices.length ? choices : pool;
+  return list[Math.floor(Math.random()*list.length)];
+}
+
+function nsNextNumber(){
+  if(!nsIsActive()) return;
+  if(ns.session.completed >= NS_SESSION_TARGET){ showNumberReward(); return; }
+  ns.current = nsPickNumber();
+  ns.traceRound = 0;
+  nsGoStage('reveal');
+}
+
+function nsGoStage(stage){
+  ns.stage = stage;
+  nsStopMic();
+  const card = document.getElementById('nsStageCard');
+  if(!card) return;
+  if(stage==='reveal') card.innerHTML = nsRenderRevealStage();
+  else if(stage==='demo') card.innerHTML = nsRenderDemoStage();
+  else if(stage==='trace') card.innerHTML = nsRenderTraceStage();
+  else if(stage==='celebrate') card.innerHTML = nsRenderCelebrateStage();
+  nsWireStage(stage);
+}
+
+// ---------------- 1단계: 숫자 보여주기 + 발음 듣기 ----------------
+function nsRenderRevealStage(){
+  const n = ns.current;
+  const native = NS_NATIVE_NAMES[n];
+  const sino = NS_SINO_NAMES[n];
+  return `
+    <div class="ns-number-display">${n}</div>
+    <div class="ns-number-names">
+      ${native ? `<span class="ns-name-chip">${native}</span>` : ''}
+      <span class="ns-name-chip alt">${sino}</span>
+    </div>
+    <button class="pill alt ns-big-btn" id="nsPlaySound">🔊 소리 듣기 (다시 듣기)</button>
+    <button class="pill ns-big-btn" id="nsToDemo">다음: 쓰는 법 보기 ✏️</button>
+  `;
+}
+function nsSpeakNumber(n){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const native = NS_NATIVE_NAMES[n];
+    const sino = NS_SINO_NAMES[n];
+    const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ko-KR'; u.rate = 0.85; u.pitch = 1.05;
+    speechSynthesis.speak(u);
+  }catch(e){ /* TTS 미지원 환경 - 조용히 무시 */ }
+}
+
+// ---------------- 2단계: 쓰는 법 데모(애니메이션, 다시보기 가능) ----------------
+function nsRenderDemoStage(){
+  return `
+    <div class="ns-demo-wrap">
+      <canvas id="nsDemoCanvas" width="300" height="380"></canvas>
+      <div class="ns-pencil" id="nsPencil">✏️</div>
+    </div>
+    <button class="pill ghost ns-big-btn" id="nsReplayDemo">🔁 다시 보기</button>
+    <button class="pill ns-big-btn" id="nsToTrace">나도 써볼래요! ✍️</button>
+  `;
+}
+// 실제 숫자 글꼴 모양을 캔버스 클리핑으로 왼쪽→오른쪽으로 "써지는 것처럼" 드러냅니다.
+// (손글씨 획순을 정확히 재현하는 대신, 항상 올바른 숫자 모양이 보장되는 안전한 방식)
+function nsPlayDemo(){
+  const canvas = document.getElementById('nsDemoCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pencil = document.getElementById('nsPencil');
+  const dur = 1300;
+  const t0 = performance.now();
+  if(pencil) pencil.style.opacity = '1';
+  function frame(t){
+    if(!nsIsActive()) return;
+    const p = Math.min(1, (t - t0) / dur);
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W*p, H);
+    ctx.clip();
+    ctx.fillStyle = '#2e2350';
+    ctx.font = `bold ${Math.round(H*0.72)}px Jua, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
+    ctx.restore();
+    if(pencil){
+      const w = canvas.getBoundingClientRect().width || W;
+      pencil.style.left = Math.max(6, Math.min(w-6, w*p)) + 'px';
+    }
+    if(p < 1) requestAnimationFrame(frame);
+    else if(pencil) setTimeout(()=>{ pencil.style.opacity = '0'; }, 250);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------- 3단계: 안내선 따라쓰기 ----------------
+function nsRenderTraceStage(){
+  const gateOn = ns.settings.micGateOn;
+  return `
+    <div class="ns-trace-round">✍️ 따라쓰기 ${ns.traceRound+1} / ${NS_TRACE_REPEATS}</div>
+    ${gateOn ? `
+    <div class="ns-mic-gate" id="nsMicGate">
+      <div>🎤 "${NS_NATIVE_NAMES[ns.current] || NS_SINO_NAMES[ns.current]}" 소리내어 말해볼까요?</div>
+      <button class="pill alt ns-big-btn" id="nsMicBtn">🎙️ 말하기 시작</button>
+      <div class="ns-mic-hint" id="nsMicHint"></div>
+    </div>` : ''}
+    <div class="ns-trace-wrap" id="nsTraceWrap" style="${gateOn?'opacity:.35; pointer-events:none;':''}">
+      <canvas id="nsGuideCanvas" width="300" height="380"></canvas>
+      <canvas id="nsDrawCanvas" width="300" height="380"></canvas>
+    </div>
+    <div class="action-row">
+      <button class="pill ghost" id="nsClearTrace">↩️ 지우고 다시</button>
+      <button class="pill alt" id="nsCheckTrace">✅ 다 썼어요!</button>
+    </div>
+  `;
+}
+function nsSetupTraceCanvases(){
+  const guide = document.getElementById('nsGuideCanvas');
+  const draw = document.getElementById('nsDrawCanvas');
+  if(!guide || !draw) return;
+  const W = guide.width, H = guide.height;
+  const font = `bold ${Math.round(H*0.72)}px Jua, sans-serif`;
+
+  const gctx = guide.getContext('2d');
+  gctx.clearRect(0,0,W,H);
+  gctx.fillStyle = 'rgba(46,35,80,.3)';
+  gctx.font = font; gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
+  gctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
+
+  // 채점용 마스크는 화면에 보이지 않는 캔버스에 진하게 그려서 픽셀만 뽑아냅니다.
+  const mask = document.createElement('canvas');
+  mask.width = W; mask.height = H;
+  const mctx = mask.getContext('2d');
+  mctx.fillStyle = '#000';
+  mctx.font = font; mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
+  mctx.fillText(String(ns.current), W/2, H/2 + H*0.03);
+  const data = mctx.getImageData(0,0,W,H).data;
+  const maskPixels = [];
+  const STEP = 5;
+  for(let y=0; y<H; y+=STEP){
+    for(let x=0; x<W; x+=STEP){
+      if(data[(y*W+x)*4+3] > 40) maskPixels.push([x,y]);
+    }
+  }
+  ns._traceMask = maskPixels;
+
+  const dctx = draw.getContext('2d');
+  dctx.clearRect(0,0,W,H);
+  dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+  dctx.strokeStyle = '#ff6b81';
+  dctx.lineWidth = 16;
+  ns._drawCtx = dctx;
+
+  let drawing = false, lastX = 0, lastY = 0;
+  function toLocal(e){
+    const rect = draw.getBoundingClientRect();
+    const cx = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    const cy = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+    return [ (cx-rect.left) * (W/rect.width), (cy-rect.top) * (H/rect.height) ];
+  }
+  function start(e){
+    e.preventDefault(); drawing = true;
+    [lastX,lastY] = toLocal(e);
+    dctx.beginPath(); dctx.moveTo(lastX,lastY); dctx.lineTo(lastX+0.1,lastY+0.1); dctx.stroke();
+  }
+  function move(e){
+    if(!drawing) return; e.preventDefault();
+    const [x,y] = toLocal(e);
+    dctx.lineTo(x,y); dctx.stroke();
+    lastX = x; lastY = y;
+  }
+  function end(){ drawing = false; }
+  draw.onpointerdown = start;
+  draw.onpointermove = move;
+  window.addEventListener('pointerup', end);
+}
+function nsCheckTraceCoverage(){
+  const draw = document.getElementById('nsDrawCanvas');
+  if(!draw || !ns._traceMask || !ns._traceMask.length) return 0;
+  const W = draw.width, H = draw.height;
+  const data = draw.getContext('2d').getImageData(0,0,W,H).data;
+  const RADIUS = 10;
+  let hit = 0;
+  ns._traceMask.forEach(([mx,my])=>{
+    let found = false;
+    for(let dy=-RADIUS; dy<=RADIUS && !found; dy+=6){
+      for(let dx=-RADIUS; dx<=RADIUS && !found; dx+=6){
+        const x = mx+dx, y = my+dy;
+        if(x<0||y<0||x>=W||y>=H) continue;
+        if(data[(Math.floor(y)*W+Math.floor(x))*4+3] > 40) found = true;
+      }
+    }
+    if(found) hit++;
+  });
+  return hit / ns._traceMask.length;
+}
+function nsWireTraceStage(){
+  nsSetupTraceCanvases();
+  if(ns.settings.micGateOn){
+    const micBtn = document.getElementById('nsMicBtn');
+    if(micBtn) micBtn.addEventListener('click', nsStartMicCheck);
+  }
+  document.getElementById('nsClearTrace').addEventListener('click', ()=>{
+    const draw = document.getElementById('nsDrawCanvas');
+    if(draw && ns._drawCtx) ns._drawCtx.clearRect(0,0,draw.width,draw.height);
+  });
+  document.getElementById('nsCheckTrace').addEventListener('click', ()=>{
+    const coverage = nsCheckTraceCoverage();
+    if(coverage >= NS_TRACE_COVERAGE_PASS){
+      ns.traceRound++;
+      if(ns.traceRound >= NS_TRACE_REPEATS){
+        ns.session.completed++;
+        updateNsProgress();
+        nsGoStage('celebrate');
+      } else {
+        toast(`좋아요! (${Math.round(coverage*100)}%) 한 번 더 써볼까요!`);
+        nsGoStage('trace');
+      }
+    } else {
+      toast(`조금 더 진하게 따라 그려볼까요? (${Math.round(coverage*100)}%)`);
+    }
+  });
+}
+
+// ---------------- 마이크 확인(실제 발음 인식이 아니라 "소리를 냈는지"만 확인) ----------------
+// 안드로이드 웹뷰에서는 정확한 음성인식(STT)이 불안정해서, 대신 마이크 음량이 문턱값을
+// 넘는지만 확인합니다. 권한이 없거나 소리가 없어도 오래 막히지 않도록 항상 통과 경로를 둡니다.
+function nsStartMicCheck(){
+  const hint = document.getElementById('nsMicHint');
+  const micBtn = document.getElementById('nsMicBtn');
+  if(micBtn) micBtn.disabled = true;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    if(hint) hint.textContent = '이 환경에서는 마이크를 쓸 수 없어요, 그냥 써볼까요!';
+    nsUnlockTrace();
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    ns._micStream = stream;
+    let actx;
+    try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e){ nsStopMic(); if(hint) hint.textContent = '마이크를 쓸 수 없어요, 그냥 써볼까요!'; nsUnlockTrace(); return; }
+    const src = actx.createMediaStreamSource(stream);
+    const analyser = actx.createAnalyser();
+    analyser.fftSize = 512;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let heard = false, elapsed = 0;
+    if(hint) hint.textContent = '듣고 있어요... 🎧';
+    function tick(){
+      if(!nsIsActive()){ nsStopMic(); return; }
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
+      const rms = Math.sqrt(sum/data.length);
+      if(rms > 0.06) heard = true;
+      elapsed++;
+      if(heard){
+        if(hint) hint.textContent = '아주 잘 들렸어요! 👍';
+        nsStopMic(); try{ actx.close(); }catch(e){}
+        nsUnlockTrace();
+        return;
+      }
+      if(elapsed > 240){ // 약 4초 넘게 소리가 없으면 막히지 않게 그냥 통과
+        if(hint) hint.textContent = '괜찮아요, 그냥 써볼까요!';
+        nsStopMic(); try{ actx.close(); }catch(e){}
+        nsUnlockTrace();
+        return;
+      }
+      ns._micRAF = requestAnimationFrame(tick);
+    }
+    tick();
+  }).catch(()=>{
+    if(hint) hint.textContent = '마이크 권한이 없어요, 그냥 써볼까요!';
+    nsUnlockTrace();
+  });
+}
+function nsUnlockTrace(){
+  const wrap = document.getElementById('nsTraceWrap');
+  const gate = document.getElementById('nsMicGate');
+  if(wrap){ wrap.style.opacity = ''; wrap.style.pointerEvents = ''; }
+  if(gate){ gate.style.display = 'none'; }
+}
+function nsStopMic(){
+  if(ns._micRAF){ cancelAnimationFrame(ns._micRAF); ns._micRAF = null; }
+  if(ns._micStream){ ns._micStream.getTracks().forEach(t=>t.stop()); ns._micStream = null; }
+}
+
+// ---------------- 4단계: 칭찬 → 다음 숫자 ----------------
+function nsRenderCelebrateStage(){
+  return `
+    <div class="ns-celebrate-emoji">🎉</div>
+    <b>참 잘했어요!</b>
+    <div class="sub" style="margin:0;">${ns.current} 완성!</div>
+  `;
+}
+
+function nsWireStage(stage){
+  if(stage==='reveal'){
+    document.getElementById('nsPlaySound').addEventListener('click', ()=> nsSpeakNumber(ns.current));
+    document.getElementById('nsToDemo').addEventListener('click', ()=> nsGoStage('demo'));
+    nsSpeakNumber(ns.current);
+  } else if(stage==='demo'){
+    document.getElementById('nsReplayDemo').addEventListener('click', nsPlayDemo);
+    document.getElementById('nsToTrace').addEventListener('click', ()=>{ ns.traceRound = 0; nsGoStage('trace'); });
+    nsPlayDemo();
+  } else if(stage==='trace'){
+    nsWireTraceStage();
+  } else if(stage==='celebrate'){
+    setTimeout(()=> nsNextNumber(), 1500);
+  }
+}
+
+// ---------------- 설정(범위 · 마이크 확인 켜기/끄기) ----------------
+function openNumStudySettings(){
+  const rangeOptions = (selected)=> Array.from({length:10},(_,i)=>`<option value="${i}" ${i===selected?'selected':''}>${i}</option>`).join('');
+  let el = document.getElementById('confirmOverlayEl');
+  if(!el){ el = document.createElement('div'); el.id = 'confirmOverlayEl'; document.body.appendChild(el); }
+  el.className = 'confirm-overlay';
+  el.innerHTML = `
+    <div class="confirm-card wide">
+      <div class="msg">🔢 숫자공부 설정</div>
+      <div class="ns-settings-row">
+        <label>범위</label>
+        <select id="nsMin">${rangeOptions(ns.settings.rangeMin)}</select>
+        <span>~</span>
+        <select id="nsMax">${rangeOptions(ns.settings.rangeMax)}</select>
+      </div>
+      <div class="ns-settings-note">※ 지금은 0~9까지만 배울 수 있어요. 두 자리 숫자(~99)는 곧 추가할게요!</div>
+      <label class="ns-settings-toggle">
+        <input type="checkbox" id="nsMicToggle" ${ns.settings.micGateOn?'checked':''}>
+        말하고 나서 쓰기 (마이크로 확인)
+      </label>
+      <div class="confirm-btn-row">
+        <button class="pill ghost" style="flex:1" data-act="no">닫기</button>
+        <button class="pill alt" style="flex:1" data-act="yes">저장</button>
+      </div>
+    </div>`;
+  requestAnimationFrame(()=> el.classList.add('show'));
+  const handler = (e)=>{
+    const btn = e.target.closest('button[data-act]');
+    if(!btn) return;
+    if(btn.dataset.act === 'yes'){
+      let mn = parseInt(document.getElementById('nsMin').value, 10);
+      let mx = parseInt(document.getElementById('nsMax').value, 10);
+      if(mn > mx){ const t = mn; mn = mx; mx = t; }
+      ns.settings.rangeMin = mn; ns.settings.rangeMax = mx;
+      ns.settings.micGateOn = document.getElementById('nsMicToggle').checked;
+      nsSaveSettings();
+      toast('설정을 저장했어요!');
+    }
+    el.classList.remove('show');
+    el.removeEventListener('click', handler);
+  };
+  el.addEventListener('click', handler);
+}
+
+// ---------------- 보상: 10개 완주 시 고고다이노 영상 ----------------
+function showNumberReward(){
+  const vid = REWARD_VIDEOS[Math.floor(Math.random()*REWARD_VIDEOS.length)];
+  const host = document.getElementById('nsRewardVideoHost');
+  if(host) host.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  go('screen-numreward');
+}
+function closeNumberReward(){
+  const host = document.getElementById('nsRewardVideoHost');
+  if(host) host.innerHTML = '';
+  ns.session = { completed:0 };
+  go('screen-home');
+}
+
+nsLoadSettings();
+
 loadPersistedState();
 renderCharGrid();
 renderFieldSelect();
@@ -2162,4 +2793,6 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
-</body></html>
+
+</body>
+</html>
