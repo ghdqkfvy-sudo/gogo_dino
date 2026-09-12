@@ -1,0 +1,2090 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>고고 컬러링 스튜디오</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  /* ---------------------------------------------------------------
+     디자인 토큰 — 놀이방 팔레트 (버터크림 바탕 + 산호핑크 / 라군틸 / 잎그린 / 모래앰버 액센트)
+     이 앱은 "언제나 밝고 다채로운" 놀이 공간이라는 컨셉을 의도적으로 고정합니다.
+     (OS 다크모드와 무관하게 항상 밝은 팔레트 — 유아용 색칠앱 특성상 의도된 단일 테마)
+  --------------------------------------------------------------- */
+  :root{
+    --bg:#fff3d6;          /* 버터크림 바탕 */
+    --surface:#ffffff;     /* 카드 */
+    --surface-soft:#fff9ec;
+    --ink:#2e2350;         /* 딥 플럼 네이비 — 본문/외곽선 */
+    --ink-soft:#6b6285;
+    --accent:#ff6b81;      /* 산호핑크 — 포인트/CTA */
+    --accent-deep:#e6455e;
+    --lagoon:#2fb8cf;      /* 라군틸 — 선택/보조 */
+    --leaf:#4fae5f;        /* 잎그린 — 숲 */
+    --amber:#f0a53d;       /* 모래앰버 — 사막/포인트 */
+    --line:#efe1bd;
+    --danger:#e6455e;
+    --shadow:0 10px 26px -8px rgba(46,35,80,.22);
+    --shadow-sm:0 4px 12px rgba(46,35,80,.16);
+    --radius-lg:28px;
+    --radius-md:20px;
+  }
+  /* 안드로이드 웹뷰는 터치/드래그가 닿는 요소에 기본적으로 반투명한 파란색(또는 회색)
+     "탭 하이라이트"를 깜빡여줍니다 — 평소엔 안 보이다가, 손가락으로 문질러 칠하는 이
+     앱에서는 캔버스를 드래그할 때마다 그 파란 음영이 계속 번쩍여서 마치 텍스트를
+     드래그해서 선택한 것처럼 보기 흉하게 뒤덮이는 원인이었습니다. 전역으로 꺼둡니다. */
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;}
+  html,body{margin:0;}
+  body{
+    font-family:'Gowun Dodum','Malgun Gothic',sans-serif;
+    background:var(--bg); color:var(--ink);
+    -webkit-user-select:none; user-select:none; overscroll-behavior:none;
+    padding:22px clamp(16px,4vw,32px) 48px;
+  }
+  h1,h2,.display{font-family:'Jua','Malgun Gothic',sans-serif; font-weight:400;}
+  h1{font-size:clamp(20px,3vw,26px); margin:0 0 4px; text-wrap:balance;}
+  .sub{opacity:.62; font-size:13px; margin-bottom:18px; line-height:1.5;}
+
+  .screen{display:none; max-width:1080px; margin:0 auto;}
+  .screen.active{display:block;}
+
+  .home-grid{display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-top:clamp(16px,6vh,56px);}
+  .home-card{
+    width:230px; height:250px; background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    cursor:pointer; border:4px solid transparent; transition:transform .15s, border-color .15s;
+  }
+  .home-card:active{transform:scale(.96);}
+  .home-card:hover{border-color:var(--accent);}
+  .home-card .emoji{font-size:60px; line-height:1;}
+  .home-card b{font-size:19px; font-family:'Jua';}
+
+  .topbar{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .backbtn{
+    width:44px; height:44px; border-radius:50%; background:var(--surface); box-shadow:var(--shadow-sm);
+    border:none; font-size:19px; cursor:pointer; color:var(--ink); flex:none;
+  }
+
+  .char-grid{display:flex; gap:16px; flex-wrap:wrap;}
+  .char-thumb{
+    width:132px; background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:10px;
+    text-align:center; cursor:pointer; border:3px solid transparent; transition:border-color .15s;
+  }
+  .char-thumb:hover{border-color:var(--lagoon);}
+  .char-thumb img{width:100%; height:90px; object-fit:contain; display:block;}
+  .char-thumb span{font-size:12.5px; display:block; margin-top:4px;}
+
+  .work-wrap{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;}
+  .canvas-card{
+    background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:18px;
+    flex:1 1 460px; max-width:600px;
+  }
+  .canvas-card canvas{width:100%; height:auto; touch-action:none; cursor:pointer; border-radius:12px; display:block;}
+  #svgHost{touch-action:none;}
+  .loading-box{display:flex; align-items:center; justify-content:center; height:280px; font-size:14px; color:var(--ink-soft);}
+  .toolpanel{flex:1 1 260px; max-width:320px;}
+  /* 내보내기(저장/갤러리) 상자는 색깔 고르기 칸 아래로 밀려나 있던 것을, 색깔 고르기 칸
+     "옆"에 나란히 오는 별도의 좁은 칸으로 분리했습니다 (work-wrap이 flex-wrap이라
+     화면이 좁으면 자동으로 아래로 내려갑니다). */
+  .toolpanel.export-panel{flex:0 1 200px; max-width:220px;}
+  .tool-section{background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:14px 16px; margin-bottom:14px;}
+  .tool-section h3{margin:0 0 10px; font-size:13px; color:var(--ink-soft); font-weight:700; letter-spacing:.02em;}
+  .swatch-row{display:flex; flex-wrap:wrap; gap:10px;}
+  .swatch{
+    width:42px; height:42px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 7px rgba(46,35,80,.3);
+    cursor:pointer; flex:0 0 auto; position:relative;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
+    animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards;
+  }
+  .swatch:active{transform:scale(.88);}
+  /* 예전엔 outline이라 둥근 스와치에 각진 파란 테두리가 어색하게 겹쳐 보였는데,
+     box-shadow 이중 링(흰테+라군틸)은 둥근 모양을 그대로 따라가서 훨씬 고급스럽고,
+     체크마크까지 함께 "팡" 튀어오르는 느낌으로 선택된 색이 확실히 눈에 띕니다. */
+  .swatch.active{
+    transform:scale(1.16); z-index:1;
+    box-shadow:0 0 0 3px #fff, 0 0 0 6px var(--lagoon), 0 6px 14px rgba(46,35,80,.45);
+    animation:swatchPick .45s cubic-bezier(.34,1.56,.64,1);
+  }
+  .swatch.active::after{
+    content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:900; color:#fff; pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.55), 0 0 4px rgba(0,0,0,.35);
+    animation:checkPop .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .pat-swatch{
+    width:50px; height:50px; border-radius:14px; border:3px solid #fff; box-shadow:0 2px 7px rgba(46,35,80,.3);
+    cursor:pointer; background-size:cover; position:relative;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
+    animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards;
+  }
+  .pat-swatch.active{
+    transform:scale(1.16); z-index:1;
+    box-shadow:0 0 0 3px #fff, 0 0 0 6px var(--lagoon), 0 6px 14px rgba(46,35,80,.45);
+    animation:swatchPick .45s cubic-bezier(.34,1.56,.64,1);
+  }
+  .pat-swatch.active::after{
+    content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:900; color:#fff; pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.6), 0 0 4px rgba(0,0,0,.4);
+    animation:checkPop .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes swatchIn{ from{opacity:0; transform:scale(.4) translateY(8px);} to{opacity:1; transform:scale(1) translateY(0);} }
+  @keyframes swatchPick{ 0%{transform:scale(1) rotate(0);} 45%{transform:scale(1.32) rotate(-8deg);} 70%{transform:scale(1.05) rotate(4deg);} 100%{transform:scale(1.16) rotate(0);} }
+  @keyframes checkPop{ from{opacity:0; transform:scale(.2) rotate(-15deg);} to{opacity:1; transform:scale(1) rotate(0);} }
+  .action-row{display:flex; gap:10px; margin-top:8px;}
+  button.pill{
+    border:none; border-radius:999px; padding:11px 16px; font-size:13px; font-weight:700;
+    background:var(--ink); color:#fff; cursor:pointer; font-family:'Gowun Dodum';
+  }
+  button.pill.alt{background:var(--accent);}
+  button.pill.ghost{background:var(--surface-soft); color:var(--ink); box-shadow:var(--shadow-sm);}
+  button.pill.danger{background:var(--danger); color:#fff;}
+  button.pill:active{transform:scale(.97);}
+  button.pill:disabled{opacity:.4; cursor:default;}
+
+  .field-select{display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;}
+  .field-card{
+    width:220px; border-radius:18px; background:var(--surface); box-shadow:var(--shadow-sm); cursor:pointer;
+    border:3px solid transparent; transition:border-color .15s, transform .15s; overflow:hidden;
+  }
+  .field-card:hover{border-color:var(--lagoon);}
+  .field-card:active{transform:scale(.97);}
+  .field-card .thumb{width:100%; height:118px; overflow:hidden; position:relative; pointer-events:none;}
+  .field-card .thumb svg{width:100%; height:100%; display:block;}
+  .field-card .label{padding:10px 14px; font-family:'Jua'; font-size:15px; text-align:center;}
+  @media (max-width:480px){ .field-card{width:100%; max-width:320px;} }
+
+  .scene{
+    position:relative; width:100%; max-width:980px; height:min(60vw,560px); min-height:300px; border-radius:var(--radius-lg);
+    overflow:hidden; box-shadow:var(--shadow); margin:0 auto;
+  }
+  .scene.forest{background:#bfe9ff;}
+  .scene.ocean{background:#146a80;}
+  .scene.desert{background:#ffe9b8;}
+  .scene-deco{position:absolute; inset:0; z-index:0; pointer-events:none;}
+  .scene-deco svg{width:100%; height:100%; display:block;}
+  .cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed{transform-box:fill-box; transform-origin:center;}
+  .weed{transform-origin:bottom center;}
+  @keyframes driftCloud{0%{transform:translateX(0)}100%{transform:translateX(90px)}}
+  @keyframes riseBubble{0%{transform:translateY(0) scale(1); opacity:.65}100%{transform:translateY(-260px) scale(1.3); opacity:0}}
+  @keyframes swayWeed{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+  @keyframes twinkleFly{0%,100%{opacity:.15; transform:scale(.7)}50%{opacity:1; transform:scale(1.15)}}
+  @keyframes swimFish{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+  /* 물고기/새는 방향에 따라 도안 자체를 미리 좌우로 그려두고, translateX만 한 방향으로 흘러가게
+     해서(도중에 scaleX로 반전하지 않음) 예전 캐릭터 애니메이션에서 겪었던 "순간적으로 납작해지는"
+     부자연스러운 반전 문제가 절대 생기지 않게 했습니다. */
+  @keyframes swimAcrossR{0%{transform:translateX(-90px)}100%{transform:translateX(900px)}}
+  @keyframes swimAcrossL{0%{transform:translateX(900px)}100%{transform:translateX(-90px)}}
+  @keyframes flyAcrossR{0%{transform:translate(-90px,10px)}50%{transform:translate(400px,-18px)}100%{transform:translate(900px,10px)}}
+  @keyframes flyAcrossL{0%{transform:translate(900px,10px)}50%{transform:translate(400px,-18px)}100%{transform:translate(-90px,10px)}}
+  @keyframes wingFlap{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.35)}}
+  /* 순수 translateY만 사용합니다 - scaleY를 같이 넣으면 브라우저마다 fill-box 기준점 계산이
+     달라져서(특히 여러 도형이 겹친 <g>에서) 몸통과 머리가 따로 노는 것처럼 어긋나 보일 수 있어서,
+     그런 문제가 생길 수 없는 순수 이동만 사용했습니다. */
+  @keyframes hopCritter{0%,100%{transform:translateY(0)}30%{transform:translateY(-15px)}55%{transform:translateY(0)}}
+  @keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  @keyframes rollTumbleweed{0%{transform:translateX(-60px) rotate(0deg)}100%{transform:translateX(860px) rotate(720deg)}}
+  @media (prefers-reduced-motion: reduce){
+    .cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed, .sprite, .sprite-inner{animation:none !important;}
+  }
+  .sprite{position:absolute; width:164px; height:164px; will-change:transform; z-index:2;}
+  .sprite-inner{position:relative; width:100%; height:100%;}
+  .sprite-inner img{width:100%; height:100%; filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)); pointer-events:none;}
+  .sprite-inner img.form-a, .sprite-inner img.form-b{position:absolute; inset:0; transition:opacity .35s ease;}
+  .sprite-inner.transforming{animation:transformPunch .8s cubic-bezier(.32,1.65,.55,1);}
+  @keyframes transformPunch{
+    0%{transform:scale(1) rotate(0deg); filter:brightness(1) saturate(1);}
+    25%{transform:scale(1.32) rotate(12deg); filter:brightness(1.7) saturate(1.5) drop-shadow(0 0 14px #fff);}
+    50%{transform:scale(.8) rotate(-10deg); filter:brightness(1.35) saturate(1.2);}
+    75%{transform:scale(1.14) rotate(5deg); filter:brightness(1.1);}
+    100%{transform:scale(1) rotate(0deg); filter:brightness(1) saturate(1);}
+  }
+  .shock-ring{
+    position:absolute; left:50%; top:50%; width:42%; height:42%; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(255,247,200,.55) 40%, rgba(255,247,200,0) 72%);
+    transform:translate(-50%,-50%) scale(0); opacity:1; pointer-events:none; z-index:1;
+    animation:shockExpand .65s ease-out forwards;
+  }
+  @keyframes shockExpand{ to{ transform:translate(-50%,-50%) scale(3.6); opacity:0; } }
+  .sprite-del{
+    position:absolute; top:-6px; right:-6px; width:26px; height:26px; border-radius:50%; border:none;
+    background:var(--danger); color:#fff; font-size:13px; line-height:1; cursor:pointer; box-shadow:var(--shadow-sm); z-index:3;
+  }
+  .add-friend-btn{
+    position:absolute; right:16px; bottom:16px; background:var(--surface); border:none; border-radius:999px;
+    padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:3;
+  }
+  .gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap;}
+  .gallery-item{width:132px; background:var(--surface); border-radius:18px; box-shadow:var(--shadow-sm); padding:10px; text-align:center;}
+  .gallery-item img{width:100%; height:92px; object-fit:contain; display:block;}
+  .gallery-item div.name{font-size:14px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Jua';}
+  .gallery-item button{width:100%; font-size:12.5px; padding:8px 8px; margin-top:6px; border-radius:999px;}
+  .note{
+    background:var(--surface-soft); border:1px solid var(--line); border-radius:16px; padding:13px 15px; font-size:12.5px;
+    line-height:1.55; margin-top:18px; max-width:640px;
+  }
+  /* 홈 화면 제목/부제/안내문구를 위쪽 3개 카드(필드로가기·색칠하기·트랙모드)와 같은 중앙 축에
+     맞춥니다. .home-card 안의 작은 캡션용 .sub(직계 자식이 아님)는 건드리지 않도록
+     "#screen-home > .sub"로 최상단 부제 하나만 콕 집어 지정했습니다. */
+  #screen-home > h1, #screen-home > .sub{ text-align:center; }
+  #screen-home .note{ text-align:center; margin-left:auto; margin-right:auto; display:flex; flex-direction:column; gap:7px; }
+  #toastHost{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;}
+  .toast-bubble{
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px; font-family:'Gowun Dodum'; font-size:13px;
+    box-shadow:var(--shadow); opacity:0; transform:translateY(8px); transition:opacity .25s, transform .25s; white-space:nowrap;
+  }
+  @media (max-width:480px){
+    .home-card{width:100%; max-width:280px; height:210px;}
+    .canvas-card, .toolpanel, .toolpanel.export-panel{max-width:100%;}
+  }
+
+  .track-wrap{position:relative; width:100%; max-width:920px; margin:0 auto; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); background:#bfe9ff;}
+  #trackCanvas{width:100%; height:min(62vw,480px); min-height:280px; display:block; touch-action:none;}
+  .track-hud{
+    position:absolute; top:14px; left:14px; background:rgba(46,35,80,.6); color:#fff; padding:8px 14px;
+    border-radius:14px; font-size:13px; font-family:'Jua'; letter-spacing:.02em; pointer-events:none; z-index:4;
+  }
+  .track-error{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; text-align:center;
+    background:rgba(255,255,255,.95); color:var(--ink); padding:18px 22px; border-radius:18px;
+    box-shadow:var(--shadow); font-size:14px; line-height:1.6; max-width:80%;
+  }
+  .track-hint-outside{
+    background:var(--surface-soft); border:1px solid var(--line); color:var(--ink); padding:9px 14px;
+    border-radius:14px; font-size:12px; line-height:1.5; margin:10px auto 0; max-width:920px; text-align:center;
+  }
+  .track-controls{position:absolute; left:0; right:0; bottom:16px; display:flex; justify-content:space-between; align-items:flex-end; padding:0 22px; pointer-events:none; z-index:4;}
+  /* 예전엔 반투명 흰색이라 밝은 하늘 배경 위에서 경계가 흐릿하게 묻혀 보였습니다.
+     테두리를 더 두껍고 진하게, 안쪽은 은은한 유리질 그라디언트로 바꾸고, 좌우 방향을
+     암시하는 작은 화살표까지 넣어서 손 안 대고 봐도 "이게 조작기구구나"가 바로
+     보이게 했습니다. */
+  .joystick{
+    pointer-events:auto; position:relative; width:130px; height:130px; border-radius:50%;
+    background:radial-gradient(circle at 33% 28%, rgba(255,255,255,.9), rgba(255,255,255,.6) 55%, rgba(46,35,80,.28) 100%);
+    border:4px solid rgba(255,255,255,.95);
+    box-shadow:0 8px 18px rgba(46,35,80,.4), inset 0 0 0 2px rgba(46,35,80,.12);
+    touch-action:none; -webkit-user-select:none; user-select:none;
+    transition:background .18s ease;
+  }
+  .joystick::before, .joystick::after{
+    content:''; position:absolute; top:50%; width:0; height:0; border-style:solid; opacity:.6; pointer-events:none;
+  }
+  .joystick::before{ left:16px; border-width:9px 13px 9px 0; border-color:transparent var(--ink) transparent transparent; transform:translateY(-50%); }
+  .joystick::after{ right:16px; border-width:9px 0 9px 13px; border-color:transparent transparent transparent var(--ink); transform:translateY(-50%); }
+  .joystick.active{ background:radial-gradient(circle at 33% 28%, rgba(255,255,255,.95), rgba(255,255,255,.75) 55%, rgba(47,184,207,.4) 100%); }
+  .joystick-knob{
+    position:absolute; left:50%; top:50%; width:60px; height:60px; margin:-30px 0 0 -30px; border-radius:50%;
+    background:radial-gradient(circle at 35% 28%, #fff, #ffd7de 60%, var(--accent) 100%);
+    box-shadow:0 5px 12px rgba(46,35,80,.4); border:3px solid var(--accent);
+    pointer-events:none; transition:background .15s ease, border-color .15s ease;
+  }
+  .joystick.active .joystick-knob{
+    background:radial-gradient(circle at 35% 28%, #fff, #bdf0f8 55%, var(--lagoon) 100%); border-color:var(--lagoon);
+  }
+  .track-btn{
+    pointer-events:auto; width:74px; height:74px; border-radius:50%; border:none; font-size:28px;
+    background:rgba(255,255,255,.9); color:var(--ink); box-shadow:var(--shadow); cursor:pointer;
+    -webkit-user-select:none; user-select:none; font-family:'Jua';
+    touch-action:none; /* 조이스틱을 누른 채로 이 버튼도 같이 눌러도 브라우저가 이걸 확대/스크롤
+                          제스처로 오해해서 입력을 놓치지 않도록 - 두 손가락 동시 입력의 핵심 */
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .track-btn svg{ pointer-events:none; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+  .track-btn:active{transform:scale(.92); background:var(--accent); color:#fff;}
+  .track-btn.jump-btn{
+    width:72px; height:72px; font-size:30px; color:#fff; border:3px solid #fff;
+    background:radial-gradient(circle at 34% 26%, #ffdb96, #f0a53d 55%, #d6822a 100%);
+    box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18);
+    animation:jumpPulse 2.2s ease-in-out infinite;
+  }
+  .track-btn.jump-btn:active{
+    background:radial-gradient(circle at 34% 26%, #ffb18c, var(--accent-deep) 60%, #a52c42 100%);
+    transform:scale(.88); animation-play-state:paused;
+  }
+  @keyframes jumpPulse{
+    0%,100%{ box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18), 0 0 0 0 rgba(240,165,61,.5); }
+    50%{ box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18), 0 0 0 9px rgba(240,165,61,0); }
+  }
+  .track-toast{
+    position:absolute; left:50%; top:16px; transform:translateX(-50%); background:rgba(46,35,80,.72); color:#fff;
+    padding:8px 16px; border-radius:14px; font-size:13px; z-index:5; opacity:0; transition:opacity .3s; pointer-events:none;
+  }
+  .track-toast.show{opacity:1;}
+
+  .save-confirm{
+    position:fixed; left:50%; top:34%; transform:translate(-50%,-50%) scale(.7); z-index:10000;
+    background:var(--surface); border-radius:24px; box-shadow:var(--shadow); padding:22px 34px;
+    display:flex; flex-direction:column; align-items:center; gap:6px; opacity:0; pointer-events:none;
+    transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+  }
+  .save-confirm.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+  .save-confirm .icon{font-size:46px; line-height:1;}
+  .save-confirm b{font-family:'Jua'; font-size:16.5px; color:var(--ink);}
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+</head>
+<body>
+
+
+<!-- ============ HOME ============ -->
+<div id="screen-home" class="screen active">
+  <h1>🦖 고고 컬러링 스튜디오</h1>
+  <div class="sub">프로토타입 v0.3 · prunnnn.com / saegchil.co.kr 도안으로 받은 실제 캐릭터 6종 적용</div>
+  <div class="home-grid">
+    <div class="home-card" onclick="go('screen-fieldselect')">
+      <div class="emoji">🌲</div><b>필드로 가기</b>
+      <div class="sub" style="margin:0;">저장한 친구들 만나기</div>
+    </div>
+    <div class="home-card" onclick="go('screen-charpick')">
+      <div class="emoji">🖍️</div><b>색칠하기</b>
+      <div class="sub" style="margin:0;">캐릭터 도안 선택</div>
+    </div>
+    <div class="home-card" onclick="openTrackPick()">
+      <div class="emoji">🏎️</div><b>트랙 모드</b>
+      <div class="sub" style="margin:0;">변신한 친구들과 질주!</div>
+    </div>
+  </div>
+  <div class="note">
+    <div class="note-line">🖍️ 크레용처럼 실제로 문지른(탭/드래그한) 자리만 색이 남고, 그 부위의 실제 선 밖으로는 절대 번지지 않아요.</div>
+    <div class="note-line">🎨 문양도 색칠과 똑같이 붓질한 자리에만 나타나요 — 다만 색 대신 작은 무늬가 반복돼서 원단처럼 보여요.</div>
+    <div class="note-line">🔄 렉스·토모·비키·포키는 변신 모드 도안도 연결해서 "변신!" 버튼으로 색칠 중에 바로 오갈 수 있어요 — 핑·로키는 변신 도안을 구하는 대로 이어서 연결해드릴게요.</div>
+    <div class="note-line">🏎️ 저장할 때 변신 폼이 있던 친구는 트랙 모드에서 진짜 물리 엔진으로 달릴 수 있어요.</div>
+  </div>
+</div>
+
+<!-- ============ CHARACTER PICK ============ -->
+<div id="screen-charpick" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="go('screen-home')">←</button>
+    <h1 style="margin:0;">캐릭터를 골라줘</h1>
+  </div>
+  <div class="char-grid" id="charGrid"></div>
+</div>
+
+<!-- ============ COLORING WORKSPACE ============ -->
+<div id="screen-color" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="go('screen-charpick')">←</button>
+    <h1 style="margin:0;" id="colorTitle">색칠하기</h1>
+  </div>
+  <div class="work-wrap">
+    <div class="canvas-card">
+      <div id="svgHost"><div class="loading-box">불러오는 중... 🦖</div></div>
+      <div class="action-row">
+        <button class="pill ghost" id="transformBtn" onclick="toggleForm()">🔄 변신!</button>
+        <button class="pill ghost" onclick="resetColors()">↩️ 다시 칠하기</button>
+      </div>
+    </div>
+    <div class="toolpanel">
+      <div class="tool-section">
+        <h3>색깔 고르기</h3>
+        <div class="swatch-row" id="colorRow"></div>
+      </div>
+      <div class="tool-section">
+        <h3>문양 고르기 (붓질로 칠하기)</h3>
+        <div class="swatch-row" id="patternRow"></div>
+      </div>
+    </div>
+    <div class="toolpanel export-panel">
+      <div class="tool-section">
+        <h3>내보내기</h3>
+        <button class="pill alt" style="width:100%; line-height:1.4;" onclick="saveCharacter()">💾 저장하기<br><span style="font-size:10.5px; font-weight:500; opacity:.85;">(필드에 추가 가능)</span></button>
+        <div class="action-row">
+          <button class="pill" style="flex:1" onclick="exportPNG()">🖼️ 갤러리로 내보내기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FIELD SELECT ============ -->
+<div id="screen-fieldselect" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="go('screen-home')">←</button>
+    <h1 style="margin:0;">어디로 갈까?</h1>
+  </div>
+  <div class="field-select" id="fieldSelectGrid"></div>
+</div>
+
+<!-- ============ FIELD SCENE ============ -->
+<div id="screen-field" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="go('screen-fieldselect')">←</button>
+    <h1 style="margin:0;" id="fieldTitle">숲속</h1>
+  </div>
+  <div class="scene forest" id="sceneEl"></div>
+  <div class="sub" style="margin-top:12px;">저장된 친구들:</div>
+  <div class="gallery-strip" id="galleryStrip"></div>
+</div>
+
+<!-- ============ TRACK PICK ============ -->
+<div id="screen-trackpick" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="go('screen-home')">←</button>
+    <h1 style="margin:0;">누구랑 달릴까?</h1>
+  </div>
+  <div class="char-grid" id="trackPickGrid"></div>
+  <div class="note">🏎️ 색칠하기에서 저장할 때 변신 모드가 있던 친구(렉스·토모·비키·포키)만 트랙 모드에서 달릴 수 있어요.</div>
+</div>
+
+<!-- ============ TRACK MODE (물리 레이싱) ============ -->
+<div id="screen-track" class="screen">
+  <div class="topbar">
+    <button class="backbtn" onclick="stopTrack(); go('screen-trackpick')">←</button>
+    <h1 style="margin:0;" id="trackTitle">트랙 모드</h1>
+    <button class="pill ghost" style="margin-left:auto;" onclick="restartTrack()">🔁 처음부터</button>
+  </div>
+  <div class="track-wrap">
+    <canvas id="trackCanvas"></canvas>
+    <div class="track-error" id="trackError" hidden>
+      😥 물리 엔진을 불러오지 못했어요.<br>인터넷 연결을 확인하고<br>"🔁 처음부터"를 눌러 다시 시도해주세요.
+    </div>
+    <div class="track-hud" id="trackHud">📏 0m</div>
+    <div class="track-toast" id="trackToast"></div>
+    <div class="track-controls">
+      <div class="joystick" id="joystick"><div class="joystick-knob" id="joystickKnob"></div></div>
+      <button class="track-btn jump-btn" id="btnJump" aria-label="점프">
+        <svg viewBox="0 0 32 32" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 26 L16 8" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          <path d="M8 15 L16 6 L24 15" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <ellipse cx="16" cy="27.5" rx="9" ry="2.2" fill="#fff" opacity=".55"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="track-hint-outside">🕹️ 아래 조이스틱으로 달리고 ⤴️ 버튼(또는 조이스틱을 위로 쭉 당기면)으로 점프! 뒤집히면 자동으로 다시 떨어져요.</div>
+</div>
+
+<!-- 물리 엔진(Matter.js)을 외부 CDN(cdnjs)에서 불러오면, 회사/공용 와이파이나 일부 모바일
+     통신사 네트워크에서 그 CDN 도메인 자체가 차단되어 있는 경우 스크립트가 아예 로드되지
+     않아서 트랙 모드에 들어갔을 때 하늘색 배경만 보이고 자동차/땅이 안 나오는 문제가
+     생길 수 있습니다. 그래서 같은 서버(같은 주소)에서 파일로 직접 서빙해서 외부 CDN에
+     의존하지 않도록 했습니다. -->
+<script src="matter.min.js"></script>
+<script>
+/* =========================================================================
+   고고 컬러링 스튜디오 - PC/웹 프로토타입 v0.3
+   실제 도안(JPG) 라인아트를 분석해 폐곡선 영역을 자동으로 찾아내고,
+   탭/드래그한 영역 "딱 하나"만 채우는 캔버스 기반 색칠 엔진입니다.
+   ========================================================================= */
+
+// ---------------------------------------------------------------- 토스트 알림
+function toast(msg){
+  let host = document.getElementById('toastHost');
+  if(!host){
+    host = document.createElement('div');
+    host.id = 'toastHost';
+    document.body.appendChild(host);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'toast-bubble';
+  bubble.textContent = msg;
+  host.appendChild(bubble);
+  requestAnimationFrame(()=>{ bubble.style.opacity = '1'; bubble.style.transform = 'translateY(0)'; });
+  setTimeout(()=>{
+    bubble.style.opacity = '0'; bubble.style.transform = 'translateY(8px)';
+    setTimeout(()=> bubble.remove(), 320);
+  }, 1700);
+}
+
+// 저장 버튼을 눌렀을 때는 화면 아래 작은 토스트보다 눈에 잘 띄도록, 화면 가운데에 크게
+// "저장 완료!" 팝업을 잠깐 띄웁니다.
+function showSaveConfirm(name, isUpdate){
+  let el = document.getElementById('saveConfirmEl');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'saveConfirmEl';
+    el.className = 'save-confirm';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div class="icon">✅</div><b>${name} ${isUpdate ? '수정 완료!' : '저장 완료!'}</b>`;
+  el.classList.remove('show');
+  void el.offsetWidth; // 재생 위해 강제 리플로우
+  el.classList.add('show');
+  clearTimeout(el._hideT);
+  el._hideT = setTimeout(()=> el.classList.remove('show'), 1450);
+}
+
+// ---------------------------------------------------------------- 캐릭터 카탈로그
+// prunnnn.com / saegchil.co.kr 에서 받은 실제 고고다이노 도안(로봇 모드).
+// 변신(차량) 모드 도안이 확보되면 vehicleSrc를 추가하면 자동으로 변신 버튼이 켜집니다.
+const CHARACTERS = [
+  {id:'rex',   name:'렉스',  src:'characters/rex.jpg',   vehicleSrc:'characters/rex_v.jpg'},
+  {id:'tomo',  name:'토모',  src:'characters/tomo.jpg',  vehicleSrc:'characters/tomo_v.jpg'},
+  {id:'vicky', name:'비키',  src:'characters/vicky.jpg', vehicleSrc:'characters/vicky_v.jpg'},
+  {id:'ping',  name:'핑',    src:'characters/ping.jpg'},
+  {id:'loki',  name:'로키',  src:'characters/loki.jpg'},
+  {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg'},
+  {id:'anki',  name:'안키',  src:'characters/anki.jpg'},
+  {id:'storm', name:'스톰',  src:'characters/storm.jpg'},
+];
+function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
+
+const PALETTE = [
+  '#ff2d55','#ff5c7a','#ff8fab','#ffb3c6',           // 빨강·핑크
+  '#ff9f43','#ffb347','#ffd58a',                     // 주황
+  '#ffe15a','#fff2a8','#f7d64c',                     // 노랑
+  '#8be24a','#5fbf5f','#2f9e56','#bff0a0',           // 초록
+  '#3ec6e0','#7fe0d0','#00c896',                     // 청록·민트
+  '#4a7bf7','#7aa8ff','#2453c4',                     // 파랑
+  '#a855f7','#c99bff','#7b3fb0',                     // 보라
+  '#7a5230','#c08552',                               // 갈색
+  '#2e2350','#6b6285',                                // 네이비
+  '#ffffff','#e6e6e6','#c0c0c0','#4a4a4a','#111111', // 무채색
+];
+
+// 문양: 이제 "작은 타일 하나"를 그려서 반복(repeat)되는 진짜 무늬 원단처럼 만듭니다.
+// 예전에는 영역의 가로세로 크기에 맞춰 하나의 그림을 늘려서 탭 한 번에 영역 전체를 채웠는데,
+// 그러면 영역 크기마다 무늬가 다르게 늘어나 보여 부자연스러웠습니다. 지금은 색칠과 완전히 같은
+// 크레용 붓질 방식으로 동작합니다 — 실제로 문지른 자리에만 무늬가 나타나고, 무늬 자체는
+// 항상 같은 간격으로 반복되는 자그마한 프린트 패턴이라 자연스럽게 이어집니다.
+function drawStarShape(ctx, cx, cy, outerR, innerR, points){
+  ctx.beginPath();
+  for(let i=0;i<points*2;i++){
+    const r = i%2===0 ? outerR : innerR;
+    const ang = i*Math.PI/points - Math.PI/2;
+    const x = cx + Math.cos(ang)*r, y = cy + Math.sin(ang)*r;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.closePath(); ctx.fill();
+}
+const PATTERNS = [
+  {id:'pat-pinkheart', label:'핑크하트', bg:'#ffd1e6', fg:'#e63950',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, topY=s*0.36;
+     ctx.fillStyle=this.fg; ctx.beginPath(); ctx.moveTo(cx, s*0.76);
+     ctx.bezierCurveTo(cx-s*0.32, s*0.5, cx-s*0.32, topY, cx, topY+s*0.1);
+     ctx.bezierCurveTo(cx+s*0.32, topY, cx+s*0.32, s*0.5, cx, s*0.76);
+     ctx.closePath(); ctx.fill(); }},
+  {id:'pat-skystar', label:'하늘별', bg:'#cdeaff', fg:'#ffcf3a',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg; drawStarShape(ctx, s*0.5, s*0.5, s*0.32, s*0.14, 5); }},
+  {id:'pat-mintleaf', label:'민트잎', bg:'#c7f5df', fg:'#2fae6e',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg; ctx.save(); ctx.translate(s*0.5,s*0.5); ctx.rotate(-0.5);
+     ctx.beginPath(); ctx.moveTo(0,-s*0.34);
+     ctx.bezierCurveTo(s*0.3,-s*0.1, s*0.3,s*0.22, 0,s*0.34);
+     ctx.bezierCurveTo(-s*0.3,s*0.22, -s*0.3,-s*0.1, 0,-s*0.34);
+     ctx.closePath(); ctx.fill(); ctx.restore(); }},
+  {id:'pat-dot', label:'물방울', bg:'#fff2c2', fg:'#ff9f43',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg; ctx.beginPath(); ctx.arc(s*0.5,s*0.5,s*0.22,0,Math.PI*2); ctx.fill(); }},
+  {id:'pat-stripe', label:'줄무늬', bg:'#e7f3ff', fg:'#4a7bf7',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.strokeStyle=this.fg; ctx.lineWidth=s*0.26; ctx.lineCap='butt';
+     for(let off=-s; off<=s*2; off+=s*0.5){
+       ctx.beginPath(); ctx.moveTo(off,-s*0.5); ctx.lineTo(off+s*1.5,s*1.5); ctx.stroke();
+     } }},
+  {id:'pat-check', label:'체크무늬', bg:'#fff2e0', fg:'#f0a53d',
+   draw(ctx,s){ const h=s/2; ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg; ctx.fillRect(0,0,h,h); ctx.fillRect(h,h,h,h); }},
+  {id:'pat-flower', label:'꽃무늬', bg:'#fff0f6', fg:'#ff8fb3',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, cy=s*0.5, pr=s*0.15, dist=s*0.17;
+     ctx.fillStyle=this.fg;
+     for(let i=0;i<5;i++){ const ang=i*(Math.PI*2/5)-Math.PI/2;
+       ctx.beginPath(); ctx.arc(cx+Math.cos(ang)*dist, cy+Math.sin(ang)*dist, pr, 0, Math.PI*2); ctx.fill(); }
+     ctx.fillStyle='#ffe15a'; ctx.beginPath(); ctx.arc(cx,cy,pr*0.75,0,Math.PI*2); ctx.fill(); }},
+  {id:'pat-night', label:'별밤', bg:'#2b2a5c', fg:'#ffe9a8',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg;
+     drawStarShape(ctx, s*0.26, s*0.28, s*0.09, s*0.04, 4);
+     drawStarShape(ctx, s*0.76, s*0.7, s*0.07, s*0.03, 4);
+     ctx.save();
+     ctx.beginPath(); ctx.arc(s*0.7, s*0.26, s*0.16, 0, Math.PI*2); ctx.fill();
+     ctx.globalCompositeOperation='destination-out';
+     ctx.beginPath(); ctx.arc(s*0.77, s*0.21, s*0.14, 0, Math.PI*2); ctx.fill();
+     ctx.restore(); }},
+  {id:'pat-rainbow', label:'무지개', bg:'#eaf6ff', fg:'#4a7bf7',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, cy=s*0.92;
+     [['#ff5c7a',s*0.36],['#ffd54f',s*0.27],['#5fbf5f',s*0.18]].forEach(([color,r])=>{
+       ctx.strokeStyle=color; ctx.lineWidth=s*0.08; ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI,0); ctx.stroke();
+     }); }},
+  {id:'pat-zigzag', label:'지그재그', bg:'#fff6e0', fg:'#f0a53d',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.strokeStyle=this.fg; ctx.lineWidth=s*0.11; ctx.lineJoin='miter'; ctx.lineCap='round';
+     const step=s/4;
+     ctx.beginPath(); ctx.moveTo(-step, s*0.62);
+     for(let x=-step, k=0; x<=s+step; x+=step, k++){ ctx.lineTo(x, k%2===0 ? s*0.38 : s*0.62); }
+     ctx.stroke(); }},
+  {id:'pat-paw', label:'발자국', bg:'#f3e3c8', fg:'#8a5a32',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg;
+     ctx.beginPath(); ctx.ellipse(s*0.5,s*0.62,s*0.19,s*0.15,0,0,Math.PI*2); ctx.fill();
+     [[-0.17,-0.18],[0,-0.26],[0.17,-0.18]].forEach(([dx,dy])=>{
+       ctx.beginPath(); ctx.arc(s*0.5+dx*s, s*0.5+dy*s, s*0.075, 0, Math.PI*2); ctx.fill(); }); }},
+  {id:'pat-argyle', label:'다이아무늬', bg:'#eef0ff', fg:'#7b3fb0',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg; ctx.save(); ctx.translate(s*0.5,s*0.5); ctx.rotate(Math.PI/4);
+     ctx.fillRect(-s*0.22,-s*0.22,s*0.44,s*0.44); ctx.restore(); }},
+  {id:'pat-honeycomb', label:'벌집무늬', bg:'#fff4d6', fg:'#e0a53d',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.strokeStyle=this.fg; ctx.lineWidth=s*0.06;
+     ctx.beginPath();
+     for(let i=0;i<6;i++){ const ang=i*Math.PI/3-Math.PI/2; const x=s*0.5+Math.cos(ang)*s*0.3, y=s*0.5+Math.sin(ang)*s*0.3;
+       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+     ctx.closePath(); ctx.stroke(); }},
+  {id:'pat-space', label:'우주별', bg:'#241f4d', fg:'#ffe9a8',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle='#8ec9ff'; ctx.beginPath(); ctx.arc(s*0.3,s*0.34,s*0.14,0,Math.PI*2); ctx.fill();
+     ctx.strokeStyle='#ffd58a'; ctx.lineWidth=s*0.035; ctx.save(); ctx.translate(s*0.3,s*0.34); ctx.rotate(-0.3);
+     ctx.beginPath(); ctx.ellipse(0,0,s*0.24,s*0.07,0,0,Math.PI*2); ctx.stroke(); ctx.restore();
+     ctx.fillStyle=this.fg;
+     drawStarShape(ctx, s*0.76, s*0.68, s*0.06, s*0.025, 4);
+     drawStarShape(ctx, s*0.82, s*0.22, s*0.05, s*0.02, 4); }},
+  {id:'pat-melon', label:'수박씨', bg:'#ffc2d1', fg:'#2e2350',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg;
+     [[0.3,0.3],[0.68,0.42],[0.42,0.68],[0.75,0.78]].forEach(([fx,fy],i)=>{
+       ctx.save(); ctx.translate(s*fx,s*fy); ctx.rotate(fx*3);
+       ctx.beginPath(); ctx.ellipse(0,0,s*0.045,s*0.09,0,0,Math.PI*2); ctx.fill();
+       ctx.restore(); }); }},
+  {id:'pat-confetti', label:'색종이', bg:'#fffaf0', fg:'#ff5c7a',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const colors=['#ff5c7a','#4a7bf7','#ffd54f','#8be24a','#a855f7'];
+     [[0.2,0.25],[0.62,0.18],[0.8,0.55],[0.3,0.7],[0.55,0.85]].forEach((p,i)=>{
+       ctx.fillStyle=colors[i%colors.length]; ctx.save(); ctx.translate(s*p[0], s*p[1]); ctx.rotate(i*0.9);
+       ctx.fillRect(-s*0.05,-s*0.03,s*0.1,s*0.06); ctx.restore(); }); }},
+];
+function findPattern(id){ return PATTERNS.find(p=>p.id===id); }
+
+const PATTERN_TILE_SIZE = 40; // 문양 타일 한 칸 크기(분석 해상도 px 기준) — 어느 영역에서든 같은 간격으로 반복됩니다.
+const patternTileCache = new Map();
+function getPatternTile(patternId){
+  if(patternTileCache.has(patternId)) return patternTileCache.get(patternId);
+  const pat = findPattern(patternId);
+  const tile = document.createElement('canvas');
+  tile.width = PATTERN_TILE_SIZE; tile.height = PATTERN_TILE_SIZE;
+  pat.draw(tile.getContext('2d'), PATTERN_TILE_SIZE);
+  const entry = { canvas: tile, dataURL: tile.toDataURL('image/png') };
+  patternTileCache.set(patternId, entry);
+  return entry;
+}
+
+// ---------------------------------------------------------------- 이미지 분석(영역 자동 분리)
+// JPG 라인아트를 불러와 "어두운 선 = 벽" 으로 보고, 벽으로 막히지 않은 영역들을
+// 연결요소 라벨링(flood fill)으로 전부 분리합니다. 이후에는 클릭한 픽셀의 라벨만
+// 조회하면 되므로, 어떤 모양이든(직선이든 복잡한 로봇 부품이든) 항상 정확한 경계를 지킵니다.
+const analysisCache = {};
+
+function loadImage(src){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function loadAndAnalyze(defId, src){
+  if(analysisCache[defId]) return analysisCache[defId];
+  const img = await loadImage(src);
+  const maxDim = 560;
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width*scale));
+  const h = Math.max(1, Math.round(img.height*scale));
+  const lineCanvas = document.createElement('canvas');
+  lineCanvas.width = w; lineCanvas.height = h;
+  const lctx = lineCanvas.getContext('2d', {willReadFrequently:true});
+  lctx.fillStyle = '#ffffff'; lctx.fillRect(0,0,w,h);
+  lctx.drawImage(img,0,0,w,h);
+
+  const imageData = lctx.getImageData(0,0,w,h);
+  const data = imageData.data;
+  const THRESH = 180;
+  const wall = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++){
+    const lum = (data[i*4]+data[i*4+1]+data[i*4+2])/3;
+    if(lum < THRESH){
+      wall[i] = 1;
+    } else {
+      wall[i] = 0;
+      // 원본 JPG는 압축 잡티/미세한 톤 차이 때문에 "흰 배경"이라도 완전한 255가 아닐 수
+      // 있습니다. 이 배경 위에 나중에 고른 색을 'multiply'로 겹치면 그 잡티만큼 색이
+      // 칙칙하고 어둡게 보이고, 색깔 고르기 스와치와도 미묘하게 달라 보였습니다.
+      // 여기서 선(=wall) 밖의 모든 픽셀을 완전한 흰색(255,255,255)으로 고정해서, 이후
+      // multiply 합성 시 고른 색이 항상 스와치 색 그대로 보이도록 만듭니다.
+      data[i*4] = 255; data[i*4+1] = 255; data[i*4+2] = 255;
+    }
+  }
+  lctx.putImageData(imageData, 0, 0);
+
+  const labelMap = new Int32Array(w*h).fill(-2);
+  for(let i=0;i<w*h;i++) if(wall[i]) labelMap[i] = -1;
+  let nextLabel = 0;
+  const stack = [];
+  for(let start=0; start<w*h; start++){
+    if(labelMap[start] !== -2) continue;
+    const label = nextLabel++;
+    labelMap[start] = label; stack.push(start);
+    while(stack.length){
+      const cur = stack.pop();
+      const cx = cur % w, cy = (cur / w) | 0;
+      if(cx>0 && labelMap[cur-1]===-2){ labelMap[cur-1]=label; stack.push(cur-1); }
+      if(cx<w-1 && labelMap[cur+1]===-2){ labelMap[cur+1]=label; stack.push(cur+1); }
+      if(cy>0 && labelMap[cur-w]===-2){ labelMap[cur-w]=label; stack.push(cur-w); }
+      if(cy<h-1 && labelMap[cur+w]===-2){ labelMap[cur+w]=label; stack.push(cur+w); }
+    }
+  }
+  const bgLabel = labelMap[0]; // 좌상단은 항상 캐릭터 바깥 배경이라고 가정
+
+  const analysis = {w, h, labelMap, lineCanvas, bgLabel, regionCount: nextLabel, maskCache: new Map()};
+  analysisCache[defId] = analysis;
+  return analysis;
+}
+
+// 라벨(영역) 하나의 알파마스크+바운딩박스를 만들어서 캐시해둡니다. 도형이 바뀌지 않는 한
+// 같은 캐릭터를 다시 열어도 재사용되므로, 매 붓질마다 새로 스캔하지 않습니다.
+function getRegionMask(analysis, label){
+  if(analysis.maskCache.has(label)) return analysis.maskCache.get(label);
+  const { w, h, labelMap } = analysis;
+  let x0=w, y0=h, x1=-1, y1=-1;
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w; maskCanvas.height = h;
+  const mctx = maskCanvas.getContext('2d');
+  const imgData = mctx.createImageData(w, h);
+  for(let i=0;i<w*h;i++){
+    if(labelMap[i]===label){
+      imgData.data[i*4+3] = 255;
+      const x = i % w, y = (i / w) | 0;
+      if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
+    }
+  }
+  mctx.putImageData(imgData, 0, 0);
+  const entry = (x1<0) ? null : { maskCanvas, x0, y0, w:(x1-x0+1), h:(y1-y0+1) };
+  analysis.maskCache.set(label, entry);
+  return entry;
+}
+
+// 캐릭터 "실루엣" 마스크: 배경 라벨(bgLabel)이 아닌 모든 픽셀(선 + 안쪽 영역 전부)을 불투명으로,
+// 종이 바깥 여백은 투명으로 만듭니다. 필드/갤러리에 내보낼 때 하얀 여백이 같이 나가지 않도록 잘라내는 용도.
+function getSilhouetteMask(analysis){
+  if(analysis.silhouetteMask) return analysis.silhouetteMask;
+  const { w, h, labelMap, bgLabel } = analysis;
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w; maskCanvas.height = h;
+  const mctx = maskCanvas.getContext('2d');
+  const imgData = mctx.createImageData(w, h);
+  for(let i=0;i<w*h;i++){
+    imgData.data[i*4+3] = (labelMap[i]===bgLabel) ? 0 : 255;
+  }
+  mctx.putImageData(imgData, 0, 0);
+  analysis.silhouetteMask = maskCanvas;
+  return maskCanvas;
+}
+
+// ---------------------------------------------------------------- 색칠 상태 + 렌더링
+// 색깔이든 문양이든 "coloring pages" 류 앱처럼 실제 크레용/도장으로 문지르듯 붓 자국이
+// 쌓이는 방식으로 완전히 동일하게 동작합니다 (탭 한 번으로 영역 전체가 채워지지 않습니다).
+// 문양을 고르면 색 대신 반복되는 작은 무늬 타일이 붓 자국을 따라 나타납니다.
+const BRUSH_RADIUS = 20; // 분석 해상도(가로 최대 560px) 기준 크레용 굵기
+
+let currentChar = null;      // {defId, paintCanvas} - paintCanvas는 지금까지 칠한 것이 누적되는 레이어
+let currentAnalysis = null;
+let currentTool = {type:'color', value:PALETTE[0]};
+let savedCharacters = [];    // {uid, defId, name, image(dataURL)}
+let fieldFriends = {forest:[], ocean:[], desert:[]};
+let currentField = 'forest';
+
+function go(id){
+  if(id !== 'screen-field' && typeof stopFieldAnim === 'function') stopFieldAnim();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function renderCharGrid(){
+  const grid = document.getElementById('charGrid');
+  grid.innerHTML = CHARACTERS.map(ch=>`
+    <div class="char-thumb" data-char="${ch.id}">
+      <img src="${ch.src}" alt="${ch.name}">
+      <span>${ch.name}</span>
+    </div>`).join('');
+  grid.querySelectorAll('.char-thumb').forEach(el=>{
+    el.addEventListener('click', ()=> startColoring(getDef(el.dataset.char)));
+  });
+}
+
+function blankPaintCanvas(analysis){
+  const c = document.createElement('canvas');
+  c.width = analysis.w; c.height = analysis.h;
+  return c;
+}
+
+// resumeSnap을 넘기면 예전에 저장했던 붓칠 레이어를 그대로 복원해서 "이어서 칠하기"가 됩니다.
+// (저장은 나중에 앱이 꺼져도 유지되도록 localStorage에도 함께 저장됩니다 - persistState 참고)
+async function startColoring(def, resumeSnap){
+  document.getElementById('colorTitle').textContent = def.name + (resumeSnap ? ' 이어서 칠하기' : ' 색칠하기');
+  const hasVehicle = !!def.vehicleSrc;
+  document.getElementById('transformBtn').style.display = hasVehicle ? '' : 'none';
+  renderColorRow();
+  renderPatternRow();
+  go('screen-color');
+  const host = document.getElementById('svgHost');
+  host.innerHTML = '<div class="loading-box">불러오는 중... 🦖</div>';
+
+  const baseAnalysis = await loadAndAnalyze(def.id + '_base', def.src);
+  const baseCanvas = blankPaintCanvas(baseAnalysis);
+  if(resumeSnap && resumeSnap.paintData && resumeSnap.paintData.base){
+    const img = await loadImage(resumeSnap.paintData.base);
+    baseCanvas.getContext('2d').drawImage(img, 0, 0);
+  }
+  const forms = { base: { analysis: baseAnalysis, paintCanvas: baseCanvas } };
+  if(hasVehicle){
+    const vAnalysis = await loadAndAnalyze(def.id + '_vehicle', def.vehicleSrc);
+    const vCanvas = blankPaintCanvas(vAnalysis);
+    if(resumeSnap && resumeSnap.paintData && resumeSnap.paintData.vehicle){
+      const vImg = await loadImage(resumeSnap.paintData.vehicle);
+      vCanvas.getContext('2d').drawImage(vImg, 0, 0);
+    }
+    forms.vehicle = { analysis: vAnalysis, paintCanvas: vCanvas };
+  }
+
+  currentChar = { defId: def.id, currentForm: 'base', forms, paintCanvas: forms.base.paintCanvas, editingUid: resumeSnap ? resumeSnap.uid : null };
+  currentAnalysis = forms.base.analysis;
+  mountColorCanvas();
+  renderColorCanvas();
+}
+
+function mountColorCanvas(){
+  const host = document.getElementById('svgHost');
+  host.innerHTML = '<canvas id="colorCanvasEl"></canvas>';
+  const canvas = document.getElementById('colorCanvasEl');
+  canvas.width = currentAnalysis.w;
+  canvas.height = currentAnalysis.h;
+  attachDragPaint(canvas);
+}
+
+// 화면 갱신: 지금까지 누적된 붓칠 레이어 위에 원본 선화를 'multiply'로 얹어서
+// 선은 항상 또렷하게 살아있고, 흰 배경 자리에만 칠한 색이 비쳐 보이게 합니다.
+function renderColorCanvas(){
+  const { w, h, lineCanvas } = currentAnalysis;
+  const canvas = document.getElementById('colorCanvasEl');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(currentChar.paintCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(lineCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// 한 붓질 구간(이전 점 -> 지금 점)을 그려서, 잠긴 영역의 마스크로 잘라낸 뒤
+// 누적 레이어(paintCanvas)에 얹습니다. 마스크가 그 영역의 실제 모양 그대로라서
+// 손가락이 아무리 빨리 움직여도 outline 밖으로는 색이 절대 나갈 수 없습니다.
+function stampStroke(label, x0, y0, x1, y1, tool){
+  const region = getRegionMask(currentAnalysis, label);
+  if(!region) return;
+  const { w, h } = currentAnalysis;
+  const stroke = document.createElement('canvas');
+  stroke.width = w; stroke.height = h;
+  const sctx = stroke.getContext('2d');
+  // 문양 도구는 색 대신 반복 타일(CanvasPattern)을 붓 자국의 페인트 소스로 사용합니다.
+  // 그 외에는 색칠과 완전히 동일한 붓질 로직입니다.
+  const paintSource = tool.type === 'pattern' ? sctx.createPattern(getPatternTile(tool.value).canvas, 'repeat') : tool.value;
+  sctx.fillStyle = paintSource;
+  sctx.strokeStyle = paintSource;
+  sctx.lineWidth = BRUSH_RADIUS*2;
+  sctx.lineCap = 'round'; sctx.lineJoin = 'round';
+  sctx.beginPath();
+  sctx.arc(x0,y0,BRUSH_RADIUS,0,Math.PI*2); sctx.fill();
+  if(x0!==x1 || y0!==y1){
+    sctx.beginPath(); sctx.moveTo(x0,y0); sctx.lineTo(x1,y1); sctx.stroke();
+  }
+  sctx.globalCompositeOperation = 'destination-in';
+  sctx.drawImage(region.maskCanvas, 0, 0);
+  sctx.globalCompositeOperation = 'source-over';
+  currentChar.paintCanvas.getContext('2d').drawImage(stroke, 0, 0);
+}
+
+// ---- 크레용 색칠: 이 터치 동안 "처음 닿은 영역 하나"에만 잠깁니다. 손가락이 그 영역
+// 밖으로 나가 다른 부위를 스치더라도(=드래그로 경계를 넘어가도) 절대 번지지 않고,
+// 손을 떼면 잠금이 풀립니다. 색깔이든 문양이든 동일하게 드래그로 계속 칠할 수 있습니다.
+function attachDragPaint(canvas){
+  let lockedLabel = null;
+  let lastX = null, lastY = null;
+
+  function pointAt(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    if(rect.width===0 || rect.height===0) return null;
+    const x = (clientX - rect.left) / rect.width * currentAnalysis.w;
+    const y = (clientY - rect.top) / rect.height * currentAnalysis.h;
+    if(x<0||y<0||x>=currentAnalysis.w||y>=currentAnalysis.h) return null;
+    const label = currentAnalysis.labelMap[Math.floor(y)*currentAnalysis.w + Math.floor(x)];
+    return {x, y, label};
+  }
+  function paintable(label){ return label!==null && label!==undefined && label!==-1 && label!==currentAnalysis.bgLabel; }
+
+  function begin(clientX, clientY){
+    const p = pointAt(clientX, clientY);
+    if(!p || !paintable(p.label)) return;
+    lockedLabel = p.label; lastX = p.x; lastY = p.y;
+    stampStroke(lockedLabel, p.x, p.y, p.x, p.y, currentTool);
+    renderColorCanvas();
+  }
+  function extend(clientX, clientY){
+    if(lockedLabel===null) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width * currentAnalysis.w;
+    const y = (clientY - rect.top) / rect.height * currentAnalysis.h;
+    stampStroke(lockedLabel, lastX, lastY, x, y, currentTool);
+    lastX = x; lastY = y;
+    renderColorCanvas();
+  }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    lockedLabel = null; lastX = null; lastY = null;
+    canvas.setPointerCapture(e.pointerId);
+    begin(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointermove', (e)=>{
+    if(e.buttons===0) return;
+    if(lockedLabel===null){ begin(e.clientX, e.clientY); return; } // 배경에서 눌렀다가 영역으로 들어온 경우
+    extend(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointerup', ()=>{ lockedLabel = null; lastX = null; lastY = null; });
+  canvas.addEventListener('pointercancel', ()=>{ lockedLabel = null; lastX = null; lastY = null; });
+}
+
+function renderColorRow(){
+  const row = document.getElementById('colorRow');
+  row.innerHTML = PALETTE.map((c,i)=>`<div class="swatch" style="background:${c}; animation-delay:${i*16}ms" data-color="${c}"></div>`).join('');
+  row.querySelectorAll('.swatch').forEach(el=>{
+    el.addEventListener('click', ()=> pickColor(el.dataset.color, el));
+    if(currentTool.type==='color' && currentTool.value===el.dataset.color) el.classList.add('active');
+  });
+}
+function renderPatternRow(){
+  const row = document.getElementById('patternRow');
+  row.innerHTML = PATTERNS.map((p,i)=>{
+    const tile = getPatternTile(p.id);
+    return `<div class="pat-swatch" title="${p.label}" style="background-image:url(${tile.dataURL}); background-size:18px 18px; animation-delay:${i*16}ms" data-pat="${p.id}"></div>`;
+  }).join('');
+  row.querySelectorAll('.pat-swatch').forEach(el=>{
+    el.addEventListener('click', ()=> pickPattern(el.dataset.pat, el));
+    if(currentTool.type==='pattern' && currentTool.value===el.dataset.pat) el.classList.add('active');
+  });
+}
+function pickColor(c, el){
+  currentTool = {type:'color', value:c};
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.pat-swatch').forEach(s=>s.classList.remove('active'));
+}
+function pickPattern(id, el){
+  currentTool = {type:'pattern', value:id};
+  document.querySelectorAll('.pat-swatch').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+}
+function toggleForm(){
+  if(!currentChar || !currentChar.forms.vehicle){
+    toast('이 캐릭터는 아직 변신 모드 도안이 없어요!');
+    return;
+  }
+  currentChar.currentForm = currentChar.currentForm==='base' ? 'vehicle' : 'base';
+  const f = currentChar.forms[currentChar.currentForm];
+  currentAnalysis = f.analysis;
+  currentChar.paintCanvas = f.paintCanvas;
+  mountColorCanvas();
+  renderColorCanvas();
+}
+function resetColors(){
+  currentChar.paintCanvas.getContext('2d').clearRect(0,0,currentChar.paintCanvas.width, currentChar.paintCanvas.height);
+  renderColorCanvas();
+}
+
+function snapshotForm(form){
+  const SNAP = 220;
+  const composed = document.createElement('canvas');
+  composed.width = form.analysis.w; composed.height = form.analysis.h;
+  const cctx = composed.getContext('2d');
+  cctx.fillStyle = '#ffffff'; cctx.fillRect(0,0,composed.width,composed.height);
+  cctx.drawImage(form.paintCanvas, 0, 0);
+  cctx.globalCompositeOperation = 'multiply';
+  cctx.drawImage(form.analysis.lineCanvas, 0, 0);
+  cctx.globalCompositeOperation = 'source-over';
+  // 종이 여백(캐릭터 바깥 배경)을 투명하게 잘라내서, 필드/갤러리에 네모난 흰 배경이 같이
+  // 나가지 않고 캐릭터 실루엣만 오려낸 스티커처럼 보이게 합니다.
+  cctx.globalCompositeOperation = 'destination-in';
+  cctx.drawImage(getSilhouetteMask(form.analysis), 0, 0);
+  cctx.globalCompositeOperation = 'source-over';
+
+  const snapCanvas = document.createElement('canvas');
+  snapCanvas.width = SNAP; snapCanvas.height = SNAP;
+  const sctx = snapCanvas.getContext('2d');
+  const scale = Math.min(SNAP/composed.width, SNAP/composed.height);
+  const dw = composed.width*scale, dh = composed.height*scale;
+  sctx.drawImage(composed, (SNAP-dw)/2, (SNAP-dh)/2, dw, dh);
+  return snapCanvas.toDataURL('image/png');
+}
+
+function saveCharacter(){
+  const def = getDef(currentChar.defId);
+  const image = snapshotForm(currentChar.forms.base);
+  const vehicleImage = currentChar.forms.vehicle ? snapshotForm(currentChar.forms.vehicle) : null;
+  // 붓칠 레이어 자체(paintCanvas)도 그대로 저장해둬서, 나중에 "이어서 칠하기"로 다시 열었을 때
+  // 지금까지 칠한 자국을 픽셀 그대로 복원할 수 있게 합니다.
+  const paintData = {
+    base: currentChar.forms.base.paintCanvas.toDataURL('image/png'),
+    vehicle: currentChar.forms.vehicle ? currentChar.forms.vehicle.paintCanvas.toDataURL('image/png') : null,
+  };
+
+  if(currentChar.editingUid){
+    const idx = savedCharacters.findIndex(s=>s.uid===currentChar.editingUid);
+    if(idx>=0){
+      Object.assign(savedCharacters[idx], { image, vehicleImage, paintData });
+      persistState();
+      renderGalleryStrip();
+      showSaveConfirm(def.name, true);
+      goHomeAfterSave();
+      return;
+    }
+  }
+  const uid = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
+  savedCharacters.push({ uid, defId: currentChar.defId, name: def.name, image, vehicleImage, paintData });
+  currentChar.editingUid = uid; // 같은 세션에서 다시 저장하면 새로 만들지 않고 덮어씁니다.
+  persistState();
+  showSaveConfirm(def.name, false);
+  goHomeAfterSave();
+}
+
+// 저장 완료 표시("✅ 저장 완료!")가 잠깐 보인 다음, 자연스럽게 메인 화면으로 돌아갑니다.
+function goHomeAfterSave(){
+  setTimeout(()=>{ go('screen-home'); }, 900);
+}
+
+let downloadsApi = null;
+if (window.claude && window.claude.use) {
+  window.claude.use('downloads').then(api => { downloadsApi = api; });
+}
+
+function exportPNG(){
+  const canvas = document.getElementById('colorCanvasEl');
+  canvas.toBlob(async (blob)=>{
+    if(!downloadsApi){ toast('이 미리보기에서는 내보내기가 지원되지 않아요.'); return; }
+    try{
+      await downloadsApi.save({ filename: 'gogodino_' + Date.now() + '.png', data: blob });
+      toast('🖼️ 갤러리에 저장됐어요!');
+    }catch(e){
+      if(e && e.code==='declined') return;
+      toast('내보내기에 실패했어요.');
+    }
+  }, 'image/png');
+}
+
+// ---------------------------------------------------------------- 필드(숲/바다/사막)
+const FIELD_TITLES = {forest:'🌲 숲속', ocean:'🌊 바닷속', desert:'🏜️ 사막'};
+
+const FIELD_DECOR = {
+  forest: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
+    <defs>
+      <linearGradient id="skyF" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#a9def9"/><stop offset="65%" stop-color="#d9f3ff"/><stop offset="100%" stop-color="#fff3d6"/>
+      </linearGradient>
+      <radialGradient id="sunF" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff8de" stop-opacity="1"/><stop offset="55%" stop-color="#ffe9a8" stop-opacity=".75"/><stop offset="100%" stop-color="#ffe9a8" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="groundF" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8ed67f"/><stop offset="40%" stop-color="#4fae5f"/><stop offset="100%" stop-color="#245c31"/>
+      </linearGradient>
+      <symbol id="pineTree" viewBox="0 0 60 100">
+        <ellipse cx="30" cy="97" rx="20" ry="5" fill="#1f4d2a" opacity=".35"/>
+        <rect x="25" y="74" width="10" height="24" rx="2" fill="#8a5a32"/>
+        <path d="M30,0 L52,42 L8,42 Z" fill="#2f8a4a"/>
+        <path d="M30,18 L56,60 L4,60 Z" fill="#358f4f"/>
+        <path d="M30,36 L60,82 L0,82 Z" fill="#3c9958"/>
+      </symbol>
+      <symbol id="roundTree" viewBox="0 0 70 100">
+        <ellipse cx="35" cy="97" rx="22" ry="5" fill="#1f4d2a" opacity=".35"/>
+        <rect x="31" y="66" width="8" height="28" rx="2" fill="#8a5a32"/>
+        <circle cx="35" cy="42" r="27" fill="#3c9958"/>
+        <circle cx="16" cy="52" r="18" fill="#358f4f"/>
+        <circle cx="54" cy="52" r="18" fill="#358f4f"/>
+        <circle cx="27" cy="32" r="10" fill="#5fbf76" opacity=".7"/>
+      </symbol>
+    </defs>
+    <rect x="0" y="0" width="800" height="440" fill="url(#skyF)"/>
+    <circle cx="676" cy="70" r="58" fill="url(#sunF)"/>
+    <circle cx="676" cy="70" r="27" fill="#ffe9a8"/>
+    <g class="cloud" style="animation:driftCloud 42s linear infinite alternate;">
+      <ellipse cx="150" cy="58" rx="46" ry="19" fill="#fff" opacity=".9"/>
+      <ellipse cx="188" cy="48" rx="32" ry="15" fill="#fff" opacity=".9"/>
+    </g>
+    <g class="cloud" style="animation:driftCloud 58s linear infinite alternate; animation-delay:-22s;">
+      <ellipse cx="430" cy="42" rx="36" ry="15" fill="#fff" opacity=".8"/>
+    </g>
+    <!-- 예전에는 지평선 위로 반투명한 연두색 "물결" 모양이 하늘색과 섞여서 마치 바다처럼
+         보이는 문제가 있었습니다. 그래서 땅을 하나의 완만한(물결치지 않는) 곡선으로 된
+         불투명한 초록 덩어리로 먼저 그리고, 밝고 어두운 초록 띠는 그 안쪽에서만(지평선보다
+         한참 아래에서 시작하도록) 겹쳐서 하늘색이 비쳐 보이지 않도록 고쳤습니다. -->
+    <path d="M0,266 Q200,250 400,262 T800,258 L800,440 L0,440 Z" fill="url(#groundF)"/>
+    <path d="M0,300 Q200,286 400,296 T800,292 L800,440 L0,440 Z" fill="#6bc178" opacity=".4"/>
+    <path d="M0,332 Q200,320 400,328 T800,324 L800,440 L0,440 Z" fill="#2c5f37" opacity=".3"/>
+    <g opacity=".55" stroke="#1f6b34" stroke-width="3" stroke-linecap="round">
+      <path d="M40,310 q4,-14 8,0"/><path d="M70,320 q4,-16 8,0"/><path d="M540,318 q4,-15 8,0"/>
+      <path d="M760,312 q4,-14 8,0"/><path d="M300,326 q4,-14 8,0"/><path d="M460,332 q4,-15 8,0"/>
+    </g>
+    <use href="#pineTree" x="4" y="176" width="66" height="110"/>
+    <use href="#roundTree" x="68" y="196" width="60" height="96"/>
+    <use href="#pineTree" x="128" y="210" width="52" height="88"/>
+    <use href="#pineTree" x="612" y="192" width="58" height="102"/>
+    <use href="#roundTree" x="666" y="206" width="56" height="92"/>
+    <use href="#pineTree" x="726" y="184" width="66" height="110"/>
+    <g class="firefly" style="animation:twinkleFly 2.6s ease-in-out infinite;"><circle cx="250" cy="230" r="3.4" fill="#fff6b0"/></g>
+    <g class="firefly" style="animation:twinkleFly 3.2s ease-in-out infinite; animation-delay:-1.1s;"><circle cx="470" cy="250" r="3" fill="#fff6b0"/></g>
+    <g class="firefly" style="animation:twinkleFly 2.9s ease-in-out infinite; animation-delay:-.5s;"><circle cx="360" cy="210" r="2.6" fill="#fff6b0"/></g>
+    <g transform="translate(0,60)"><g style="animation:flyAcrossR 14s linear infinite;">
+      <path class="bird" style="animation:wingFlap .45s ease-in-out infinite;" d="M-11,0 Q-5,-7 0,0 Q5,-7 11,0" stroke="#3a2f1a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    </g></g>
+    <g transform="translate(0,92)"><g style="animation:flyAcrossL 19s linear infinite; animation-delay:-6s;">
+      <path class="bird" style="animation:wingFlap .5s ease-in-out infinite; animation-delay:-.2s;" d="M-9,0 Q-4,-6 0,0 Q4,-6 9,0" stroke="#3a2f1a" stroke-width="2.3" fill="none" stroke-linecap="round"/>
+    </g></g>
+    <!-- 토끼는 굴(구멍) 바로 위에 정확히 겹치도록 같은 x,y에 그려서, 굴 속에서 통통 튀어나오는
+         것처럼 보이게 했습니다(예전엔 굴과 토끼 좌표가 서로 달라서 따로 노는 것처럼 보였음). -->
+    <g transform="translate(112,304)">
+      <ellipse cx="0" cy="4" rx="16" ry="6" fill="#2a5b34" opacity=".55"/>
+      <g class="critter" style="animation:hopCritter 1.15s ease-in-out infinite;">
+        <ellipse cx="0" cy="2" rx="11" ry="7.5" fill="#f2e9da"/>
+        <ellipse cx="-5" cy="-11" rx="2.6" ry="9" fill="#f2e9da"/><ellipse cx="4" cy="-12" rx="2.6" ry="9" fill="#f2e9da"/>
+        <ellipse cx="-5" cy="-10" rx="1.1" ry="5.5" fill="#ffb3c6"/><ellipse cx="4" cy="-11" rx="1.1" ry="5.5" fill="#ffb3c6"/>
+        <circle cx="4" cy="0" r="1.3" fill="#2e2350"/>
+      </g>
+    </g>
+    <g transform="translate(588,308)">
+      <ellipse cx="0" cy="4" rx="14" ry="5.5" fill="#2a5b34" opacity=".55"/>
+      <g class="critter" style="animation:hopCritter 1.4s ease-in-out infinite; animation-delay:-.5s;">
+        <ellipse cx="0" cy="2" rx="9" ry="6.2" fill="#c9a876"/>
+        <ellipse cx="-4" cy="-9" rx="2.2" ry="7" fill="#c9a876"/><ellipse cx="3" cy="-10" rx="2.2" ry="7" fill="#c9a876"/>
+        <circle cx="3" cy="0" r="1.1" fill="#2e2350"/>
+      </g>
+    </g>
+    <!-- 다람쥐: 나무 밑동에 앉아 살짝살짝 까닥거림 -->
+    <g transform="translate(430,304)"><g class="critter" style="animation:idleBob 1.6s ease-in-out infinite;">
+      <ellipse cx="0" cy="0" rx="8" ry="7" fill="#b5732f"/>
+      <path d="M6,-2 Q20,-12 12,6 Q22,4 16,14 Q6,10 6,-2 Z" fill="#c98a45"/>
+      <ellipse cx="-4" cy="-8" rx="2" ry="4" fill="#b5732f"/>
+      <circle cx="-3" cy="-2" r="1.1" fill="#2e2350"/>
+    </g></g>
+    <!-- 아기 사슴: 숲 가장자리에 조용히 서있는 디테일 -->
+    <g transform="translate(500,296)">
+      <g stroke="#a9743f" stroke-width="3" stroke-linecap="round">
+        <path d="M-8,18 L-8,4"/><path d="M8,18 L8,4"/><path d="M-4,18 L-4,6"/><path d="M4,18 L4,6"/>
+      </g>
+      <ellipse cx="0" cy="0" rx="15" ry="10" fill="#c9986a"/>
+      <ellipse cx="-4" cy="4" rx="2.6" ry="2" fill="#fff6e8"/><ellipse cx="6" cy="-2" rx="2.4" ry="1.8" fill="#fff6e8"/>
+      <path d="M-14,-4 Q-22,-14 -16,-18" stroke="#a9743f" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <ellipse cx="-19" cy="-19" rx="6" ry="5" fill="#c9986a"/>
+      <ellipse cx="-24" cy="-24" rx="1.6" ry="3" fill="#c9986a"/><ellipse cx="-15" cy="-25" rx="1.6" ry="3" fill="#c9986a"/>
+      <circle cx="-21" cy="-19" r="1" fill="#2e2350"/>
+    </g>
+  </svg>`,
+  ocean: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
+    <defs>
+      <linearGradient id="skyO" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#dff5ff"/><stop offset="35%" stop-color="#7fd0e6"/><stop offset="70%" stop-color="#2fb8cf"/><stop offset="100%" stop-color="#0f4f63"/>
+      </linearGradient>
+      <linearGradient id="floorO" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#e7d3a0"/><stop offset="100%" stop-color="#c7a866"/>
+      </linearGradient>
+      <symbol id="coral" viewBox="0 0 60 70">
+        <path d="M30,70 L30,44" stroke="#e0517a" stroke-width="10" stroke-linecap="round"/>
+        <path d="M30,50 Q10,40 6,18" stroke="#ff7a9c" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <path d="M30,50 Q50,40 54,18" stroke="#ff7a9c" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <path d="M30,44 Q30,20 30,4" stroke="#ffa2b8" stroke-width="8" stroke-linecap="round" fill="none"/>
+      </symbol>
+    </defs>
+    <rect x="0" y="0" width="800" height="440" fill="url(#skyO)"/>
+    <g fill="#fff" opacity=".18">
+      <polygon points="120,0 200,0 90,440 40,440"/><polygon points="520,0 610,0 470,440 400,440"/>
+    </g>
+    <g fill="#fff" opacity=".45">
+      <circle class="bubble" style="animation:riseBubble 9s linear infinite;" cx="120" cy="380" r="7"/>
+      <circle class="bubble" style="animation:riseBubble 12s linear infinite; animation-delay:-4s;" cx="300" cy="400" r="5"/>
+      <circle class="bubble" style="animation:riseBubble 10s linear infinite; animation-delay:-7s;" cx="560" cy="390" r="9"/>
+      <circle class="bubble" style="animation:riseBubble 14s linear infinite; animation-delay:-2s;" cx="690" cy="410" r="6"/>
+      <circle class="bubble" style="animation:riseBubble 11s linear infinite; animation-delay:-9s;" cx="420" cy="405" r="5"/>
+    </g>
+    <g transform="translate(0,120)"><g style="animation:swimAcrossR 15s linear infinite;"><g class="fish" style="animation:swimFish 1.5s ease-in-out infinite;">
+      <ellipse cx="0" cy="0" rx="17" ry="9" fill="#ffb85e"/><polygon points="-17,-6 -29,0 -17,6" fill="#ffb85e"/><circle cx="8" cy="-2" r="1.8" fill="#2e2350"/>
+    </g></g></g>
+    <g transform="translate(0,168)"><g style="animation:swimAcrossL 18s linear infinite; animation-delay:-3s;"><g class="fish" style="animation:swimFish 1.7s ease-in-out infinite; animation-delay:-.4s;">
+      <ellipse cx="0" cy="0" rx="13" ry="7" fill="#ff8fa3"/><polygon points="13,-5 24,0 13,5" fill="#ff8fa3"/><circle cx="-6" cy="-2" r="1.5" fill="#2e2350"/>
+    </g></g></g>
+    <g transform="translate(0,208)"><g style="animation:swimAcrossR 21s linear infinite; animation-delay:-8s;"><g class="fish" style="animation:swimFish 1.9s ease-in-out infinite; animation-delay:-.9s;">
+      <ellipse cx="0" cy="0" rx="10" ry="6" fill="#a855f7"/><polygon points="-10,-4 -18,0 -10,4" fill="#a855f7"/><circle cx="5" cy="-1.5" r="1.3" fill="#2e2350"/>
+    </g></g></g>
+    <g transform="translate(0,148)"><g style="animation:swimAcrossL 17s linear infinite; animation-delay:-11s;"><g class="fish" style="animation:swimFish 1.4s ease-in-out infinite; animation-delay:-1.2s;">
+      <ellipse cx="0" cy="0" rx="15" ry="8" fill="#3ec6e0"/><polygon points="15,-6 26,0 15,6" fill="#3ec6e0"/><circle cx="-7" cy="-2" r="1.6" fill="#2e2350"/>
+    </g></g></g>
+    <g transform="translate(0,244)"><g style="animation:swimAcrossR 24s linear infinite; animation-delay:-5s;"><g class="fish" style="animation:swimFish 1.6s ease-in-out infinite; animation-delay:-.6s;">
+      <ellipse cx="0" cy="0" rx="9" ry="5" fill="#ffe15a"/><polygon points="-9,-3.5 -16,0 -9,3.5" fill="#ffe15a"/><circle cx="4.5" cy="-1.2" r="1.1" fill="#2e2350"/>
+    </g></g></g>
+    <g transform="translate(0,192)"><g style="animation:swimAcrossL 20s linear infinite; animation-delay:-14s;"><g class="fish" style="animation:swimFish 1.8s ease-in-out infinite; animation-delay:-1.5s;">
+      <ellipse cx="0" cy="0" rx="12" ry="6.5" fill="#00c896"/><polygon points="12,-5 22,0 12,5" fill="#00c896"/><circle cx="-6" cy="-1.8" r="1.4" fill="#2e2350"/>
+    </g></g></g>
+    <path d="M0,280 Q200,260 400,278 T800,272 L800,320 L0,320 Z" fill="#1f8a95" opacity=".45"/>
+    <rect x="0" y="292" width="800" height="148" fill="url(#floorO)"/>
+    <g fill="#b8975a" opacity=".7"><ellipse cx="90" cy="320" rx="34" ry="12"/><ellipse cx="700" cy="326" rx="40" ry="13"/></g>
+    <use href="#coral" x="40" y="252" width="56" height="66"/>
+    <use href="#coral" x="700" y="248" width="60" height="70"/>
+    <g fill="#ffce54" opacity=".9"><path d="M150,300 Q158,270 166,300 Z"/><path d="M614,300 Q624,264 634,300 Z"/></g>
+    <g stroke="#1f8a5a" stroke-width="8" fill="none" stroke-linecap="round">
+      <path class="weed" style="animation:swayWeed 4s ease-in-out infinite;" d="M400,300 Q410,260 400,220"/>
+      <path class="weed" style="animation:swayWeed 4.6s ease-in-out infinite; animation-delay:-1s;" d="M430,300 Q440,250 428,205"/>
+      <path class="weed" style="animation:swayWeed 3.6s ease-in-out infinite; animation-delay:-2s;" d="M370,300 Q364,255 375,215"/>
+      <path class="weed" style="animation:swayWeed 4.2s ease-in-out infinite; animation-delay:-1.6s;" d="M240,300 Q250,262 238,222"/>
+      <path class="weed" style="animation:swayWeed 3.9s ease-in-out infinite; animation-delay:-.8s;" d="M582,300 Q592,260 580,220"/>
+    </g>
+  </svg>`,
+  desert: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
+    <defs>
+      <linearGradient id="skyD" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffe9b8"/><stop offset="70%" stop-color="#ffdca0"/><stop offset="100%" stop-color="#fff3d6"/>
+      </linearGradient>
+      <radialGradient id="sunD" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff8de" stop-opacity="1"/><stop offset="60%" stop-color="#ffdd8a" stop-opacity=".7"/><stop offset="100%" stop-color="#ffdd8a" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="groundD" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f0c982"/><stop offset="45%" stop-color="#e0ad63"/><stop offset="100%" stop-color="#a9713a"/>
+      </linearGradient>
+      <symbol id="cactus" viewBox="0 0 60 100">
+        <ellipse cx="30" cy="97" rx="18" ry="5" fill="#7a4a26" opacity=".3"/>
+        <rect x="22" y="26" width="16" height="72" rx="8" fill="#3d8f52"/>
+        <path d="M22,52 q-16,0 -16,-18 q0,-8 8,-8 q8,0 8,8 z" fill="#3d8f52"/>
+        <path d="M38,40 q16,0 16,-16 q0,-8 -8,-8 q-8,0 -8,8 z" fill="#4aa860"/>
+        <g stroke="#2c7440" stroke-width="2" opacity=".6">
+          <path d="M27,32 L27,94"/><path d="M33,32 L33,94"/>
+        </g>
+      </symbol>
+    </defs>
+    <rect x="0" y="0" width="800" height="440" fill="url(#skyD)"/>
+    <circle cx="126" cy="78" r="56" fill="url(#sunD)"/>
+    <circle cx="126" cy="78" r="30" fill="#fff1c4"/>
+    <path d="M0,230 L80,230 L150,190 L230,230 L330,230 L400,196 L470,230 L620,230 L690,198 L760,230 L800,230 L800,270 L0,270 Z" fill="#e3ab6c" opacity=".55"/>
+    <path d="M0,258 Q150,220 300,253 T600,248 T800,238 L800,300 L0,300 Z" fill="#e0ad63" opacity=".85"/>
+    <rect x="0" y="270" width="800" height="170" fill="url(#groundD)"/>
+    <g stroke="#c9924f" stroke-width="3" fill="none" opacity=".55">
+      <path d="M0,320 Q200,308 400,322 T800,314"/>
+      <path d="M0,360 Q220,348 440,362 T800,352"/>
+    </g>
+    <use href="#cactus" x="94" y="196" width="52" height="98"/>
+    <use href="#cactus" x="636" y="204" width="48" height="92"/>
+    <g fill="#c88a4a" opacity=".85"><ellipse cx="250" cy="304" rx="28" ry="12"/><ellipse cx="560" cy="308" rx="36" ry="14"/></g>
+    <g fill="#b97a2a" opacity=".7"><ellipse cx="60" cy="316" rx="18" ry="8"/><ellipse cx="740" cy="320" rx="20" ry="9"/></g>
+    <g transform="translate(430,300)"><g style="animation:swayWeed 2.6s ease-in-out infinite;">
+      <ellipse cx="0" cy="0" rx="15" ry="5.5" fill="#6fae5a"/><circle cx="13" cy="-1.5" r="4.5" fill="#6fae5a"/>
+      <path d="M-15,0 Q-25,-5 -32,1" stroke="#6fae5a" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="15" cy="-3" r="0.9" fill="#2e2350"/>
+    </g></g>
+    <g transform="translate(0,64)"><g style="animation:flyAcrossR 20s linear infinite; animation-delay:-4s;">
+      <path class="bird" style="animation:wingFlap .5s ease-in-out infinite;" d="M-10,0 Q-4,-6 0,0 Q4,-6 10,0" stroke="#8a5a32" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </g></g>
+    <g transform="translate(0,318)"><g class="tumbleweed" style="animation:rollTumbleweed 8s linear infinite;">
+      <circle cx="0" cy="0" r="11" fill="none" stroke="#8a6a3a" stroke-width="2.4"/>
+      <path d="M-9,-5 L9,5 M-9,5 L9,-5 M-11,0 L11,0" stroke="#8a6a3a" stroke-width="1.8"/>
+    </g></g>
+  </svg>`,
+};
+
+let spriteIntervals = {}; // (예약: 변신 도안이 생기면 사용)
+
+// 필드 선택 화면에 각 필드의 실제 배경(작게 축소된 라이브 미리보기)을 썸네일로 보여줍니다.
+function renderFieldSelect(){
+  const grid = document.getElementById('fieldSelectGrid');
+  if(!grid) return;
+  grid.innerHTML = Object.keys(FIELD_TITLES).map(f=>`
+    <div class="field-card" data-field="${f}">
+      <div class="thumb">${FIELD_DECOR[f]}</div>
+      <div class="label">${FIELD_TITLES[f]}</div>
+    </div>`).join('');
+  grid.querySelectorAll('.field-card').forEach(el=>{
+    el.addEventListener('click', ()=> openField(el.dataset.field));
+  });
+}
+
+function isInField(field, uid){ return fieldFriends[field].some(f=>f.uid===uid); }
+
+function openField(field){
+  currentField = field;
+  document.getElementById('fieldTitle').textContent = FIELD_TITLES[field];
+  const sceneEl = document.getElementById('sceneEl');
+  sceneEl.className = 'scene ' + field;
+  sceneEl.innerHTML = `<div class="scene-deco">${FIELD_DECOR[field]}</div><button class="add-friend-btn" onclick="go('screen-charpick')">+ 친구 추가</button>`;
+  // renderScene()이 화면 세로 크기(sceneEl.clientHeight)를 재서 캐릭터 위치를 정하기
+  // 때문에, 화면이 아직 안 보이는(display:none) 상태에서 재면 항상 0이 나와 엉뚱한
+  // 기본값으로 배치되는 문제가 있었습니다. go()로 먼저 화면을 보이게 한 다음에 재야
+  // 실제 크기를 정확히 잴 수 있습니다.
+  go('screen-field');
+  renderScene();
+  renderGalleryStrip();
+}
+
+// 필드 애니메이션: 예전에는 CSS 키프레임에 translateX와 scaleX(-1)을 한 트랜스폼 안에
+// 같이 넣어서, 방향이 바뀔 때 브라우저가 두 트랜스폼을 행렬로 보간하며 캐릭터가 순간적으로
+// 납작해졌다가 뒤집히는 것처럼 보이는 부자연스러운 현상이 있었습니다.
+// 지금은 requestAnimationFrame으로 직접 위치를 계산해서, 이동(translateX/Y/rotate)은
+// 부드러운 사인 곡선(양 끝에서 자연스럽게 느려졌다 방향을 바꿈)으로, 좌우 반전은 방향이
+// 실제로 바뀌는 순간에만 "즉시" 스냅으로 적용해 보간 없이 자연스럽게 뒤돌아보게 했습니다.
+// 또한 변신 전(로봇)에는 걷는 듯한 통통 튀는 바운스를, 변신 후(차량)에는 더 빠르고 작은
+// 흔들림(서스펜션/바퀴 구르는 느낌)을 얹어 두 모드가 다르게 움직이는 것처럼 보이게 합니다.
+let fieldRAF = null;
+let fieldSprites = [];
+
+function fieldWaveTheta(tSec, period, phase){ return (tSec/period + phase) * Math.PI*2 - Math.PI/2; }
+function fieldWaveFrac(theta){ return (Math.sin(theta)+1)/2; }
+function fieldWaveDir(theta){ return Math.cos(theta) >= 0 ? 1 : -1; }
+
+const FIELD_WANDER_VARIANTS = [
+  { rangeFrac:0.42, rangeMax:380, period:9,  phase:0 },
+  { rangeFrac:0.42, rangeMax:380, period:11, phase:0.5 },
+  { rangeFrac:0.56, rangeMax:520, period:13, phase:0.22 },
+];
+
+function renderScene(){
+  const sceneEl = document.getElementById('sceneEl');
+  sceneEl.querySelectorAll('.sprite').forEach(s=>s.remove());
+  Object.values(spriteIntervals).forEach(clearInterval);
+  spriteIntervals = {};
+  fieldSprites = [];
+
+  const sceneW = sceneEl.clientWidth || 700;
+  const sceneH = sceneEl.clientHeight || 320;
+  // 여러 종류의 친구를 한 필드에 넣었을 때 서로 겹치지 않도록, 몇 개의 "레인(줄)"으로
+  // 나눠 순서대로 배치합니다. 같은 레인을 다시 쓸 때는 살짝 어긋나게 해서 너무 기계적으로
+  // 줄맞춤된 느낌이 나지 않게 했습니다.
+  // 예전엔 레인이 0.08~0.40(화면 위쪽 40%) 안에만 몰려있어서, 캐릭터가 거의 다 화면
+  // 중간~위쪽에서만 돌아다니는 것처럼 보였습니다. 지금은 실제로 쓸 수 있는 세로 범위
+  // (위쪽 여백 ~ 캐릭터가 바닥 밖으로 안 잘리는 최대 지점) 전체를 고르게 나눠 써서,
+  // 화면 아래쪽까지 골고루 캐릭터가 보이게 했습니다.
+  const spriteBoxH = 164;
+  const usableTop = 6;
+  const usableBottom = Math.max(usableTop, sceneH - spriteBoxH - 8);
+  const Y_LANE_FRACS = [0.04, 0.28, 0.52, 0.76, 1.0, 0.16, 0.64];
+
+  fieldFriends[currentField].forEach((snap, i)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'sprite';
+    const laneFrac = Y_LANE_FRACS[i % Y_LANE_FRACS.length];
+    const cycleJitter = Math.floor(i / Y_LANE_FRACS.length) * 18;
+    const rawTop = usableTop + (usableBottom - usableTop) * laneFrac + cycleJitter;
+    wrap.style.top = Math.max(usableTop, Math.min(usableBottom, rawTop)) + 'px';
+    wrap.innerHTML = snap.vehicleImage
+      ? `<div class="sprite-inner"><img class="form-a" src="${snap.image}" alt="${snap.name}"><img class="form-b" style="opacity:0" src="${snap.vehicleImage}" alt="${snap.name} 변신"></div>`
+      : `<div class="sprite-inner"><img src="${snap.image}" alt="${snap.name}"></div>`;
+    sceneEl.appendChild(wrap);
+
+    const variant = FIELD_WANDER_VARIANTS[i % FIELD_WANDER_VARIANTS.length];
+    const range = Math.min(variant.rangeMax, sceneW * variant.rangeFrac);
+    const spriteState = {
+      uid: snap.uid, wrap, inner: wrap.querySelector('.sprite-inner'),
+      range, period: variant.period, phase: variant.phase + i*0.13,
+      facing: 1, showingVehicle: false, stepSeed: i*1.7
+    };
+    fieldSprites.push(spriteState);
+
+    if(snap.vehicleImage){
+      let isA = true;
+      spriteIntervals[snap.uid] = setInterval(()=>{
+        isA = !isA;
+        const inner = wrap.querySelector('.sprite-inner');
+        const a = wrap.querySelector('.form-a'), b = wrap.querySelector('.form-b');
+        if(!inner || !a || !b) return;
+        // 변신 연출: 반짝임 + 펀치 스케일/회전 + 확산 링, 화려하게 폼을 교체합니다.
+        inner.classList.remove('transforming');
+        void inner.offsetWidth; // 애니메이션 재시작을 위한 강제 리플로우
+        inner.classList.add('transforming');
+        const ring = document.createElement('div');
+        ring.className = 'shock-ring';
+        inner.appendChild(ring);
+        setTimeout(()=> ring.remove(), 700);
+        setTimeout(()=>{
+          a.style.opacity = isA ? 1 : 0;
+          b.style.opacity = isA ? 0 : 1;
+          spriteState.showingVehicle = !isA;
+        }, 360);
+      }, 4500 + i*733);
+    }
+  });
+  startFieldAnim();
+}
+
+function startFieldAnim(){
+  if(fieldRAF) cancelAnimationFrame(fieldRAF);
+  const t0 = performance.now();
+  function tick(now){
+    const t = (now - t0) / 1000;
+    fieldSprites.forEach(sp=>{
+      const theta = fieldWaveTheta(t, sp.period, sp.phase);
+      const x = fieldWaveFrac(theta) * sp.range;
+      const dir = fieldWaveDir(theta);
+      let bobY, rot;
+      if(sp.showingVehicle){
+        bobY = Math.sin(t*10 + sp.stepSeed) * 2;
+        rot = Math.sin(t*20 + sp.stepSeed) * 1.6;
+      } else {
+        bobY = Math.abs(Math.sin(t*6 + sp.stepSeed)) * -4;
+        rot = Math.sin(t*6 + sp.stepSeed) * 3;
+      }
+      sp.wrap.style.transform = `translateX(${x.toFixed(1)}px) translateY(${bobY.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+      if(dir !== sp.facing){
+        sp.facing = dir;
+        sp.inner.style.transform = dir < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+      }
+    });
+    fieldRAF = requestAnimationFrame(tick);
+  }
+  fieldRAF = requestAnimationFrame(tick);
+}
+
+function stopFieldAnim(){
+  if(fieldRAF){ cancelAnimationFrame(fieldRAF); fieldRAF = null; }
+}
+
+function renderGalleryStrip(){
+  const strip = document.getElementById('galleryStrip');
+  if(savedCharacters.length===0){
+    strip.innerHTML = '<div class="sub">아직 저장한 친구가 없어요. 색칠하기에서 저장해보세요!</div>';
+    return;
+  }
+  strip.innerHTML = savedCharacters.map(snap=>{
+    const inField = isInField(currentField, snap.uid);
+    return `
+    <div class="gallery-item">
+      <img src="${snap.image}" alt="${snap.name}">
+      <div class="name">${snap.name}</div>
+      <button class="pill ${inField?'danger':'alt'}" data-uid="${snap.uid}" data-action="${inField?'remove':'add'}">${inField?'✕ 빼기':'+ 필드'}</button>
+      <button class="pill ghost" data-edit-uid="${snap.uid}">✏️ 편집</button>
+    </div>`;
+  }).join('');
+  strip.querySelectorAll('button[data-uid]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const uid = btn.dataset.uid;
+      if(btn.dataset.action==='add') addFriendToField(uid); else removeFriendFromField(uid);
+    });
+  });
+  strip.querySelectorAll('button[data-edit-uid]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const snap = savedCharacters.find(s=>s.uid===btn.dataset.editUid);
+      const def = snap && getDef(snap.defId);
+      if(!def){ toast('원본 도안을 찾을 수 없어요.'); return; }
+      startColoring(def, snap);
+    });
+  });
+}
+
+function addFriendToField(uid){
+  if(isInField(currentField, uid)){ toast('이미 이 필드에 있어요!'); return; }
+  const snap = savedCharacters.find(s=>s.uid===uid);
+  if(!snap) return;
+  fieldFriends[currentField].push(snap);
+  renderScene();
+  renderGalleryStrip();
+  persistState();
+  toast(snap.name + ' 필드에 추가했어요!');
+}
+
+function removeFriendFromField(uid){
+  const snap = fieldFriends[currentField].find(f=>f.uid===uid);
+  if(spriteIntervals[uid]){ clearInterval(spriteIntervals[uid]); delete spriteIntervals[uid]; }
+  fieldFriends[currentField] = fieldFriends[currentField].filter(f=>f.uid!==uid);
+  renderScene();
+  renderGalleryStrip();
+  persistState();
+  if(snap) toast(snap.name + ' 필드에서 뺐어요.');
+}
+
+// ---------------------------------------------------------------- 저장(로컬 보관)
+// 색칠해서 저장한 친구들은 이 브라우저(이 기기)에 남아있어서, 창을 닫거나 앱을 다시 열어도
+// 그대로 이어집니다. 여러 화면(뷰어)이 공유하는 서버 저장이 아니라 "내 기기 안의 개인 보관함"
+// 개념이라 localStorage를 사용합니다 - 저장 공간이 없거나 막혀있는 환경에서도 앱은 정상 동작해야
+// 하므로 항상 try/catch로 감쌉니다.
+const GOGODINO_STORAGE_KEY = 'gogodino_saved_v1';
+function persistState(){
+  try{
+    const payload = {
+      savedCharacters,
+      fieldFriendUids: {
+        forest: fieldFriends.forest.map(f=>f.uid),
+        ocean: fieldFriends.ocean.map(f=>f.uid),
+        desert: fieldFriends.desert.map(f=>f.uid),
+      }
+    };
+    localStorage.setItem(GOGODINO_STORAGE_KEY, JSON.stringify(payload));
+  }catch(e){ /* 저장 공간이 없거나 접근이 막힌 경우 조용히 무시 (기기 하나에 대한 편의 기능이므로) */ }
+}
+function loadPersistedState(){
+  try{
+    const raw = localStorage.getItem(GOGODINO_STORAGE_KEY);
+    if(!raw) return;
+    const payload = JSON.parse(raw);
+    if(Array.isArray(payload.savedCharacters)) savedCharacters = payload.savedCharacters;
+    const uidMap = new Map(savedCharacters.map(s=>[s.uid, s]));
+    ['forest','ocean','desert'].forEach(f=>{
+      const uids = (payload.fieldFriendUids && payload.fieldFriendUids[f]) || [];
+      fieldFriends[f] = uids.map(u=>uidMap.get(u)).filter(Boolean);
+    });
+  }catch(e){ /* 저장된 데이터가 손상됐으면 무시하고 빈 상태로 시작 */ }
+}
+
+// ---------------------------------------------------------------- 트랙 모드 (Matter.js 물리 레이싱)
+// 저장할 때 변신(차량) 폼이 있던 친구만 달릴 수 있습니다. 실제 물리 엔진(Matter.js) 위에서
+// 차대+바퀴 두 개로 이루어진 차를 만들고, 사인파를 겹쳐 만든 구불구불한 언덕길 + 바위/상자
+// 장애물을 배치합니다. 고속으로 급경사나 장애물에 부딪히면 스크립트로 흉내낸 게 아니라
+// 실제 강체 충돌/회전으로 데굴데굴 구르고 튕겨 날아갑니다.
+let track = null;      // {engine, world, car, obstacles, vImg, cw, ch, dpr, startX, stuckFrames, resizeHandler, dust, camXSmooth, camYSmooth}
+let trackRAF = null;
+let trackDrivePower = 0; // -1(좌) ~ 1(우), 조이스틱을 당긴 정도에 비례 (키보드/버튼은 -1/0/1로 씀)
+const TRACK_WHEEL_SPEED = 0.62;
+// 트랙이 실제로 뻗어있는 범위(바닥/장애물이 깔려있는 x 최대값)보다 더 멀리 나가버리면
+// 바닥이 없는 허공으로 떨어지면서, 카메라가 떨어지는 차를 뒤쫓다가 잠깐 동안 화면이
+// 온통 하늘색으로 뒤덮이는("파란 물결이 아래에서부터 차오르는") 것처럼 보이는 문제가
+// 있었습니다. 트랙 자체를 훨씬 길게 늘려서 실제로 그 끝까지 도달하기 어렵게 만들고,
+// 혹시라도 끝까지 가더라도 더 못 나가게 부드럽게 막습니다(아래 applyTrackDriveInput 참고).
+const TRACK_WORLD_HALF = 6000;
+
+function openTrackPick(){
+  renderTrackPickGrid();
+  go('screen-trackpick');
+}
+
+function renderTrackPickGrid(){
+  const grid = document.getElementById('trackPickGrid');
+  const list = savedCharacters.filter(s=>s.vehicleImage);
+  if(list.length===0){
+    grid.innerHTML = '<div class="sub">변신 가능한 친구를 먼저 색칠하고 저장해주세요! (렉스·토모·비키·포키)</div>';
+    return;
+  }
+  grid.innerHTML = list.map(s=>`
+    <div class="char-thumb" data-uid="${s.uid}">
+      <img src="${s.vehicleImage}" alt="${s.name}">
+      <span>${s.name}</span>
+    </div>`).join('');
+  grid.querySelectorAll('.char-thumb').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const snap = list.find(s=>s.uid===el.dataset.uid);
+      if(snap) startTrack(snap);
+    });
+  });
+}
+
+// 지형 높낮이 함수: 출발점 주변은 평탄하고, 멀어질수록 여러 사인파가 겹쳐 굴곡이 커집니다.
+// 좌/우가 서로 다른 위상을 쓰기 때문에 왼쪽과 오른쪽 트랙 모양이 다릅니다.
+function trackGroundY(x){
+  const ax = Math.abs(x);
+  const flatEnd = 260;
+  const t = Math.max(0, ax - flatEnd);
+  const seed = x < 0 ? 2.3 : 0;
+  const raw = 480
+    + Math.sin(t/380 + seed) * 78
+    + Math.sin(t/150 + 1.4 + seed) * 34
+    + Math.sin(t/58 + 0.6 + seed) * 13;
+  const fade = Math.min(1, t/260);
+  return 480 + (raw - 480) * fade;
+}
+
+function buildTrackGround(world){
+  // 예전에는 구간(step)이 40px에 두께가 18px이라, 회전된 사각형 조각들이 이어지는
+  // 경사가 급한 지점에서 조각과 조각 사이에 미세한 틈이 생겨 바퀴가 그 틈으로
+  // "푹" 빠지는 버그가 있었습니다. 구간을 더 촘촘하게 나누고 두께를 훨씬 두껍게 해서
+  // 조각 사이 틈을 사실상 없애고, 빠르게 움직이는 바퀴가 얇은 바닥을 뚫고 지나가는
+  // 현상(터널링)도 함께 줄였습니다.
+  const step = 22, half = TRACK_WORLD_HALF, thickness = 60;
+  for(let x=-half; x<half; x+=step){
+    const x0=x, x1=x+step;
+    const y0=trackGroundY(x0), y1=trackGroundY(x1);
+    const cx=(x0+x1)/2, cy=(y0+y1)/2;
+    const len = Math.hypot(x1-x0, y1-y0) + 6;
+    const angle = Math.atan2(y1-y0, x1-x0);
+    const seg = Matter.Bodies.rectangle(cx, cy+thickness/2-2, len, thickness, {
+      isStatic:true, angle, friction:0.95, frictionStatic:1, label:'ground'
+    });
+    Matter.World.add(world, seg);
+  }
+}
+
+function buildTrackObstacles(world){
+  // 예전에는 바위/상자가 너무 커서(반지름 15~30, 한 변 30~48) 차가 아예 못 넘어가고 계속
+  // 튕겨 막히는 문제가 있었습니다. 크기를 확 줄이고 가볍게(밀도 낮춤) 만들어서 차가 밀고
+  // 지나가거나 살짝 넘어갈 수 있게 하고, 상자는 모서리를 둥글려(chamfer) 바퀴가 덜 걸리게 했습니다.
+  const obstacles = [];
+  const obstacleHalf = TRACK_WORLD_HALF - 100;
+  for(let x=-obstacleHalf; x<=obstacleHalf; x+=170){
+    if(Math.abs(x) < 320) continue;
+    if(Math.random() < 0.5) continue;
+    const gy = trackGroundY(x);
+    let body;
+    if(Math.random() < 0.5){
+      const r = 7 + Math.random()*7;
+      body = Matter.Bodies.circle(x, gy - r - 3, r, {
+        restitution:0.45, friction:0.55, density:0.0012, label:'obstacle'
+      });
+    } else {
+      const s = 15 + Math.random()*11;
+      body = Matter.Bodies.rectangle(x, gy - s/2 - 3, s, s, {
+        restitution:0.3, friction:0.6, density:0.0009, angle:(Math.random()-0.5)*0.5,
+        label:'obstacle', chamfer:{radius:Math.min(5, s*0.18)}
+      });
+      body.customSize = s;
+    }
+    Matter.World.add(world, body);
+    obstacles.push(body);
+  }
+  return obstacles;
+}
+
+function buildTrackCar(world, x, y){
+  // 바퀴(반지름)를 17 -> 24로 키웠습니다. 바퀴가 클수록 같은 크기의 장애물이 상대적으로
+  // 작아 보이는 효과라, 이전엔 자꾸 걸려서 못 넘어가던 자잘한 돌/상자를 이제 굴러서 그냥
+  // 타고 넘어갈 수 있습니다(현실의 오프로드 큰 바퀴와 같은 원리). 차체도 그 비율에 맞춰
+  // 함께 키워서 바퀴만 유독 커 보이지 않게 했습니다.
+  const group = Matter.Body.nextGroup(true);
+  const chassis = Matter.Bodies.rectangle(x, y-32, 112, 36, {
+    density:0.0018, friction:0.02, frictionAir:0.02, restitution:0.15,
+    collisionFilter:{group}, label:'chassis', chamfer:{radius:7}
+  });
+  const wheelOpts = { density:0.0032, friction:1, frictionAir:0.012, restitution:0.25, collisionFilter:{group}, label:'wheel' };
+  const wheelF = Matter.Bodies.circle(x+40, y-4, 24, wheelOpts);
+  const wheelR = Matter.Bodies.circle(x-40, y-4, 24, wheelOpts);
+  const axleF = Matter.Constraint.create({ bodyA:chassis, pointA:{x:40,y:26}, bodyB:wheelF, stiffness:0.5, damping:0.18, length:2 });
+  const axleR = Matter.Constraint.create({ bodyA:chassis, pointA:{x:-40,y:26}, bodyB:wheelR, stiffness:0.5, damping:0.18, length:2 });
+  Matter.World.add(world, [chassis, wheelF, wheelR, axleF, axleR]);
+  return { chassis, wheelF, wheelR, axleF, axleR };
+}
+
+// 차가 뒤집혀서 못 일어나면(플립) 자동으로 하늘 위에서 새 차를 다시 만들어 떨어뜨립니다.
+// (수동으로 "다시 출발" 버튼을 누를 필요 없이 자동 복구)
+function respawnCarInPlace(){
+  if(!track) return;
+  const { chassis, wheelF, wheelR, axleF, axleR } = track.car;
+  // 혹시라도 경계 밖(바닥이 없는 곳)에서 재출발하면 또 바로 떨어지므로, 항상 실제
+  // 바닥이 있는 안전한 범위 안으로 x좌표를 붙잡아서 다시 떨어뜨립니다.
+  const bound = TRACK_WORLD_HALF - 80;
+  const atX = Math.max(-bound, Math.min(bound, chassis.position.x));
+  Matter.World.remove(track.world, [chassis, wheelF, wheelR, axleF, axleR]);
+  const dropY = trackGroundY(atX) - 240; // 화면 위쪽에서 뚝 떨어지도록 지면보다 훨씬 높은 위치에서 재생성
+  track.car = buildTrackCar(track.world, atX, dropY);
+  track.groundContacts = 0;
+  track.flipFrames = 0;
+  trackToast('🔁 다시 출발!');
+}
+
+function stopTrack(){
+  if(trackRAF){ cancelAnimationFrame(trackRAF); trackRAF = null; }
+  if(track && track.resizeHandler) window.removeEventListener('resize', track.resizeHandler);
+  track = null;
+  trackDrivePower = 0;
+}
+
+function restartTrack(){
+  if(track && track.snap) startTrack(track.snap);
+}
+
+async function startTrack(snap){
+  stopTrack();
+  document.getElementById('trackTitle').textContent = snap.name + ' 트랙 모드';
+  go('screen-track');
+
+  const errEl = document.getElementById('trackError');
+  if(errEl) errEl.hidden = true;
+
+  // 물리 엔진(Matter.js) 스크립트 로드가 실패하면(네트워크 문제, 회사/공용 와이파이의
+  // 도메인 차단 등) Matter 전역 객체가 아예 없어서, 아래 코드가 조용히 실패하고
+  // 캔버스가 텅 빈 채로(하늘색 배경만) 남는 문제가 있었습니다. 이제는 미리 확인해서
+  // 사용자에게 분명한 안내 메시지를 보여줍니다.
+  if(typeof Matter === 'undefined'){
+    if(errEl) errEl.hidden = false;
+    trackToast('😥 물리 엔진 로드 실패');
+    return;
+  }
+
+  try{
+    const canvas = document.getElementById('trackCanvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    function fitCanvas(){
+      const rect = canvas.getBoundingClientRect();
+      track_cw = rect.width; track_ch = rect.height;
+      canvas.width = Math.max(1, Math.round(rect.width*dpr));
+      canvas.height = Math.max(1, Math.round(rect.height*dpr));
+      if(track){ track.cw = rect.width; track.ch = rect.height; track.dpr = dpr; }
+    }
+    let track_cw = 0, track_ch = 0;
+    fitCanvas();
+    const resizeHandler = ()=> fitCanvas();
+    window.addEventListener('resize', resizeHandler);
+
+    const engine = Matter.Engine.create();
+    engine.gravity.y = 1;
+    const world = engine.world;
+    buildTrackGround(world);
+    const obstacles = buildTrackObstacles(world);
+    const startY = trackGroundY(0);
+    const car = buildTrackCar(world, 0, startY);
+    const vImg = await loadImage(snap.vehicleImage);
+
+    track = {
+      engine, world, car, obstacles, vImg, snap,
+      cw: track_cw, ch: track_ch, dpr, startX: 0,
+      flipFrames: 0, groundContacts: 0, jumpCooldown: 0, resizeHandler,
+      dust: [], camXSmooth: null, camYSmooth: null
+    };
+
+    // 바퀴가 지면과 닿아있는지 세어서(점프는 땅에 붙어 있을 때만 가능) "접지 상태"를 판정합니다.
+    const isGroundPair = (a,b) => (a.label==='wheel' && b.label==='ground') || (b.label==='wheel' && a.label==='ground');
+    Matter.Events.on(engine, 'collisionStart', (evt)=>{
+      if(!track) return;
+      evt.pairs.forEach(p=>{ if(isGroundPair(p.bodyA, p.bodyB)) track.groundContacts++; });
+    });
+    Matter.Events.on(engine, 'collisionEnd', (evt)=>{
+      if(!track) return;
+      evt.pairs.forEach(p=>{ if(isGroundPair(p.bodyA, p.bodyB)) track.groundContacts = Math.max(0, track.groundContacts-1); });
+    });
+
+    trackDrivePower = 0;
+    trackRAF = requestAnimationFrame(trackTick);
+  }catch(e){
+    console.error('트랙 모드 초기화 실패:', e);
+    if(errEl) errEl.hidden = false;
+    trackToast('😥 트랙 로드 실패');
+  }
+}
+
+const TRACK_JUMP_VY = -13.5;
+const TRACK_JUMP_COOLDOWN = 22; // 프레임 단위 쿨다운(연속 점프 스팸 방지)
+
+function applyTrackDriveInput(){
+  if(!track) return;
+  let power = Math.max(-1, Math.min(1, trackDrivePower));
+  // 트랙 끝(바닥/장애물이 깔린 범위 밖)으로는 더 못 나가게 부드럽게 막습니다 - 그 너머는
+  // 바닥이 없는 허공이라, 여기 없이는 차가 떨어지면서 화면이 잠깐 하늘색으로 뒤덮이는
+  // 문제가 생깁니다. 안쪽으로 되돌아오는 방향은 그대로 두고, 바깥으로 더 가려는 입력만 막습니다.
+  const atX = track.car.chassis.position.x;
+  const edgeBuffer = 120;
+  if(atX > TRACK_WORLD_HALF - edgeBuffer && power > 0) power = 0;
+  if(atX < -(TRACK_WORLD_HALF - edgeBuffer) && power < 0) power = 0;
+  const target = TRACK_WHEEL_SPEED * power;
+  [track.car.wheelF, track.car.wheelR].forEach(w=>{
+    const next = w.angularVelocity + (target - w.angularVelocity) * 0.3;
+    Matter.Body.setAngularVelocity(w, next);
+  });
+}
+
+// 바퀴 그림을 없앤 대신, 땅에 붙어서 빠르게 달릴 때 뒷바퀴 쪽에서 흙먼지 입자를 뿜어
+// "실제로 굴러가는" 느낌을 줍니다.
+function spawnDustParticles(){
+  if(!track) return;
+  const { car } = track;
+  const speed = Math.hypot(car.chassis.velocity.x, car.chassis.velocity.y);
+  if(track.groundContacts <= 0 || speed < 1.4) return;
+  const movingRight = car.chassis.velocity.x >= 0;
+  const rear = movingRight ? car.wheelR : car.wheelF;
+  const dir = movingRight ? -1 : 1;
+  if(Math.random() < 0.65){
+    track.dust.push({
+      x: rear.position.x + dir*6 + (Math.random()-0.5)*6,
+      y: rear.position.y + 12 + (Math.random()-0.5)*4,
+      vx: dir*(0.5 + Math.random()*0.9),
+      vy: -0.5 - Math.random()*0.7,
+      life: 24 + Math.random()*10, maxLife: 34,
+      size: 3.5 + Math.random()*4.5
+    });
+  }
+}
+
+function updateDustParticles(){
+  if(!track) return;
+  track.dust.forEach(p=>{ p.x += p.vx; p.y += p.vy; p.vy += 0.015; p.vx *= 0.98; p.life--; });
+  if(track.dust.length) track.dust = track.dust.filter(p=>p.life > 0);
+}
+
+function drawDustParticles(ctx){
+  if(!track) return;
+  track.dust.forEach(p=>{
+    const a = Math.max(0, p.life/p.maxLife) * 0.45;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(214,199,168,${a})`;
+    ctx.fill();
+  });
+}
+
+function trackJump(){
+  if(!track) return;
+  if(track.jumpCooldown > 0) return;
+  if(track.groundContacts <= 0) return; // 공중에서는 점프 불가 - 바퀴가 땅에 닿아있을 때만
+  const { chassis, wheelF, wheelR } = track.car;
+  [chassis, wheelF, wheelR].forEach(b=>{
+    Matter.Body.setVelocity(b, { x:b.velocity.x, y:TRACK_JUMP_VY });
+  });
+  track.jumpCooldown = TRACK_JUMP_COOLDOWN;
+  trackToast('⤴️ 점프!');
+}
+
+function trackToast(msg){
+  const el = document.getElementById('trackToast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._hideT);
+  el._hideT = setTimeout(()=> el.classList.remove('show'), 2200);
+}
+
+// 트랙 끝(바닥/장애물이 깔린 범위) 밖으로 관성 때문에 살짝이라도 넘어가면, 그 너머는
+// 정말 아무것도 없는 허공이라 차가 끝없이 떨어지고, 다시 태어나도(안전망 재출발) 같은
+// 자리에 놓이면 또 떨어지는 무한 낙하 루프에 빠졌습니다. 입력만 막는 것으로는 관성을
+// 못 막아서, 매 프레임 위치 자체를 직접 확인해서 절대 경계 밖으로 못 나가게 붙잡습니다
+// (차체+바퀴를 통째로 같이 옮겨서 축 구조가 어긋나지 않게 합니다).
+function clampCarToWorld(){
+  if(!track) return;
+  const bound = TRACK_WORLD_HALF - 80;
+  const { chassis, wheelF, wheelR } = track.car;
+  const x = chassis.position.x;
+  if(Math.abs(x) <= bound) return;
+  const dir = Math.sign(x);
+  const shift = dir*bound - x;
+  [chassis, wheelF, wheelR].forEach(b=>{
+    Matter.Body.setPosition(b, { x: b.position.x + shift, y: b.position.y });
+    if((dir>0 && b.velocity.x>0) || (dir<0 && b.velocity.x<0)){
+      Matter.Body.setVelocity(b, { x:0, y:b.velocity.y });
+    }
+  });
+}
+
+function trackTick(){
+  if(!track) return;
+  applyTrackDriveInput();
+  // 한 프레임(1000/60ms)을 통째로 한 번에 시뮬레이션하면, 빠르게 떨어지거나 달리는
+  // 순간에 바퀴가 얇은 바닥을 미처 못 보고 뚫고 지나가(터널링) "땅으로 푹 꺼지는"
+  // 현상이 생길 수 있습니다. 같은 시간을 더 작은 두 번의 스텝으로 나눠서 계산하면
+  // 충돌 검사가 더 촘촘해져서 이런 터널링이 훨씬 줄어듭니다.
+  Matter.Engine.update(track.engine, 500/60);
+  Matter.Engine.update(track.engine, 500/60);
+  clampCarToWorld();
+  if(track.jumpCooldown > 0) track.jumpCooldown--;
+  spawnDustParticles();
+  updateDustParticles();
+
+  // 뒤집힘 자동 복구: 차체가 거의 뒤집힌 각도(대략 115도 이상 기운 상태)로 한동안
+  // 회복하지 못하면, 사용자가 버튼을 누르지 않아도 자동으로 하늘에서 새 차가 떨어집니다.
+  const angleNorm = Math.atan2(Math.sin(track.car.chassis.angle), Math.cos(track.car.chassis.angle));
+  const flippedOver = Math.abs(angleNorm) > 2.0;
+  const settling = Math.abs(track.car.chassis.angularVelocity) < 0.05;
+  if(flippedOver && settling) track.flipFrames++;
+  else track.flipFrames = 0;
+  if(track.flipFrames >= 50) respawnCarInPlace();
+
+  // 안전망: 그래도 혹시 바닥 틈으로 빠져서 지형선보다 한참 아래로 꺼졌다면
+  // (터널링/물리 이상 등 어떤 이유로든) 자동으로 원래 위치 위에서 다시 떨어뜨려
+  // 화면 밖/땅속에 갇히는 일이 없도록 합니다.
+  const gY = trackGroundY(track.car.chassis.position.x);
+  if(track.car.chassis.position.y > gY + 140){
+    respawnCarInPlace();
+  }
+
+  drawTrack();
+  updateTrackHud();
+  trackRAF = requestAnimationFrame(trackTick);
+}
+
+function drawParallaxHills(ctx, camX, W, H){
+  ctx.save();
+  ctx.fillStyle = '#fff2c4';
+  ctx.beginPath(); ctx.arc(W*0.8, H*0.2, Math.min(W,H)*0.1, 0, Math.PI*2); ctx.fill();
+  [[0.32,'#bfe0c9'],[0.58,'#9fd0ac']].forEach(([par,color])=>{
+    const off = -camX*par;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for(let px=0; px<=W; px+=24){
+      const wx = px - off;
+      const y = H*0.6 + Math.sin(wx*0.004)*H*0.06 + Math.sin(wx*0.011+1)*H*0.03;
+      ctx.lineTo(px, y);
+    }
+    ctx.lineTo(W,H); ctx.closePath();
+    ctx.globalAlpha=.6; ctx.fillStyle=color; ctx.fill(); ctx.globalAlpha=1;
+  });
+  ctx.restore();
+}
+
+function drawTrackGroundPath(ctx, camX, W, H){
+  const left = camX - W/2 - 80, right = camX + W/2 + 80;
+  ctx.beginPath();
+  ctx.moveTo(left, trackGroundY(left));
+  for(let x=left; x<=right; x+=16) ctx.lineTo(x, trackGroundY(x));
+  ctx.lineTo(right, camX+900); ctx.lineTo(left, camX+900);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,300,0,900);
+  grad.addColorStop(0,'#8fd48a'); grad.addColorStop(.18,'#4fae5f'); grad.addColorStop(1,'#284f2c');
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(left, trackGroundY(left));
+  for(let x=left; x<=right; x+=16) ctx.lineTo(x, trackGroundY(x));
+  ctx.strokeStyle = '#2a6b3c'; ctx.lineWidth = 6; ctx.lineJoin='round'; ctx.stroke();
+}
+
+function drawTrackObstacle(ctx, o){
+  ctx.save();
+  ctx.translate(o.position.x, o.position.y);
+  ctx.rotate(o.angle);
+  if(o.circleRadius){
+    ctx.beginPath(); ctx.arc(0,0,o.circleRadius,0,Math.PI*2);
+    ctx.fillStyle = '#9a9aa2'; ctx.fill(); ctx.strokeStyle = '#5c5c66'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-o.circleRadius*0.3,-o.circleRadius*0.3,o.circleRadius*0.32,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fill();
+  } else {
+    const s = o.customSize || 32;
+    ctx.fillStyle = '#c98a4a'; ctx.fillRect(-s/2,-s/2,s,s);
+    ctx.strokeStyle = '#7a4a26'; ctx.lineWidth = 3; ctx.strokeRect(-s/2,-s/2,s,s);
+    ctx.beginPath(); ctx.moveTo(-s/2,0); ctx.lineTo(s/2,0); ctx.moveTo(0,-s/2); ctx.lineTo(0,s/2);
+    ctx.strokeStyle = '#7a4a26'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTrackCar(ctx, car, vImg){
+  // 실제 그림(바퀴 없는 캐릭터 사진)과 물리 바퀴의 위치/크기가 안맞아 보이는 문제가 있어서
+  // 바퀴는 그리지 않고(물리 시뮬레이션용 몸체는 그대로 유지) 차체 그림 하나만 부드럽게 그립니다.
+  const c = car.chassis;
+  ctx.save();
+  ctx.translate(c.position.x, c.position.y);
+  ctx.rotate(c.angle);
+  const s = 128; // 물리 차체/바퀴를 키운 비율에 맞춰 그림도 함께 키움 (110 -> 128)
+  if(vImg) ctx.drawImage(vImg, -s/2, -s/2, s, s);
+  ctx.restore();
+}
+
+function drawTrack(){
+  const canvas = document.getElementById('trackCanvas');
+  if(!canvas || !track) return;
+  const ctx = canvas.getContext('2d');
+  const W = track.cw, H = track.ch;
+  if(W<=0 || H<=0) return;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(track.dpr, track.dpr);
+  ctx.clearRect(0,0,W,H);
+
+  // 카메라가 차에 딱 붙어서 고정되어 있으면 차가 그냥 화면 한가운데서 앞뒤로 흔들리는 것처럼 보입니다.
+  // 진행 방향/속도에 따라 살짝 앞을 미리 보여주고(lookahead), 위치를 부드럽게 뒤쫓아가게(lerp) 만들어서
+  // 실제로 달리는 듯한 자연스러운 카메라 움직임을 줍니다.
+  const chassisX = track.car.chassis.position.x;
+  const chassisY = track.car.chassis.position.y;
+  const vx = track.car.chassis.velocity.x;
+  const lookAhead = Math.max(-95, Math.min(95, vx*15));
+  if(track.camXSmooth == null){ track.camXSmooth = chassisX; track.camYSmooth = chassisY; }
+  // 안전장치: 차가 순간적으로 크게 떨어지거나(안전망 재출발 등) 카메라가 실제 위치와
+  // 너무 멀어지면, 천천히 뒤쫓는 대신 바로 딱 붙여서 화면이 하늘색으로 오래 뒤덮이는
+  // 어색한 순간이 생기지 않게 합니다.
+  if(Math.abs(chassisY - track.camYSmooth) > 260) track.camYSmooth = chassisY;
+  track.camXSmooth += ((chassisX + lookAhead) - track.camXSmooth) * 0.08;
+  track.camYSmooth += (chassisY - track.camYSmooth) * 0.12;
+  const camX = track.camXSmooth;
+  const camY = track.camYSmooth;
+
+  const skyGrad = ctx.createLinearGradient(0,0,0,H);
+  skyGrad.addColorStop(0,'#bfe9ff'); skyGrad.addColorStop(1,'#eaf9ff');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,W,H);
+  drawParallaxHills(ctx, camX, W, H);
+
+  ctx.save();
+  ctx.translate(W/2 - camX, H*0.56 - camY);
+  drawTrackGroundPath(ctx, camX, W, H);
+  track.obstacles.forEach(o=>{
+    if(Math.abs(o.position.x - camX) < W/2 + 120) drawTrackObstacle(ctx, o);
+  });
+  drawDustParticles(ctx);
+  drawTrackCar(ctx, track.car, track.vImg);
+  ctx.restore();
+}
+
+function updateTrackHud(){
+  const hud = document.getElementById('trackHud');
+  if(!hud || !track) return;
+  const dist = Math.round(Math.abs(track.car.chassis.position.x - track.startX)/8);
+  const speed = Math.round((Math.abs(track.car.wheelF.angularVelocity)+Math.abs(track.car.wheelR.angularVelocity))*38);
+  hud.textContent = `📏 ${dist}m   💨 ${speed}`;
+}
+
+function initTrackControls(){
+  const joy = document.getElementById('joystick');
+  const knob = document.getElementById('joystickKnob');
+  const bJ = document.getElementById('btnJump');
+  const maxR = 34;       // 조이스틱 손잡이가 움직일 수 있는 최대 반경(px)
+  const deadZone = 6;    // 이 범위 안에서는 입력 없음으로 취급
+  let pointerId = null;
+  let jumpArmed = false; // 위로 쭉 당기는 제스처로 점프가 이미 발동됐는지(연타 방지)
+
+  function setKnob(dx, dy){ knob.style.transform = `translate(${dx}px, ${dy}px)`; }
+  function resetJoystick(){
+    setKnob(0,0);
+    trackDrivePower = 0;
+    jumpArmed = false;
+    joy.classList.remove('active');
+  }
+  function updateFromPoint(clientX, clientY){
+    const rect = joy.getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    const dx = clientX - cx, dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    const clamped = Math.min(dist, maxR);
+    const ang = Math.atan2(dy, dx);
+    const kx = Math.cos(ang) * clamped, ky = Math.sin(ang) * clamped;
+    setKnob(kx, ky);
+    trackDrivePower = (clamped < deadZone) ? 0 : (kx / maxR);
+    // 보너스 아이디어: 조이스틱을 위로 세게 쭉 당기면 점프도 함께 발동됩니다.
+    if(ky < -maxR*0.7){
+      if(!jumpArmed){ trackJump(); jumpArmed = true; }
+    } else if(ky > -maxR*0.35){
+      jumpArmed = false;
+    }
+  }
+
+  joy.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    pointerId = e.pointerId;
+    try{ joy.setPointerCapture(pointerId); }catch(err){}
+    joy.classList.add('active');
+    updateFromPoint(e.clientX, e.clientY);
+  });
+  joy.addEventListener('pointermove', (e)=>{
+    if(pointerId === null || e.pointerId !== pointerId) return;
+    e.preventDefault();
+    updateFromPoint(e.clientX, e.clientY);
+  });
+  ['pointerup','pointercancel'].forEach(evt=>{
+    joy.addEventListener(evt, (e)=>{
+      if(pointerId !== null && e.pointerId !== pointerId) return;
+      pointerId = null;
+      resetJoystick();
+    });
+  });
+
+  bJ.addEventListener('pointerdown', (e)=>{ e.preventDefault(); trackJump(); });
+
+  window.addEventListener('keydown', (e)=>{
+    if(!document.getElementById('screen-track').classList.contains('active')) return;
+    if(e.key==='ArrowLeft') trackDrivePower = -1;
+    if(e.key==='ArrowRight') trackDrivePower = 1;
+    if(e.key==='ArrowUp' || e.key===' ' || e.key==='Spacebar'){ e.preventDefault(); trackJump(); }
+  });
+  window.addEventListener('keyup', (e)=>{
+    if(e.key==='ArrowLeft' && trackDrivePower < 0) trackDrivePower = 0;
+    if(e.key==='ArrowRight' && trackDrivePower > 0) trackDrivePower = 0;
+  });
+}
+
+loadPersistedState();
+renderCharGrid();
+renderFieldSelect();
+initTrackControls();
+
+// 나중에 태블릿 앱(웹뷰)으로 감쌌을 때 와이파이가 잠깐 끊겨도 마지막 버전으로는
+// 계속 실행되도록 서비스 워커를 등록합니다. (지원 안 하는 환경이면 조용히 무시)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>
