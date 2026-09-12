@@ -1663,10 +1663,15 @@ function fieldWaveTheta(tSec, period, phase){ return (tSec/period + phase) * Mat
 function fieldWaveFrac(theta){ return (Math.sin(theta)+1)/2; }
 function fieldWaveDir(theta){ return Math.cos(theta) >= 0 ? 1 : -1; }
 
+// 2026-09-13: 예전엔 캐릭터마다 rangeFrac(0.42~0.56)에 rangeMax(380~520px) 상한까지 걸려
+// 있어서, 실제로는 화면 가로 폭의 절반 정도만 왔다갔다 하는 것처럼 보였습니다("왜 x축은
+// 50%밖에 안 움직이냐"는 피드백). 좌우로 움직이는 폭(range)은 이제 renderScene에서 실제
+// 화면 가로 폭 기준으로 90% 이상을 쓰도록 공통으로 계산하고, 여기서는 속도(period)와
+// 시작 위상(phase)만 캐릭터마다 다르게 둬서 서로 다른 리듬으로 움직이는 느낌만 유지합니다.
 const FIELD_WANDER_VARIANTS = [
-  { rangeFrac:0.42, rangeMax:380, period:9,  phase:0 },
-  { rangeFrac:0.42, rangeMax:380, period:11, phase:0.5 },
-  { rangeFrac:0.56, rangeMax:520, period:13, phase:0.22 },
+  { period:9,  phase:0 },
+  { period:11, phase:0.5 },
+  { period:13, phase:0.22 },
 ];
 
 function renderScene(){
@@ -1686,9 +1691,23 @@ function renderScene(){
   // (위쪽 여백 ~ 캐릭터가 바닥 밖으로 안 잘리는 최대 지점) 전체를 고르게 나눠 써서,
   // 화면 아래쪽까지 골고루 캐릭터가 보이게 했습니다.
   const spriteBoxH = 164;
+  const spriteBoxW = 164; // 좌우 이동 범위 계산 기준(정사각형 스프라이트 기준 폭)
   const usableTop = 6;
   const usableBottom = Math.max(usableTop, sceneH - spriteBoxH - 8);
   const Y_LANE_FRACS = [0.04, 0.28, 0.52, 0.76, 1.0, 0.16, 0.64];
+  // 생성될 때부터 세로(Y)뿐 아니라 가로(X)도 서로 겹치지 않게 미리 퍼뜨려 놓습니다
+  // (전엔 전부 왼쪽 끝(0px)에서 시작해서 오른쪽으로만 움직였는데, 이제 시작 위치 자체를
+  // 가로로도 골고루 흩어놓습니다).
+  const X_LANE_FRACS = [0.4, 0.6, 0.5, 0.25, 0.75, 0.15, 0.85];
+  const usableLeft = 4;
+  const usableRight = Math.max(usableLeft, sceneW - spriteBoxW - 4);
+  const usableWidthTotal = usableRight - usableLeft;
+  // X축 이동 폭: 시작 위치(어느 레인이든)를 중심으로 좌우로 흔들되, 흔드는 폭 자체는
+  // 화면에서 실제로 쓸 수 있는 가로 공간의 최소 90%로 잡습니다. 다만 화면 밖으로 나가지
+  // 않도록 각 캐릭터의 실제 위치는 매 프레임 화면 안쪽으로 잘라서(clamp) 씁니다 - 중앙
+  // 근처에서 시작한 캐릭터는 이 90%를 거의 그대로 다 쓰고, 가장자리에서 시작한 캐릭터는
+  // 한쪽으로 조금 더 못 갈 뿐 반대쪽으로는 여전히 넓게 움직입니다.
+  const wanderAmplitude = usableWidthTotal * 0.9;
 
   // 사용자가 저장한 친구들 앞에 "항상 있는" 기본 친구 두 명을 매번 새로 합쳐서 그립니다
   // (fieldFriends 자체에는 저장하지 않으므로 갤러리/삭제 목록에는 영향 없음).
@@ -1707,16 +1726,23 @@ function renderScene(){
     const cycleJitter = Math.floor(i / Y_LANE_FRACS.length) * 18;
     const rawTop = usableTop + (usableBottom - usableTop) * laneFrac + cycleJitter;
     wrap.style.top = Math.max(usableTop, Math.min(usableBottom, rawTop)) + 'px';
+
+    const xLaneFrac = X_LANE_FRACS[i % X_LANE_FRACS.length];
+    const anchorLeft = usableLeft + usableWidthTotal * xLaneFrac;
+    wrap.style.left = anchorLeft + 'px';
+
     wrap.innerHTML = snap.vehicleImage
       ? `<div class="sprite-inner"><img class="form-a" src="${snap.image}" alt="${snap.name}"><img class="form-b" style="opacity:0" src="${snap.vehicleImage}" alt="${snap.name} 변신"></div>`
       : `<div class="sprite-inner"><img src="${snap.image}" alt="${snap.name}"></div>`;
     sceneEl.appendChild(wrap);
 
     const variant = FIELD_WANDER_VARIANTS[i % FIELD_WANDER_VARIANTS.length];
-    const range = Math.min(variant.rangeMax, sceneW * variant.rangeFrac);
     const spriteState = {
       uid: snap.uid, wrap, inner: wrap.querySelector('.sprite-inner'),
-      range, period: variant.period, phase: variant.phase + i*0.13,
+      amplitude: wanderAmplitude,
+      // translateX 값이 이 [minX,maxX] 밖으로 나가면(=CSS left 기준 화면 밖) 매 프레임 잘라냅니다.
+      minX: usableLeft - anchorLeft, maxX: usableRight - anchorLeft,
+      period: variant.period, phase: variant.phase + i*0.13,
       facing: 1, showingVehicle: false, stepSeed: i*1.7
     };
     fieldSprites.push(spriteState);
@@ -1754,7 +1780,11 @@ function startFieldAnim(){
     const t = (now - t0) / 1000;
     fieldSprites.forEach(sp=>{
       const theta = fieldWaveTheta(t, sp.period, sp.phase);
-      const x = fieldWaveFrac(theta) * sp.range;
+      // fieldWaveFrac은 0~1을 오가므로 -0.5~0.5로 다시 맞춰서 시작 위치(anchor)를 중심으로
+      // 좌우 모두로 흔들리게 하고, 화면 경계를 벗어나는 값만 그때그때 잘라냅니다(가장자리에
+      // 서 시작한 캐릭터는 한쪽 벽에 닿으면 거기서 방향을 트는 것처럼 자연스럽게 보입니다).
+      const rawX = (fieldWaveFrac(theta) - 0.5) * sp.amplitude;
+      const x = Math.max(sp.minX, Math.min(sp.maxX, rawX));
       const dir = fieldWaveDir(theta);
       let bobY, rot;
       if(sp.showingVehicle){
