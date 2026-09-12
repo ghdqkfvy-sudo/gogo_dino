@@ -434,6 +434,7 @@
 
 
 <!-- ============ HOME ============ -->
+<audio id="bgmPlayer" loop preload="none"></audio>
 <div id="screen-home" class="screen active">
   <h1>🦖 고고 컬러링 스튜디오</h1>
   <div class="sub">프로토타입 v0.3 · prunnnn.com / saegchil.co.kr 도안으로 받은 실제 캐릭터 6종 적용</div>
@@ -492,6 +493,7 @@
   <div class="topbar">
     <button class="backbtn" onclick="go('screen-charpick')">←</button>
     <h1 style="margin:0;" id="colorTitle">색칠하기</h1>
+    <button class="pill ghost" id="bgmToggleBtn" onclick="toggleBgmMute()" title="배경음악 켜기/끄기" style="margin-left:auto; padding:8px 12px; font-size:16px;"></button>
   </div>
   <div class="work-wrap">
     <div class="canvas-card">
@@ -723,6 +725,88 @@ const FRANCHISES = {
   gogodino:    { label:'고고다이노', emoji:'🦖', color:'#2f9e6f', tint:'#eafaf1' },
   robocarpoli: { label:'로보카폴리', emoji:'🚓', color:'#2f7fd1', tint:'#eaf3fc' },
 };
+
+// ---- 색칠하기 화면 배경음악(OST) ----
+// 프랜차이즈별로 한 곡씩 매핑합니다. 실제 mp3 파일은 audio/ 폴더에 사용자가 직접 넣어줘야 해요
+// (저작권이 있는 공식 OST라 Claude가 대신 구해서 넣을 수 없습니다 - 개인 소장 음원을 넣어주세요).
+const BGM_MAP = {
+  gogodino:    'audio/gogodino_ost.mp3',
+  robocarpoli: 'audio/poli_ost.mp3',
+};
+const BGM_STORAGE_KEY = 'gogodino_bgm_muted_v1';
+let bgmMuted = false;
+try{ bgmMuted = localStorage.getItem(BGM_STORAGE_KEY) === '1'; }catch(e){}
+let bgmFadeTimer = null;
+let bgmCurrentFranchise = null;
+
+function bgmEl(){ return document.getElementById('bgmPlayer'); }
+
+function bgmClearFade(){ if(bgmFadeTimer){ clearInterval(bgmFadeTimer); bgmFadeTimer = null; } }
+
+function bgmFadeTo(target, ms, thenPause){
+  const el = bgmEl();
+  if(!el) return;
+  bgmClearFade();
+  const start = el.volume;
+  const steps = Math.max(1, Math.round(ms/40));
+  let i = 0;
+  bgmFadeTimer = setInterval(()=>{
+    i++;
+    el.volume = Math.max(0, Math.min(1, start + (target-start) * (i/steps)));
+    if(i >= steps){
+      bgmClearFade();
+      el.volume = target;
+      if(thenPause && target === 0){ el.pause(); }
+    }
+  }, 40);
+}
+
+// startColoring()에서 캐릭터의 franchise를 넘겨 호출합니다. 같은 프랜차이즈면 이미 재생 중인
+// 곡을 그대로 이어가고(처음부터 다시 재생하지 않음), 다른 프랜차이즈로 바뀔 때만 곡을 전환합니다.
+function playFranchiseBGM(franchise){
+  const src = BGM_MAP[franchise];
+  const el = bgmEl();
+  if(!el || !src) return;
+  if(bgmCurrentFranchise === franchise && !el.paused){ bgmClearFade(); bgmFadeTo(bgmMuted?0:0.35, 200); return; }
+  bgmCurrentFranchise = franchise;
+  bgmClearFade();
+  el.pause();
+  el.src = src;
+  el.currentTime = 0;
+  el.volume = 0;
+  if(!bgmMuted){
+    el.play().then(()=> bgmFadeTo(0.35, 500)).catch(()=>{ /* 자동재생이 막혔다면 음소거 버튼으로 다시 시도 가능 */ });
+  }
+}
+
+function stopBGM(){
+  const el = bgmEl();
+  if(!el) return;
+  bgmCurrentFranchise = null;
+  bgmFadeTo(0, 400, true);
+}
+
+function toggleBgmMute(){
+  bgmMuted = !bgmMuted;
+  try{ localStorage.setItem(BGM_STORAGE_KEY, bgmMuted ? '1' : '0'); }catch(e){}
+  const btn = document.getElementById('bgmToggleBtn');
+  if(btn) btn.textContent = bgmMuted ? '🔇' : '🔊';
+  const el = bgmEl();
+  if(!el) return;
+  if(bgmMuted){
+    bgmFadeTo(0, 250);
+  }else if(bgmCurrentFranchise){
+    if(el.paused){ el.volume = 0; el.play().then(()=>bgmFadeTo(0.35,300)).catch(()=>{}); }
+    else bgmFadeTo(0.35, 300);
+  }
+}
+
+document.addEventListener('visibilitychange', ()=>{
+  const el = bgmEl();
+  if(!el || !bgmCurrentFranchise) return;
+  if(document.hidden){ el.pause(); }
+  else if(!bgmMuted){ el.play().catch(()=>{}); }
+});
 
 const PALETTE = [
   '#ff2d55','#ff5c7a','#ff8fab','#ffb3c6',           // 빨강·핑크
@@ -1044,6 +1128,7 @@ let currentField = 'forest';
 
 function go(id){
   if(id !== 'screen-field' && typeof stopFieldAnim === 'function') stopFieldAnim();
+  if(id !== 'screen-color') stopBGM();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -1102,6 +1187,9 @@ async function startColoring(def, resumeSnap){
   renderColorRow();
   renderPatternRow();
   go('screen-color');
+  playFranchiseBGM(def.franchise);
+  const bgmBtn = document.getElementById('bgmToggleBtn');
+  if(bgmBtn) bgmBtn.textContent = bgmMuted ? '🔇' : '🔊';
   const host = document.getElementById('svgHost');
   host.innerHTML = '<div class="loading-box">불러오는 중... 🦖</div>';
 
