@@ -219,7 +219,7 @@
   }
   .sprite{position:absolute; width:164px; height:164px; will-change:transform; z-index:2;}
   .sprite-inner{position:relative; width:100%; height:100%;}
-  .sprite-inner img{width:100%; height:100%; filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)); pointer-events:none;}
+  .sprite-inner img{width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)); pointer-events:none;}
   .sprite-inner img.form-a, .sprite-inner img.form-b{position:absolute; inset:0; transition:opacity .35s ease;}
   .sprite-inner.transforming{animation:transformPunch .8s cubic-bezier(.32,1.65,.55,1);}
   @keyframes transformPunch{
@@ -702,6 +702,17 @@ const CHARACTERS = [
   {id:'roy',   name:'로이',  src:'characters/roy.jpg',   vehicleSrc:'characters/roy_v.jpg',  franchise:'robocarpoli'},
   {id:'amber', name:'엠버',  src:'characters/amber.jpg', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli'},
   {id:'helly', name:'헬리',  src:'characters/helly.jpg', franchise:'robocarpoli'},
+];
+
+// 2026-09-12: 사용자가 직접 준 사진 두 장을 "항상 모든 필드(숲/바다/사막)에 기본으로 있는
+// 친구"로 넣습니다. savedCharacters/fieldFriends(사용자가 색칠해서 저장한 캐릭터 목록)에는
+// 안 들어가고 renderScene에서 매번 따로 더해서 보여주기만 하므로, 갤러리에 나타나지도
+// 않고 "빼기/삭제" 버튼으로 지워지지도 않습니다(요청하신 대로 항상 고정 배치).
+// aspectRatio(=가로/세로)를 넣어두면, 저장된 캐릭터들처럼 정사각형 틀에 억지로 끼워
+// 넣지 않고 원본 사진 비율 그대로(옆으로 눌리지 않게) 자리 배치됩니다.
+const DEFAULT_FIELD_FRIENDS = [
+  { uid: 'default-kid-1', name: '까르르', image: 'characters/default_kid1.gif', aspectRatio: 229/495 },
+  { uid: 'default-kid-2', name: '몬스터 옷', image: 'characters/default_kid2.png', aspectRatio: 558/900 },
 ];
 function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
 
@@ -1679,9 +1690,19 @@ function renderScene(){
   const usableBottom = Math.max(usableTop, sceneH - spriteBoxH - 8);
   const Y_LANE_FRACS = [0.04, 0.28, 0.52, 0.76, 1.0, 0.16, 0.64];
 
-  fieldFriends[currentField].forEach((snap, i)=>{
+  // 사용자가 저장한 친구들 앞에 "항상 있는" 기본 친구 두 명을 매번 새로 합쳐서 그립니다
+  // (fieldFriends 자체에는 저장하지 않으므로 갤러리/삭제 목록에는 영향 없음).
+  const sceneFriends = [...DEFAULT_FIELD_FRIENDS, ...fieldFriends[currentField]];
+
+  sceneFriends.forEach((snap, i)=>{
     const wrap = document.createElement('div');
     wrap.className = 'sprite';
+    if(snap.aspectRatio){
+      // 저장된 캐릭터 스냅샷은 이미 정사각형으로 만들어져 있어 168x168 틀에 그대로
+      // 맞지만, 이 기본 친구들은 원본 사진 비율 그대로라 정사각형 틀에 넣으면 옆으로
+      // 눌려 보입니다. 세로 높이는 그대로 두고 폭만 비율에 맞게 좁혀서 안 눌리게 합니다.
+      wrap.style.width = Math.round(spriteBoxH * snap.aspectRatio) + 'px';
+    }
     const laneFrac = Y_LANE_FRACS[i % Y_LANE_FRACS.length];
     const cycleJitter = Math.floor(i / Y_LANE_FRACS.length) * 18;
     const rawTop = usableTop + (usableBottom - usableTop) * laneFrac + cycleJitter;
