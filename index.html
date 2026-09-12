@@ -1,6 +1,8 @@
 <!doctype html>
-<html>
+<html lang="ko">
 <head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta charset="utf-8">
 <title>고고 컬러링 스튜디오</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2579,11 +2581,11 @@ function nsNativeTTS(){
   try{ return (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null; }
   catch(e){ return null; }
 }
-function nsSpeakNumber(n){
-  const native = NS_NATIVE_NAMES[n];
-  const sino = NS_SINO_NAMES[n];
-  const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
-
+// 숫자 발음 안내뿐 아니라, 마이크 단계에서 "OO 소리내어 말해볼까요?" 같은 다른 문장도
+// 그대로 읽어줘야 해서(아직 한글을 못 읽는 아이가 화면 글자만으론 뭘 해야 할지 알 수 없음),
+// 실제로 소리를 내는 부분은 nsSpeak(text) 하나로 공통화해서 nsSpeakNumber/nsSpeakTracePrompt가
+// 둘 다 같은 네이티브 TTS ↔ Web Speech API 대체 로직을 그대로 씁니다.
+function nsSpeak(text){
   const nativeTTS = nsNativeTTS();
   if(nativeTTS){
     try{
@@ -2612,6 +2614,22 @@ function nsSpeakNumber(n){
       setTimeout(()=>{ try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }, 150);
     }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
   });
+}
+function nsSpeakNumber(n){
+  const native = NS_NATIVE_NAMES[n];
+  const sino = NS_SINO_NAMES[n];
+  const text = native ? `${n}. ${native}, 또는 ${sino}이에요.` : `${n}. ${sino}이에요.`;
+  nsSpeak(text);
+}
+// 마이크 단계에서 들려주는 "OO! 소리내어 말해볼까요?" 안내 음성 — 아이가 화면 글자를
+// 아직 못 읽어도 무엇을 해야 하는지 귀로 알 수 있도록, 이 단계에 들어가면 자동으로
+// 한 번 들려주고, 작은 "다시 듣기" 버튼으로 몇 번이든 다시 들을 수 있게 합니다.
+function nsTracePromptText(n){
+  const name = NS_NATIVE_NAMES[n] || NS_SINO_NAMES[n];
+  return `${name}! 소리 내어 말해볼까요?`;
+}
+function nsSpeakTracePrompt(){
+  nsSpeak(nsTracePromptText(ns.current));
 }
 
 // ---------------- 2단계: 쓰는 법 데모(애니메이션, 다시보기 가능) ----------------
@@ -2707,7 +2725,10 @@ function nsRenderTraceStage(){
     <div class="ns-trace-round">✍️ 따라쓰기 ${ns.traceRound+1} / ${NS_TRACE_REPEATS}</div>
     ${gateOn ? `
     <div class="ns-mic-gate" id="nsMicGate">
-      <div>🎤 "${NS_NATIVE_NAMES[ns.current] || NS_SINO_NAMES[ns.current]}" 소리내어 말해볼까요?</div>
+      <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
+        <span>🎤 "${NS_NATIVE_NAMES[ns.current] || NS_SINO_NAMES[ns.current]}" 소리내어 말해볼까요?</span>
+        <button class="pill ghost" id="nsRepeatPrompt" title="다시 듣기" style="padding:6px 10px; font-size:15px; line-height:1;">🔁</button>
+      </div>
       <button class="pill alt ns-big-btn" id="nsMicBtn">🎙️ 말하기 시작</button>
       <div class="ns-mic-hint" id="nsMicHint"></div>
     </div>` : ''}
@@ -2805,6 +2826,11 @@ function nsWireTraceStage(){
   if(ns.settings.micGateOn){
     const micBtn = document.getElementById('nsMicBtn');
     if(micBtn) micBtn.addEventListener('click', nsStartMicCheck);
+    const repeatBtn = document.getElementById('nsRepeatPrompt');
+    if(repeatBtn) repeatBtn.addEventListener('click', nsSpeakTracePrompt);
+    // 화면 텍스트만으론 아직 글을 못 읽는 아이는 무엇을 해야 할지 알 수 없어서,
+    // 이 단계에 들어오면 안내 음성을 자동으로 한 번 들려줍니다.
+    nsSpeakTracePrompt();
   }
   document.getElementById('nsClearTrace').addEventListener('click', ()=>{
     const draw = document.getElementById('nsDrawCanvas');
