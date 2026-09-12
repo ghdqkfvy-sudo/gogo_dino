@@ -1,7 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>고고 컬러링 스튜디오</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,19 +63,40 @@
     border:none; font-size:19px; cursor:pointer; color:var(--ink); flex:none;
   }
 
-  .char-grid{display:flex; gap:16px; flex-wrap:wrap;}
+  .char-grid{display:flex; flex-direction:column; gap:4px;}
+  /* 애니메이션(프랜차이즈)별 구획 - 은은한 색 배경(tint)과 테두리로 카드 묶음 자체를 구분하고,
+     위쪽에 색깔 배지+이모지+이름표를 붙여 "이 아래는 전부 이 만화 캐릭터"라는 걸 보여줍니다. */
+  .char-section{
+    margin-bottom:20px; padding:14px 14px 18px; border-radius:22px;
+    background:var(--fr-tint, var(--surface-soft)); border:2px solid color-mix(in srgb, var(--fr-color, #999) 32%, transparent);
+  }
+  .char-section-head{display:flex; align-items:center; gap:9px; margin-bottom:12px; padding:0 4px;}
+  .fr-badge{
+    width:34px; height:34px; border-radius:50%; background:var(--fr-color, #888); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex:none;
+    box-shadow:0 2px 6px rgba(0,0,0,.22);
+  }
+  .fr-label{font-family:'Jua'; font-size:16.5px; color:var(--fr-color, #555); font-weight:700;}
+  .char-section-grid{display:flex; gap:16px; flex-wrap:wrap;}
   .char-thumb{
     width:132px; background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:10px;
     text-align:center; cursor:pointer; border:3px solid transparent; transition:border-color .15s;
+    position:relative; border-top:5px solid transparent;
   }
+  .char-thumb.has-fr{border-top-color:var(--fr-color, transparent);}
   .char-thumb:hover{border-color:var(--lagoon);}
   .char-thumb img{width:100%; height:90px; object-fit:contain; display:block;}
-  .char-thumb span{font-size:12.5px; display:block; margin-top:4px;}
+  .char-thumb span:not(.fr-chip){font-size:12.5px; display:block; margin-top:4px;}
+  .fr-chip{
+    position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+    background:var(--fr-color, #888); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:13px; box-shadow:0 2px 5px rgba(0,0,0,.25); z-index:1;
+  }
 
   .work-wrap{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;}
   .canvas-card{
     background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:18px;
-    flex:1 1 460px; max-width:600px;
+    flex:1 1 552px; max-width:720px;
   }
   .canvas-card canvas{width:100%; height:auto; touch-action:none; cursor:pointer; border-radius:12px; display:block;}
   #svgHost{touch-action:none;}
@@ -216,7 +234,11 @@
     padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:3;
   }
   .gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap;}
-  .gallery-item{width:132px; background:var(--surface); border-radius:18px; box-shadow:var(--shadow-sm); padding:10px; text-align:center;}
+  .gallery-item{
+    width:132px; background:var(--surface); border-radius:18px; box-shadow:var(--shadow-sm); padding:10px; text-align:center;
+    position:relative; border-top:5px solid transparent;
+  }
+  .gallery-item.has-fr{border-top-color:var(--fr-color, transparent);}
   .gallery-item img{width:100%; height:92px; object-fit:contain; display:block;}
   .gallery-item div.name{font-size:14px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Jua';}
   .gallery-item button{width:100%; font-size:12.5px; padding:8px 8px; margin-top:6px; border-radius:999px;}
@@ -321,11 +343,7 @@
   .save-confirm.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
   .save-confirm .icon{font-size:46px; line-height:1;}
   .save-confirm b{font-family:'Jua'; font-size:16.5px; color:var(--ink);}
-</style>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-</head>
-<body>
-
+</style><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"></head><body>
 
 <!-- ============ HOME ============ -->
 <div id="screen-home" class="screen active">
@@ -510,16 +528,29 @@ function showSaveConfirm(name, isUpdate){
 // prunnnn.com / saegchil.co.kr 에서 받은 실제 고고다이노 도안(로봇 모드).
 // 변신(차량) 모드 도안이 확보되면 vehicleSrc를 추가하면 자동으로 변신 버튼이 켜집니다.
 const CHARACTERS = [
-  {id:'rex',   name:'렉스',  src:'characters/rex.jpg',   vehicleSrc:'characters/rex_v.jpg'},
-  {id:'tomo',  name:'토모',  src:'characters/tomo.jpg',  vehicleSrc:'characters/tomo_v.jpg'},
-  {id:'vicky', name:'비키',  src:'characters/vicky.jpg', vehicleSrc:'characters/vicky_v.jpg'},
-  {id:'ping',  name:'핑',    src:'characters/ping.jpg'},
-  {id:'loki',  name:'로키',  src:'characters/loki.jpg'},
-  {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg'},
-  {id:'anki',  name:'안키',  src:'characters/anki.jpg'},
-  {id:'storm', name:'스톰',  src:'characters/storm.jpg'},
+  {id:'rex',   name:'렉스',  src:'characters/rex.jpg',   vehicleSrc:'characters/rex_v.jpg',  franchise:'gogodino'},
+  {id:'tomo',  name:'토모',  src:'characters/tomo.jpg',  vehicleSrc:'characters/tomo_v.jpg', franchise:'gogodino'},
+  {id:'vicky', name:'비키',  src:'characters/vicky.jpg', vehicleSrc:'characters/vicky_v.jpg', franchise:'gogodino'},
+  {id:'ping',  name:'핑',    src:'characters/ping.jpg',  franchise:'gogodino'},
+  {id:'loki',  name:'로키',  src:'characters/loki.jpg',  franchise:'gogodino'},
+  {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg', franchise:'gogodino'},
+  {id:'anki',  name:'안키',  src:'characters/anki.jpg',  franchise:'gogodino'},
+  {id:'storm', name:'스톰',  src:'characters/storm.jpg', franchise:'gogodino'},
+  // 로보카폴리 4종 (2026-09-12 추가) - 헬리는 변신(차량) 모드 도안이 따로 없어 vehicleSrc 없음
+  {id:'poli',  name:'폴리',  src:'characters/poli.jpg',  vehicleSrc:'characters/poli_v.jpg', franchise:'robocarpoli'},
+  {id:'roy',   name:'로이',  src:'characters/roy.jpg',   vehicleSrc:'characters/roy_v.jpg',  franchise:'robocarpoli'},
+  {id:'amber', name:'엠버',  src:'characters/amber.jpg', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli'},
+  {id:'helly', name:'헬리',  src:'characters/helly.jpg', franchise:'robocarpoli'},
 ];
 function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
+
+// 만화(프랜차이즈)별 구분용 메타데이터 - 실제 방송사 로고를 그대로 쓰는 대신, 저작권 문제 없이
+// 한눈에 구분되는 색상 배지+이모지 조합을 씁니다. 나중에 진짜 엠블럼 이미지를 갖고 계시면
+// emblemSrc를 추가해서 이모지 대신 그 이미지를 쓰도록 renderCharGrid 쪽만 살짝 바꾸면 됩니다.
+const FRANCHISES = {
+  gogodino:    { label:'고고다이노', emoji:'🦖', color:'#2f9e6f', tint:'#eafaf1' },
+  robocarpoli: { label:'로보카폴리', emoji:'🚓', color:'#2f7fd1', tint:'#eaf3fc' },
+};
 
 const PALETTE = [
   '#ff2d55','#ff5c7a','#ff8fab','#ffb3c6',           // 빨강·핑크
@@ -796,11 +827,28 @@ function go(id){
 
 function renderCharGrid(){
   const grid = document.getElementById('charGrid');
-  grid.innerHTML = CHARACTERS.map(ch=>`
-    <div class="char-thumb" data-char="${ch.id}">
-      <img src="${ch.src}" alt="${ch.name}">
-      <span>${ch.name}</span>
-    </div>`).join('');
+  // 애니메이션(프랜차이즈)별로 섹션을 나눠서, 어떤 만화 캐릭터인지 색깔 배지+테두리로
+  // 한눈에 구분되게 그립니다. CHARACTERS 배열에 등장하는 순서대로 섹션을 만듭니다.
+  const order = [];
+  CHARACTERS.forEach(ch=>{ if(!order.includes(ch.franchise)) order.push(ch.franchise); });
+  grid.innerHTML = order.map(fr=>{
+    const meta = FRANCHISES[fr] || { label:fr, emoji:'✨', color:'#888', tint:'#f2f2f2' };
+    const chars = CHARACTERS.filter(c=>c.franchise===fr);
+    return `
+    <div class="char-section" style="--fr-color:${meta.color}; --fr-tint:${meta.tint};">
+      <div class="char-section-head">
+        <span class="fr-badge">${meta.emoji}</span>
+        <span class="fr-label">${meta.label}</span>
+      </div>
+      <div class="char-section-grid">
+        ${chars.map(ch=>`
+          <div class="char-thumb has-fr" data-char="${ch.id}" style="--fr-color:${meta.color};">
+            <img src="${ch.src}" alt="${ch.name}">
+            <span>${ch.name}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
   grid.querySelectorAll('.char-thumb').forEach(el=>{
     el.addEventListener('click', ()=> startColoring(getDef(el.dataset.char)));
   });
@@ -1451,8 +1499,11 @@ function renderGalleryStrip(){
   }
   strip.innerHTML = savedCharacters.map(snap=>{
     const inField = isInField(currentField, snap.uid);
+    const def = getDef(snap.defId);
+    const fr = def ? FRANCHISES[def.franchise] : null;
     return `
-    <div class="gallery-item">
+    <div class="gallery-item${fr?' has-fr':''}" ${fr?`style="--fr-color:${fr.color};"`:''}>
+      ${fr?`<span class="fr-chip" title="${fr.label}">${fr.emoji}</span>`:''}
       <img src="${snap.image}" alt="${snap.name}">
       <div class="name">${snap.name}</div>
       <button class="pill ${inField?'danger':'alt'}" data-uid="${snap.uid}" data-action="${inField?'remove':'add'}">${inField?'✕ 빼기':'+ 필드'}</button>
@@ -1538,12 +1589,25 @@ let track = null;      // {engine, world, car, obstacles, vImg, cw, ch, dpr, sta
 let trackRAF = null;
 let trackDrivePower = 0; // -1(좌) ~ 1(우), 조이스틱을 당긴 정도에 비례 (키보드/버튼은 -1/0/1로 씀)
 const TRACK_WHEEL_SPEED = 0.62;
-// 트랙이 실제로 뻗어있는 범위(바닥/장애물이 깔려있는 x 최대값)보다 더 멀리 나가버리면
-// 바닥이 없는 허공으로 떨어지면서, 카메라가 떨어지는 차를 뒤쫓다가 잠깐 동안 화면이
-// 온통 하늘색으로 뒤덮이는("파란 물결이 아래에서부터 차오르는") 것처럼 보이는 문제가
-// 있었습니다. 트랙 자체를 훨씬 길게 늘려서 실제로 그 끝까지 도달하기 어렵게 만들고,
-// 혹시라도 끝까지 가더라도 더 못 나가게 부드럽게 막습니다(아래 applyTrackDriveInput 참고).
-const TRACK_WORLD_HALF = 6000;
+// 2026-09-12: 예전에는 바닥/장애물을 -6000~6000(±740m) 범위에 통째로 미리 깔아두고, 차가
+// 그 밖으로 나가면 허공으로 떨어지는 문제를 "더 못 나가게 막는" 식으로 해결했습니다. 이번엔
+// 아예 최대거리 제한을 없애서, 차 주변 일정 범위만 그때그때(청크 단위로) 바닥/장애물을
+// 만들고, 멀리 뒤처진 청크는 정리(제거)하는 방식으로 바꿨습니다 - 그래서 원리상 얼마나
+// 멀리 달리든 끝없이 이어집니다 (아래 trackUpdateChunks 참고). trackGroundY 자체가 x값에
+// 상관없이 항상 지형 높이를 계산해주는 함수라 이 방식이 가능합니다.
+const TRACK_CHUNK_SIZE = 1000;     // 청크(구간) 하나의 x축 너비
+const TRACK_LOAD_RADIUS = 2600;    // 차 기준 이 거리 안의 청크는 항상 만들어져 있어야 함
+const TRACK_UNLOAD_RADIUS = 4200;  // 이 거리보다 멀어진 청크는 정리(제거) - LOAD보다 넉넉히 커서 자주 만들었다 지웠다 하지 않게 함
+
+// 청크별로 항상 같은 장애물 배치가 나오도록(다시 가까워졌을 때 배치가 바뀌어 보이지 않게)
+// 청크 인덱스로 시드를 만든 결정론적 난수 생성기.
+function trackSeededRandom(seed){
+  let s = (seed >>> 0) || 1;
+  return function(){
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
 
 function openTrackPick(){
   renderTrackPickGrid();
@@ -1557,11 +1621,16 @@ function renderTrackPickGrid(){
     grid.innerHTML = '<div class="sub">변신 가능한 친구를 먼저 색칠하고 저장해주세요! (렉스·토모·비키·포키)</div>';
     return;
   }
-  grid.innerHTML = list.map(s=>`
-    <div class="char-thumb" data-uid="${s.uid}">
+  grid.innerHTML = list.map(s=>{
+    const def = getDef(s.defId);
+    const fr = def ? FRANCHISES[def.franchise] : null;
+    return `
+    <div class="char-thumb${fr?' has-fr':''}" data-uid="${s.uid}" ${fr?`style="--fr-color:${fr.color};"`:''}>
+      ${fr?`<span class="fr-chip" title="${fr.label}">${fr.emoji}</span>`:''}
       <img src="${s.vehicleImage}" alt="${s.name}">
       <span>${s.name}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   grid.querySelectorAll('.char-thumb').forEach(el=>{
     el.addEventListener('click', ()=>{
       const snap = list.find(s=>s.uid===el.dataset.uid);
@@ -1585,15 +1654,19 @@ function trackGroundY(x){
   return 480 + (raw - 480) * fade;
 }
 
-function buildTrackGround(world){
+// 청크 하나 분량의 바닥(경사 지형 조각들)을 만듭니다. chunkIndex*TRACK_CHUNK_SIZE ~
+// (chunkIndex+1)*TRACK_CHUNK_SIZE 구간만 담당합니다.
+function buildTrackGroundChunk(world, chunkIndex){
   // 예전에는 구간(step)이 40px에 두께가 18px이라, 회전된 사각형 조각들이 이어지는
   // 경사가 급한 지점에서 조각과 조각 사이에 미세한 틈이 생겨 바퀴가 그 틈으로
   // "푹" 빠지는 버그가 있었습니다. 구간을 더 촘촘하게 나누고 두께를 훨씬 두껍게 해서
   // 조각 사이 틈을 사실상 없애고, 빠르게 움직이는 바퀴가 얇은 바닥을 뚫고 지나가는
   // 현상(터널링)도 함께 줄였습니다.
-  const step = 22, half = TRACK_WORLD_HALF, thickness = 60;
-  for(let x=-half; x<half; x+=step){
-    const x0=x, x1=x+step;
+  const step = 22, thickness = 60;
+  const xStart = chunkIndex * TRACK_CHUNK_SIZE, xEnd = xStart + TRACK_CHUNK_SIZE;
+  const bodies = [];
+  for(let x=xStart; x<xEnd; x+=step){
+    const x0=x, x1=Math.min(x+step, xEnd);
     const y0=trackGroundY(x0), y1=trackGroundY(x1);
     const cx=(x0+x1)/2, cy=(y0+y1)/2;
     const len = Math.hypot(x1-x0, y1-y0) + 6;
@@ -1601,55 +1674,87 @@ function buildTrackGround(world){
     const seg = Matter.Bodies.rectangle(cx, cy+thickness/2-2, len, thickness, {
       isStatic:true, angle, friction:0.95, frictionStatic:1, label:'ground'
     });
-    Matter.World.add(world, seg);
+    bodies.push(seg);
   }
+  Matter.World.add(world, bodies);
+  return bodies;
 }
 
-function buildTrackObstacles(world){
+// 청크 하나 분량의 장애물(돌/상자)을 만듭니다. 청크 인덱스로 시드를 고정한 난수를 써서,
+// 같은 청크는 다시 만들어도(청크를 지웠다가 재생성해도) 항상 같은 배치가 나오게 합니다.
+function buildTrackObstacleChunk(world, chunkIndex){
   // 예전에는 바위/상자가 너무 커서(반지름 15~30, 한 변 30~48) 차가 아예 못 넘어가고 계속
   // 튕겨 막히는 문제가 있었습니다. 크기를 확 줄이고 가볍게(밀도 낮춤) 만들어서 차가 밀고
   // 지나가거나 살짝 넘어갈 수 있게 하고, 상자는 모서리를 둥글려(chamfer) 바퀴가 덜 걸리게 했습니다.
-  const obstacles = [];
-  const obstacleHalf = TRACK_WORLD_HALF - 100;
-  for(let x=-obstacleHalf; x<=obstacleHalf; x+=170){
-    if(Math.abs(x) < 320) continue;
-    if(Math.random() < 0.5) continue;
+  const xStart = chunkIndex * TRACK_CHUNK_SIZE, xEnd = xStart + TRACK_CHUNK_SIZE;
+  const rand = trackSeededRandom(chunkIndex * 2654435761 + 12345);
+  const bodies = [];
+  for(let x=xStart; x<xEnd; x+=170){
+    if(Math.abs(x) < 320) continue; // 출발 지점 근처는 항상 비워둠
+    if(rand() < 0.5) continue;
     const gy = trackGroundY(x);
     let body;
-    if(Math.random() < 0.5){
-      const r = 7 + Math.random()*7;
+    if(rand() < 0.5){
+      const r = 7 + rand()*7;
       body = Matter.Bodies.circle(x, gy - r - 3, r, {
         restitution:0.45, friction:0.55, density:0.0012, label:'obstacle'
       });
     } else {
-      const s = 15 + Math.random()*11;
+      const s = 15 + rand()*11;
       body = Matter.Bodies.rectangle(x, gy - s/2 - 3, s, s, {
-        restitution:0.3, friction:0.6, density:0.0009, angle:(Math.random()-0.5)*0.5,
+        restitution:0.3, friction:0.6, density:0.0009, angle:(rand()-0.5)*0.5,
         label:'obstacle', chamfer:{radius:Math.min(5, s*0.18)}
       });
       body.customSize = s;
     }
     Matter.World.add(world, body);
-    obstacles.push(body);
+    bodies.push(body);
   }
-  return obstacles;
+  return bodies;
+}
+
+// 차 위치를 기준으로 필요한 청크는 만들고, 너무 멀어진 청크는 정리합니다. 매 프레임 호출해도
+// 가벼운 편(청크가 새로 필요할 때만 실제로 바디를 생성)이라 trackTick에서 매번 불러도 됩니다.
+function trackUpdateChunks(){
+  if(!track) return;
+  const carX = track.car.chassis.position.x;
+  const minChunk = Math.floor((carX - TRACK_LOAD_RADIUS) / TRACK_CHUNK_SIZE);
+  const maxChunk = Math.floor((carX + TRACK_LOAD_RADIUS) / TRACK_CHUNK_SIZE);
+  for(let ci=minChunk; ci<=maxChunk; ci++){
+    if(track.chunks.has(ci)) continue;
+    const groundBodies = buildTrackGroundChunk(track.world, ci);
+    const obstacleBodies = buildTrackObstacleChunk(track.world, ci);
+    track.chunks.set(ci, { groundBodies, obstacleBodies });
+    obstacleBodies.forEach(b=> track.obstacles.push(b));
+  }
+  const unloadMin = Math.floor((carX - TRACK_UNLOAD_RADIUS) / TRACK_CHUNK_SIZE);
+  const unloadMax = Math.floor((carX + TRACK_UNLOAD_RADIUS) / TRACK_CHUNK_SIZE);
+  for(const [ci, chunk] of Array.from(track.chunks.entries())){
+    if(ci >= unloadMin && ci <= unloadMax) continue;
+    Matter.World.remove(track.world, chunk.groundBodies);
+    Matter.World.remove(track.world, chunk.obstacleBodies);
+    if(chunk.obstacleBodies.length){
+      const removeSet = new Set(chunk.obstacleBodies);
+      track.obstacles = track.obstacles.filter(o=>!removeSet.has(o));
+    }
+    track.chunks.delete(ci);
+  }
 }
 
 function buildTrackCar(world, x, y){
-  // 바퀴(반지름)를 17 -> 24로 키웠습니다. 바퀴가 클수록 같은 크기의 장애물이 상대적으로
-  // 작아 보이는 효과라, 이전엔 자꾸 걸려서 못 넘어가던 자잘한 돌/상자를 이제 굴러서 그냥
-  // 타고 넘어갈 수 있습니다(현실의 오프로드 큰 바퀴와 같은 원리). 차체도 그 비율에 맞춰
-  // 함께 키워서 바퀴만 유독 커 보이지 않게 했습니다.
+  // 2026-09-12: 캐릭터(차체) 그림을 2배로 키우면서, 물리적으로도 바퀴/차체를 똑같이 2배
+  // 스케일했습니다 (바퀴 반지름 24->48, 차체 112x36->224x72, 축 위치도 함께 2배). 이렇게
+  // 물리 크기와 그림 크기를 같은 비율로 맞춰야 그림과 실제 충돌 범위가 어긋나 보이지 않습니다.
   const group = Matter.Body.nextGroup(true);
-  const chassis = Matter.Bodies.rectangle(x, y-32, 112, 36, {
+  const chassis = Matter.Bodies.rectangle(x, y-64, 224, 72, {
     density:0.0018, friction:0.02, frictionAir:0.02, restitution:0.15,
-    collisionFilter:{group}, label:'chassis', chamfer:{radius:7}
+    collisionFilter:{group}, label:'chassis', chamfer:{radius:14}
   });
   const wheelOpts = { density:0.0032, friction:1, frictionAir:0.012, restitution:0.25, collisionFilter:{group}, label:'wheel' };
-  const wheelF = Matter.Bodies.circle(x+40, y-4, 24, wheelOpts);
-  const wheelR = Matter.Bodies.circle(x-40, y-4, 24, wheelOpts);
-  const axleF = Matter.Constraint.create({ bodyA:chassis, pointA:{x:40,y:26}, bodyB:wheelF, stiffness:0.5, damping:0.18, length:2 });
-  const axleR = Matter.Constraint.create({ bodyA:chassis, pointA:{x:-40,y:26}, bodyB:wheelR, stiffness:0.5, damping:0.18, length:2 });
+  const wheelF = Matter.Bodies.circle(x+80, y-8, 48, wheelOpts);
+  const wheelR = Matter.Bodies.circle(x-80, y-8, 48, wheelOpts);
+  const axleF = Matter.Constraint.create({ bodyA:chassis, pointA:{x:80,y:52}, bodyB:wheelF, stiffness:0.5, damping:0.18, length:2 });
+  const axleR = Matter.Constraint.create({ bodyA:chassis, pointA:{x:-80,y:52}, bodyB:wheelR, stiffness:0.5, damping:0.18, length:2 });
   Matter.World.add(world, [chassis, wheelF, wheelR, axleF, axleR]);
   return { chassis, wheelF, wheelR, axleF, axleR };
 }
@@ -1659,12 +1764,11 @@ function buildTrackCar(world, x, y){
 function respawnCarInPlace(){
   if(!track) return;
   const { chassis, wheelF, wheelR, axleF, axleR } = track.car;
-  // 혹시라도 경계 밖(바닥이 없는 곳)에서 재출발하면 또 바로 떨어지므로, 항상 실제
-  // 바닥이 있는 안전한 범위 안으로 x좌표를 붙잡아서 다시 떨어뜨립니다.
-  const bound = TRACK_WORLD_HALF - 80;
-  const atX = Math.max(-bound, Math.min(bound, chassis.position.x));
+  // 이제 트랙에 최대거리 제한이 없어서(청크가 계속 이어짐) 현재 위치 그대로 다시
+  // 떨어뜨리면 됩니다 - 그 자리 주변 청크는 이미 만들어져 있으므로 바닥도 항상 있습니다.
+  const atX = chassis.position.x;
   Matter.World.remove(track.world, [chassis, wheelF, wheelR, axleF, axleR]);
-  const dropY = trackGroundY(atX) - 240; // 화면 위쪽에서 뚝 떨어지도록 지면보다 훨씬 높은 위치에서 재생성
+  const dropY = trackGroundY(atX) - 480; // 화면 위쪽에서 뚝 떨어지도록 지면보다 훨씬 높은 위치에서 재생성 (차 크기 2배에 맞춰 낙하 높이도 비례해서 키움)
   track.car = buildTrackCar(track.world, atX, dropY);
   track.groundContacts = 0;
   track.flipFrames = 0;
@@ -1718,18 +1822,18 @@ async function startTrack(snap){
     const engine = Matter.Engine.create();
     engine.gravity.y = 1;
     const world = engine.world;
-    buildTrackGround(world);
-    const obstacles = buildTrackObstacles(world);
     const startY = trackGroundY(0);
     const car = buildTrackCar(world, 0, startY);
     const vImg = await loadImage(snap.vehicleImage);
 
     track = {
-      engine, world, car, obstacles, vImg, snap,
+      engine, world, car, obstacles: [], vImg, snap,
       cw: track_cw, ch: track_ch, dpr, startX: 0,
       flipFrames: 0, groundContacts: 0, jumpCooldown: 0, resizeHandler,
-      dust: [], camXSmooth: null, camYSmooth: null
+      dust: [], camXSmooth: null, camYSmooth: null,
+      chunks: new Map() // 청크 단위 무한 트랙 스트리밍 (trackUpdateChunks 참고)
     };
+    trackUpdateChunks(); // 시작 지점(x=0) 주변 바닥/장애물을 미리 만들어둠
 
     // 바퀴가 지면과 닿아있는지 세어서(점프는 땅에 붙어 있을 때만 가능) "접지 상태"를 판정합니다.
     const isGroundPair = (a,b) => (a.label==='wheel' && b.label==='ground') || (b.label==='wheel' && a.label==='ground');
@@ -1757,13 +1861,7 @@ const TRACK_JUMP_COOLDOWN = 22; // 프레임 단위 쿨다운(연속 점프 스�
 function applyTrackDriveInput(){
   if(!track) return;
   let power = Math.max(-1, Math.min(1, trackDrivePower));
-  // 트랙 끝(바닥/장애물이 깔린 범위 밖)으로는 더 못 나가게 부드럽게 막습니다 - 그 너머는
-  // 바닥이 없는 허공이라, 여기 없이는 차가 떨어지면서 화면이 잠깐 하늘색으로 뒤덮이는
-  // 문제가 생깁니다. 안쪽으로 되돌아오는 방향은 그대로 두고, 바깥으로 더 가려는 입력만 막습니다.
-  const atX = track.car.chassis.position.x;
-  const edgeBuffer = 120;
-  if(atX > TRACK_WORLD_HALF - edgeBuffer && power > 0) power = 0;
-  if(atX < -(TRACK_WORLD_HALF - edgeBuffer) && power < 0) power = 0;
+  // 최대거리 제한이 없어졌으므로(청크가 계속 이어짐) 더 이상 가장자리에서 입력을 막을 필요가 없습니다.
   const target = TRACK_WHEEL_SPEED * power;
   [track.car.wheelF, track.car.wheelR].forEach(w=>{
     const next = w.angularVelocity + (target - w.angularVelocity) * 0.3;
@@ -1830,27 +1928,6 @@ function trackToast(msg){
   el._hideT = setTimeout(()=> el.classList.remove('show'), 2200);
 }
 
-// 트랙 끝(바닥/장애물이 깔린 범위) 밖으로 관성 때문에 살짝이라도 넘어가면, 그 너머는
-// 정말 아무것도 없는 허공이라 차가 끝없이 떨어지고, 다시 태어나도(안전망 재출발) 같은
-// 자리에 놓이면 또 떨어지는 무한 낙하 루프에 빠졌습니다. 입력만 막는 것으로는 관성을
-// 못 막아서, 매 프레임 위치 자체를 직접 확인해서 절대 경계 밖으로 못 나가게 붙잡습니다
-// (차체+바퀴를 통째로 같이 옮겨서 축 구조가 어긋나지 않게 합니다).
-function clampCarToWorld(){
-  if(!track) return;
-  const bound = TRACK_WORLD_HALF - 80;
-  const { chassis, wheelF, wheelR } = track.car;
-  const x = chassis.position.x;
-  if(Math.abs(x) <= bound) return;
-  const dir = Math.sign(x);
-  const shift = dir*bound - x;
-  [chassis, wheelF, wheelR].forEach(b=>{
-    Matter.Body.setPosition(b, { x: b.position.x + shift, y: b.position.y });
-    if((dir>0 && b.velocity.x>0) || (dir<0 && b.velocity.x<0)){
-      Matter.Body.setVelocity(b, { x:0, y:b.velocity.y });
-    }
-  });
-}
-
 function trackTick(){
   if(!track) return;
   applyTrackDriveInput();
@@ -1860,7 +1937,7 @@ function trackTick(){
   // 충돌 검사가 더 촘촘해져서 이런 터널링이 훨씬 줄어듭니다.
   Matter.Engine.update(track.engine, 500/60);
   Matter.Engine.update(track.engine, 500/60);
-  clampCarToWorld();
+  trackUpdateChunks(); // 차가 이동한 만큼 앞쪽 청크를 새로 만들고, 멀어진 뒤쪽 청크는 정리
   if(track.jumpCooldown > 0) track.jumpCooldown--;
   spawnDustParticles();
   updateDustParticles();
@@ -1948,7 +2025,7 @@ function drawTrackCar(ctx, car, vImg){
   ctx.save();
   ctx.translate(c.position.x, c.position.y);
   ctx.rotate(c.angle);
-  const s = 128; // 물리 차체/바퀴를 키운 비율에 맞춰 그림도 함께 키움 (110 -> 128)
+  const s = 256; // 물리 차체/바퀴를 2배로 키운 비율에 맞춰 그림도 2배 (128 -> 256)
   if(vImg) ctx.drawImage(vImg, -s/2, -s/2, s, s);
   ctx.restore();
 }
@@ -2085,6 +2162,4 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
-
-</body>
-</html>
+</body></html>
