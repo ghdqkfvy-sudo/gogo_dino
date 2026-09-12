@@ -870,18 +870,69 @@ function loadImage(src){
   });
 }
 
+// 2026-09-13: 원본 도안 이미지들이 그림 주변에 남겨둔 흰 여백 비율이 캐릭터마다 서로 달라서
+// (예: 로보카폴리 쪽은 프레임을 거의 꽉 채워 그려져 있고, 렉스·토모 등은 여백이 더 넓음),
+// 색칠 화면에서 카드 폭에 꽉 채워 보여줘도 실제 캐릭터가 차지하는 크기가 서로 다르게
+// 보였습니다. "비키 크기에 맞춰줘" 요청에 따라, 비키가 보여주는 여백 비율(그림이 프레임의
+// 약 88%를 채우는 정도)을 기준으로 모든 캐릭터의 프레임을 이 콘텐츠 바운딩 박스 기준으로
+// 다시 잘라/여백을 더해서 통일합니다 — 여백이 넓던 캐릭터는 살짝 크롭돼 커 보이고, 이미
+// 꽉 차 있던 캐릭터는 살짝 여백이 더해져 작아 보이면서 다들 비슷한 크기로 맞춰집니다.
+const CHAR_FRAME_TARGET_FILL = 0.88;
+function findContentBBox(img){
+  // 바운딩 박스만 찾으면 되므로 정밀도보다 속도를 위해 작게 축소해서 스캔합니다.
+  const probeMax = 400;
+  const pscale = Math.min(1, probeMax / Math.max(img.width, img.height));
+  const pw = Math.max(1, Math.round(img.width*pscale)), ph = Math.max(1, Math.round(img.height*pscale));
+  const probeCanvas = document.createElement('canvas');
+  probeCanvas.width = pw; probeCanvas.height = ph;
+  const pctx = probeCanvas.getContext('2d', {willReadFrequently:true});
+  pctx.fillStyle = '#ffffff'; pctx.fillRect(0,0,pw,ph);
+  pctx.drawImage(img,0,0,pw,ph);
+  const pdata = pctx.getImageData(0,0,pw,ph).data;
+  // 2026-09-13: 처음엔 안티앨리어싱된 옅은 선까지 잡으려고 250(거의 흰색)으로 느슨하게
+  // 잡았더니, 원본 JPG의 압축 잡티/미세한 배경 톤 차이(완전한 255가 아닌 부분)까지 "콘텐츠"로
+  // 오인해서 바운딩 박스가 캔버스 전체에 가깝게 커지는 문제가 있었습니다(특히 고해상도
+  // 원본에서 심함). 아래 wall 판정에 쓰는 것과 같은 기준(180)으로 통일해서 실제 선/그림
+  // 부분만 정확히 잡히게 했습니다.
+  const AA_THRESH = 180;
+  let minx=pw, miny=ph, maxx=-1, maxy=-1;
+  for(let y=0; y<ph; y++){
+    for(let x=0; x<pw; x++){
+      const i = (y*pw+x)*4;
+      const lum = (pdata[i]+pdata[i+1]+pdata[i+2])/3;
+      if(lum < AA_THRESH){
+        if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y;
+      }
+    }
+  }
+  if(maxx<0) return {x0:0, y0:0, x1:img.width, y1:img.height}; // 못 찾으면(전부 흰 배경) 원본 그대로
+  return { x0: minx/pscale, y0: miny/pscale, x1: (maxx+1)/pscale, y1: (maxy+1)/pscale };
+}
 async function loadAndAnalyze(defId, src){
   if(analysisCache[defId]) return analysisCache[defId];
   const img = await loadImage(src);
+
+  const bbox = findContentBBox(img);
+  const bboxW = bbox.x1 - bbox.x0, bboxH = bbox.y1 - bbox.y0;
+  // 새 프레임 = 바운딩 박스 / 목표 채움비율. 목표비율이 1보다 작으므로 여백이 넓던 원본은
+  // 프레임이 줄어들며 크롭되고(더 크게 보임), 이미 꽉 찬 원본은 프레임이 늘어나며 여백이
+  // 더해집니다(더 작게 보임) — 어느 쪽도 콘텐츠 바운딩 박스 안쪽을 잘라내는 일은 없습니다.
+  const frameW = bboxW / CHAR_FRAME_TARGET_FILL;
+  const frameH = bboxH / CHAR_FRAME_TARGET_FILL;
+  const ccx = (bbox.x0 + bbox.x1) / 2, ccy = (bbox.y0 + bbox.y1) / 2;
+  const srcX = ccx - frameW/2, srcY = ccy - frameH/2;
+
   const maxDim = 560;
-  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-  const w = Math.max(1, Math.round(img.width*scale));
-  const h = Math.max(1, Math.round(img.height*scale));
+  const scale = Math.min(1, maxDim / Math.max(frameW, frameH));
+  const w = Math.max(1, Math.round(frameW*scale));
+  const h = Math.max(1, Math.round(frameH*scale));
   const lineCanvas = document.createElement('canvas');
   lineCanvas.width = w; lineCanvas.height = h;
   const lctx = lineCanvas.getContext('2d', {willReadFrequently:true});
   lctx.fillStyle = '#ffffff'; lctx.fillRect(0,0,w,h);
-  lctx.drawImage(img,0,0,w,h);
+  // 소스 사각형(srcX,srcY,frameW,frameH)이 원본 이미지 경계를 벗어나도, 캔버스는 겹치는
+  // 부분만 그리고 나머지는 위에서 미리 채운 흰 배경 그대로 남습니다.
+  lctx.drawImage(img, srcX, srcY, frameW, frameH, 0, 0, w, h);
 
   const imageData = lctx.getImageData(0,0,w,h);
   const data = imageData.data;
