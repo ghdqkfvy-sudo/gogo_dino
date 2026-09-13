@@ -160,6 +160,14 @@
   }
   @keyframes swatchIn{ from{opacity:0; transform:scale(.4) translateY(8px);} to{opacity:1; transform:scale(1) translateY(0);} }
   @keyframes swatchPick{ 0%{transform:scale(1) rotate(0);} 45%{transform:scale(1.32) rotate(-8deg);} 70%{transform:scale(1.05) rotate(4deg);} 100%{transform:scale(1.16) rotate(0);} }
+  /* 멀티컬러(무지개) 붓 스와치 - 실제 칠할 때 색이 붓질을 따라 계속 바뀌는 걸 미리 보여주려고
+     conic-gradient를 천천히 돌려서(rotateHue) "이건 특별한 색이다"가 한눈에 보이게 했습니다. */
+  .swatch.rainbow{
+    background:conic-gradient(from 0deg, #ff5c7a, #ffd54f, #8be24a, #4a7bf7, #a855f7, #ff5c7a);
+    animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards, rainbowSpin 4s linear infinite;
+  }
+  @keyframes rainbowSpin{ to{ filter:hue-rotate(360deg); } }
+  .swatch.rainbow.active{ animation:rainbowSpin 4s linear infinite, swatchPick .45s cubic-bezier(.34,1.56,.64,1); }
   @keyframes checkPop{ from{opacity:0; transform:scale(.2) rotate(-15deg);} to{opacity:1; transform:scale(1) rotate(0);} }
   .action-row{display:flex; gap:10px; margin-top:8px;}
   button.pill{
@@ -402,7 +410,18 @@
   .ns-number-names{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
   .ns-name-chip{background:var(--surface-soft); border:2px solid var(--lagoon); color:var(--ink); font-family:'Jua'; font-size:16px; padding:6px 16px; border-radius:999px;}
   .ns-name-chip.alt{border-color:var(--amber);}
-  .ns-big-btn{width:100%; font-size:15.5px; padding:14px 10px;}
+  /* 2026-09-13: 아기가 누르기 힘들어한다는 피드백으로 공부모드 버튼들을 전반적으로 키웠습니다.
+     주의: button.pill 기본 규칙이 element+class(0,1,1)라서 class 하나짜리 규칙(0,1,0)보다
+     명시도가 높아 예전엔 이 버튼들의 font-size/padding이 실제로는 적용되지 않고 있었습니다
+     (테스트로 확인). .pill과 묶은 두 클래스 선택자(0,2,0)로 명시도를 올려 확실히 이기게 했습니다. */
+  .pill.ns-big-btn{width:100%; font-size:20px; padding:20px 14px; border-radius:22px;}
+  .pill.ns-action-btn{flex:1; font-size:16.5px; padding:17px 10px;}
+  #screen-numstudy .topbar .backbtn{width:52px; height:52px; font-size:22px;}
+  #screen-numstudy .topbar button.pill{font-size:15px; padding:12px 18px;}
+  .confirm-card.wide select{font-size:17px; padding:10px 12px;}
+  .confirm-card.wide .ns-settings-toggle{font-size:15px;}
+  .confirm-card.wide input[type="checkbox"], .confirm-card.wide input[type="radio"]{width:20px; height:20px;}
+  .confirm-card.wide .confirm-btn-row .pill{font-size:16px; padding:16px 14px;}
   .ns-demo-wrap{position:relative; width:300px; max-width:100%;}
   .ns-demo-wrap canvas{width:100%; height:auto; display:block; background:var(--surface-soft); border-radius:16px; box-shadow:inset 0 0 0 2px var(--line);}
   .ns-pencil{position:absolute; top:0; left:0; font-size:30px; transform:translateX(-50%) rotate(-38deg); opacity:0; transition:opacity .15s; pointer-events:none;}
@@ -421,9 +440,20 @@
   .ns-settings-row select{font-size:15px; padding:5px 8px; border-radius:8px; border:1px solid var(--line); background:var(--surface);}
   .ns-settings-note{font-size:11px; opacity:.6; text-align:center; line-height:1.5;}
   .ns-settings-toggle{display:flex; align-items:center; gap:8px; font-size:13.5px; justify-content:center; font-family:'Gowun Dodum';}
-  .ns-reward-wrap{max-width:640px; margin:20px auto;}
-  .ns-reward-video{position:relative; width:100%; padding-top:56.25%; border-radius:20px; overflow:hidden; box-shadow:var(--shadow); background:#000;}
+  /* 2026-09-13: 보상 영상은 화면을 꽉 채운 진짜 "전체화면"처럼 보이도록 화면 전체를 덮는
+     고정 오버레이로 바꿨습니다(요청 1번). 자동 재생 + 종료 시 자동으로 닫히므로, 우측 상단의
+     ✕ 버튼은 아이가 중간에 나가고 싶을 때 쓰는 보조 수단입니다. */
+  .ns-reward-wrap{
+    position:fixed; inset:0; z-index:5000; margin:0; background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .ns-reward-title{color:#fff; font-size:17px; text-align:center; margin:0; padding:14px 60px 10px;}
+  .ns-reward-video{position:relative; width:100%; flex:1; min-height:0; border-radius:0; overflow:hidden; background:#000;}
   .ns-reward-video iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+  .ns-reward-close{
+    position:absolute; top:14px; right:14px; z-index:5001; width:44px; height:44px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.85); color:var(--ink); font-size:19px; cursor:pointer; box-shadow:var(--shadow-sm);
+  }
   @media (max-width:480px){
     .ns-stage-card{padding:20px 14px;}
     .ns-number-display{font-size:76px;}
@@ -431,7 +461,6 @@
 </style>
 </head>
 <body>
-
 
 <!-- ============ HOME ============ -->
 <audio id="bgmPlayer" loop preload="none"></audio>
@@ -605,9 +634,9 @@
 <!-- ============ 숫자공부 보상 영상 ============ -->
 <div id="screen-numreward" class="screen">
   <div class="ns-reward-wrap">
-    <h1 style="text-align:center;">🎉 오늘 숫자 10개 다 배웠어요! 🎉</h1>
+    <button class="ns-reward-close" onclick="closeNumberReward()" aria-label="닫고 홈으로">✕</button>
+    <h1 class="ns-reward-title">🎉 오늘 숫자 다 배웠어요! 🎉</h1>
     <div class="ns-reward-video" id="nsRewardVideoHost"></div>
-    <button class="pill alt" style="margin:18px auto 0; display:block;" onclick="closeNumberReward()">홈으로 갈게요 🏠</button>
   </div>
 </div>
 
@@ -700,7 +729,7 @@ const CHARACTERS = [
   {id:'ping',  name:'핑',    src:'characters/ping.jpg',  franchise:'gogodino'},
   {id:'loki',  name:'로키',  src:'characters/loki.jpg',  franchise:'gogodino'},
   {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg', franchise:'gogodino'},
-  {id:'anki',  name:'안키',  src:'characters/anki.jpg',  franchise:'gogodino'},
+  {id:'anki',  name:'안키',  src:'characters/anki.jpg',  vehicleSrc:'characters/anki_v.jpg', franchise:'gogodino'},
   {id:'storm', name:'스톰',  src:'characters/storm.jpg', franchise:'gogodino'},
   // 로보카폴리 4종 (2026-09-12 추가) - 헬리는 변신(차량) 모드 도안이 따로 없어 vehicleSrc 없음
   {id:'poli',  name:'폴리',  src:'characters/poli.jpg',  vehicleSrc:'characters/poli_v.jpg', franchise:'robocarpoli'},
@@ -1002,6 +1031,59 @@ const PATTERNS = [
      [[0.2,0.25],[0.62,0.18],[0.8,0.55],[0.3,0.7],[0.55,0.85]].forEach((p,i)=>{
        ctx.fillStyle=colors[i%colors.length]; ctx.save(); ctx.translate(s*p[0], s*p[1]); ctx.rotate(i*0.9);
        ctx.fillRect(-s*0.05,-s*0.03,s*0.1,s*0.06); ctx.restore(); }); }},
+  {id:'pat-flame', label:'화염', bg:'#ffe1c9', fg:'#ff6b35',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5;
+     ctx.fillStyle=this.fg;
+     ctx.beginPath(); ctx.moveTo(cx, s*0.86);
+     ctx.bezierCurveTo(cx-s*0.28, s*0.62, cx-s*0.16, s*0.34, cx, s*0.1);
+     ctx.bezierCurveTo(cx+s*0.2, s*0.34, cx+s*0.26, s*0.6, cx, s*0.86);
+     ctx.closePath(); ctx.fill();
+     ctx.fillStyle='#ffd23f';
+     ctx.beginPath(); ctx.moveTo(cx, s*0.8);
+     ctx.bezierCurveTo(cx-s*0.13, s*0.6, cx-s*0.06, s*0.42, cx, s*0.3);
+     ctx.bezierCurveTo(cx+s*0.09, s*0.42, cx+s*0.13, s*0.6, cx, s*0.8);
+     ctx.closePath(); ctx.fill(); }},
+  {id:'pat-ice', label:'얼음', bg:'#e2f6ff', fg:'#3fb8e8',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, cy=s*0.5, r=s*0.34;
+     ctx.fillStyle=this.fg;
+     ctx.beginPath();
+     for(let i=0;i<6;i++){ const ang=i*Math.PI/3-Math.PI/2; const x=cx+Math.cos(ang)*r, y=cy+Math.sin(ang)*r;
+       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+     ctx.closePath(); ctx.fill();
+     ctx.strokeStyle='#d8f4ff'; ctx.lineWidth=s*0.035; ctx.lineCap='round';
+     for(let i=0;i<3;i++){ const ang=i*Math.PI/3-Math.PI/2;
+       ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(ang)*r*0.8, cy+Math.sin(ang)*r*0.8); ctx.stroke(); }
+     ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.55;
+     ctx.beginPath(); ctx.ellipse(cx-r*0.28, cy-r*0.3, r*0.22, r*0.12, -0.6, 0, Math.PI*2); ctx.fill();
+     ctx.globalAlpha=1; }},
+  {id:'pat-citrus', label:'오렌지속살', bg:'#fff0d6', fg:'#ff9a3c',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, cy=s*0.5, r=s*0.38, n=8;
+     for(let i=0;i<n;i++){
+       const a0=i*(Math.PI*2/n), a1=a0+Math.PI*2/n*0.82;
+       ctx.fillStyle = i%2===0 ? this.fg : '#ffb266';
+       ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,a0,a1); ctx.closePath(); ctx.fill();
+     }
+     ctx.fillStyle='#fff6e8'; ctx.beginPath(); ctx.arc(cx,cy,r*0.14,0,Math.PI*2); ctx.fill(); }},
+  {id:'pat-kiwi', label:'키위속살', bg:'#eafbd0', fg:'#7fbf3f',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     const cx=s*0.5, cy=s*0.5;
+     ctx.fillStyle=this.fg; ctx.beginPath(); ctx.arc(cx,cy,s*0.36,0,Math.PI*2); ctx.fill();
+     ctx.fillStyle='#f7fbe0'; ctx.beginPath(); ctx.arc(cx,cy,s*0.16,0,Math.PI*2); ctx.fill();
+     ctx.fillStyle='#3a2b1a';
+     const n=9, r=s*0.255;
+     for(let i=0;i<n;i++){ const ang=i*(Math.PI*2/n);
+       ctx.save(); ctx.translate(cx+Math.cos(ang)*r, cy+Math.sin(ang)*r); ctx.rotate(ang+Math.PI/2);
+       ctx.beginPath(); ctx.ellipse(0,0,s*0.016,s*0.038,0,0,Math.PI*2); ctx.fill(); ctx.restore(); } }},
+  {id:'pat-strawberry', label:'딸기씨', bg:'#ff8fa3', fg:'#ffd93a',
+   draw(ctx,s){ ctx.fillStyle=this.bg; ctx.fillRect(0,0,s,s);
+     ctx.fillStyle=this.fg;
+     [[0.22,0.24],[0.62,0.18],[0.42,0.42],[0.78,0.4],[0.3,0.62],[0.6,0.68],[0.85,0.78],[0.16,0.85]].forEach(([fx,fy],i)=>{
+       ctx.save(); ctx.translate(s*fx,s*fy); ctx.rotate(i*0.9);
+       ctx.beginPath(); ctx.ellipse(0,0,s*0.028,s*0.055,0,0,Math.PI*2); ctx.fill();
+       ctx.restore(); }); }},
 ];
 function findPattern(id){ return PATTERNS.find(p=>p.id===id); }
 
@@ -1366,11 +1448,22 @@ function attachDragPaint(canvas){
   }
   function paintable(label){ return label!==null && label!==undefined && label!==-1 && label!==currentAnalysis.bgLabel; }
 
+  // 멀티컬러 붓: 획을 얼마나 그었는지(누적 거리)에 따라 색상환을 계속 돌립니다.
+  // 손을 뗐다가 다시 칠할 때마다(=새 붓질 시작마다) 색이 겹치지 않게 시작 색조를 무작위로 잡습니다.
+  let rainbowHue = 0;
+  const RAINBOW_HUE_PER_PX = 1.6; // 이 정도 픽셀을 그으면 색상환이 한 바퀴(360도) 돕니다
+  function toolForSegment(tool, segLen){
+    if(tool.type !== 'rainbow') return tool;
+    rainbowHue = (rainbowHue + segLen*RAINBOW_HUE_PER_PX) % 360;
+    return { type:'color', value:`hsl(${rainbowHue.toFixed(1)},82%,58%)` };
+  }
+
   function begin(clientX, clientY){
     const p = pointAt(clientX, clientY);
     if(!p || !paintable(p.label)) return;
     lockedLabel = p.label; lastX = p.x; lastY = p.y;
-    stampStroke(lockedLabel, p.x, p.y, p.x, p.y, currentTool);
+    if(currentTool.type==='rainbow') rainbowHue = Math.random()*360;
+    stampStroke(lockedLabel, p.x, p.y, p.x, p.y, toolForSegment(currentTool, 0));
     renderColorCanvas();
   }
   function extend(clientX, clientY){
@@ -1378,7 +1471,8 @@ function attachDragPaint(canvas){
     const rect = canvas.getBoundingClientRect();
     const x = (clientX - rect.left) / rect.width * currentAnalysis.w;
     const y = (clientY - rect.top) / rect.height * currentAnalysis.h;
-    stampStroke(lockedLabel, lastX, lastY, x, y, currentTool);
+    const segLen = Math.hypot(x-lastX, y-lastY);
+    stampStroke(lockedLabel, lastX, lastY, x, y, toolForSegment(currentTool, segLen));
     lastX = x; lastY = y;
     renderColorCanvas();
   }
@@ -1430,11 +1524,17 @@ function resetCanvasZoom(){
 
 function renderColorRow(){
   const row = document.getElementById('colorRow');
-  row.innerHTML = PALETTE.map((c,i)=>`<div class="swatch" style="background:${c}; animation-delay:${i*16}ms" data-color="${c}"></div>`).join('');
-  row.querySelectorAll('.swatch').forEach(el=>{
+  row.innerHTML = PALETTE.map((c,i)=>`<div class="swatch" style="background:${c}; animation-delay:${i*16}ms" data-color="${c}"></div>`).join('')
+    + `<div class="swatch rainbow" title="멀티컬러" style="animation-delay:${PALETTE.length*16}ms" data-rainbow="1"></div>`;
+  row.querySelectorAll('.swatch[data-color]').forEach(el=>{
     el.addEventListener('click', ()=> pickColor(el.dataset.color, el));
     if(currentTool.type==='color' && currentTool.value===el.dataset.color) el.classList.add('active');
   });
+  const rb = row.querySelector('.swatch.rainbow');
+  if(rb){
+    rb.addEventListener('click', ()=> pickRainbow(rb));
+    if(currentTool.type==='rainbow') rb.classList.add('active');
+  }
 }
 function renderPatternRow(){
   const row = document.getElementById('patternRow');
@@ -1458,6 +1558,14 @@ function pickPattern(id, el){
   document.querySelectorAll('.pat-swatch').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
   document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+}
+// 멀티컬러(무지개) 붓 - 색이 고정된 하나가 아니라, 칠하는 동안 붓이 지나간 거리만큼
+// 색상환을 따라 계속 바뀝니다. 실제 색 계산은 attachDragPaint의 획(stroke) 단위로 이뤄집니다.
+function pickRainbow(el){
+  currentTool = {type:'rainbow', value:null};
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.pat-swatch').forEach(s=>s.classList.remove('active'));
 }
 function toggleForm(){
   if(!currentChar || !currentChar.forms.vehicle){
@@ -2616,7 +2724,47 @@ function initTrackControls(){
     }
   }
 
+  // 조이스틱을 한 손가락으로 드래그하는 도중 다른 손가락으로 점프 버튼을 누르면(듀얼 터치),
+  // 일부 안드로이드 웹뷰에서는 두 번째 손가락이 닿는 순간 Pointer Events의 setPointerCapture가
+  // 첫 번째 손가락의 캡처를 취소(pointercancel)해버려 조이스틱이 원점으로 튕기는 문제가
+  // 있었습니다("조이스틱 드래그 중 점프하면 초기화됨"). Pointer Events는 멀티터치일 때 이런
+  // 캡처 충돌 버그가 웹뷰별로 있는 반면, 원시 Touch Events는 touch.identifier로 각 손가락을
+  // 완전히 독립적으로 추적하기 때문에 이런 문제가 없습니다. 그래서 터치 입력은 Touch Events를
+  // 우선 사용하고, 마우스(데스크톱 테스트용)만 기존 Pointer Events 경로로 처리합니다.
+  function touchById(list, id){
+    for(let i=0;i<list.length;i++){ if(list[i].identifier === id) return list[i]; }
+    return null;
+  }
+
+  let touchId = null;
+  joy.addEventListener('touchstart', (e)=>{
+    e.preventDefault();
+    if(touchId !== null) return; // 이미 다른 손가락이 조작 중이면 새 손가락은 무시
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    joy.classList.add('active');
+    updateFromPoint(t.clientX, t.clientY);
+  }, {passive:false});
+  joy.addEventListener('touchmove', (e)=>{
+    if(touchId === null) return;
+    const t = touchById(e.changedTouches, touchId);
+    if(!t) return;
+    e.preventDefault();
+    updateFromPoint(t.clientX, t.clientY);
+  }, {passive:false});
+  ['touchend','touchcancel'].forEach(evt=>{
+    joy.addEventListener(evt, (e)=>{
+      if(touchId === null) return;
+      const t = touchById(e.changedTouches, touchId);
+      if(!t) return; // 내가 추적하던 손가락이 뗀 게 아니라 "다른" 손가락 이벤트면 무시
+      touchId = null;
+      resetJoystick();
+    }, {passive:false});
+  });
+
+  // 마우스(터치가 아닌 입력) 전용 - 터치는 위 Touch Events가 전담하므로 여기서는 건너뜁니다.
   joy.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType === 'touch') return;
     e.preventDefault();
     pointerId = e.pointerId;
     try{ joy.setPointerCapture(pointerId); }catch(err){}
@@ -2624,19 +2772,25 @@ function initTrackControls(){
     updateFromPoint(e.clientX, e.clientY);
   });
   joy.addEventListener('pointermove', (e)=>{
+    if(e.pointerType === 'touch') return;
     if(pointerId === null || e.pointerId !== pointerId) return;
     e.preventDefault();
     updateFromPoint(e.clientX, e.clientY);
   });
   ['pointerup','pointercancel'].forEach(evt=>{
     joy.addEventListener(evt, (e)=>{
+      if(e.pointerType === 'touch') return;
       if(pointerId !== null && e.pointerId !== pointerId) return;
       pointerId = null;
       resetJoystick();
     });
   });
 
-  bJ.addEventListener('pointerdown', (e)=>{ e.preventDefault(); trackJump(); });
+  bJ.addEventListener('touchstart', (e)=>{ e.preventDefault(); trackJump(); }, {passive:false});
+  bJ.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType === 'touch') return; // 터치는 위 touchstart가 전담(중복 발동 방지)
+    e.preventDefault(); trackJump();
+  });
 
   window.addEventListener('keydown', (e)=>{
     if(!document.getElementById('screen-track').classList.contains('active')) return;
@@ -2656,8 +2810,9 @@ function initTrackControls(){
 // 10개를 다 끝내면 보상으로 고고다이노 영상을 하나 보여줍니다.
 const NS_STORAGE_KEY = 'gogodino_numstudy_v1';
 // 0은 전통적인 순우리말 수사가 없어서(하나/둘/셋...은 1부터) 비워둡니다 - 화면에는 한자어(영)만 나옵니다.
-const NS_NATIVE_NAMES = ['', '하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉'];
-const NS_SINO_NAMES   = ['영','일','이','삼','사','오','육','칠','팔','구'];
+// 2026-09-13: 기본 범위를 0~9에서 0~10으로 넓히면서 10(열/십)의 이름도 추가했습니다.
+const NS_NATIVE_NAMES = ['', '하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉','열'];
+const NS_SINO_NAMES   = ['영','일','이','삼','사','오','육','칠','팔','구','십'];
 const NS_TRACE_REPEATS = 3;          // 숫자 하나당 따라쓰기 반복 횟수
 const NS_TRACE_COVERAGE_PASS = 0.5;  // 안내선의 이 비율 이상을 덧그려야 통과
 const NS_SESSION_TARGET = 10;        // 이 개수를 배우면 보상 영상
@@ -2672,7 +2827,14 @@ const NS_DIGIT_STROKES = {
   0: [[[50,14],[68,20],[80,45],[84,70],[80,95],[68,120],[50,126],[32,120],[20,95],[16,70],[20,45],[32,20],[50,14]]],
   1: [[[36,28],[50,14],[50,70],[50,126]]],
   2: [[[24,34],[30,16],[50,12],[68,20],[73,38],[62,56],[38,82],[22,108],[20,126],[50,126],[82,126]]],
-  3: [[[22,24],[46,13],[66,17],[73,34],[65,50],[48,58],[65,66],[75,84],[70,108],[50,127],[27,121],[17,104]]],
+  // 2026-09-13: "펜을 안 떼고 이어서 쓰는" 것처럼 보인다는 피드백으로, 실제로 사람이 쓸 때
+  // 중간에 펜을 떼는 숫자(3, 5, 8)는 그 지점에서 획을 둘로 나눴습니다. 0·1·2·6·7·9는 원래도
+  // 실제 손글씨처럼 펜을 떼지 않고 한 번에 쓰는 게 자연스러워서 한 획 그대로 둡니다.
+  // 3: 가운데 오목한 지점에서 펜을 떼고 위쪽 반달 → 아래쪽 반달 순서로 씁니다.
+  3: [
+    [[22,24],[46,13],[66,17],[73,34],[65,50],[48,58]],
+    [[52,60],[65,66],[75,84],[70,108],[50,127],[27,121],[17,104]],
+  ],
   // 2026-09-13: 예전 좌표는 대각선이 가로선의 왼쪽 끝에서 멈추고 오른쪽으로 이어지는 부분이
   // 없어서(가로선이 세로선 왼쪽에서만 그려짐), 마치 깃발처럼 보이는 어색한 모양이었습니다.
   // 실제 숫자 4를 쓰는 순서(① 위에서 대각선으로 내려와 가로선 왼쪽 끝에 닿은 뒤 방향을 꺾어
@@ -2682,13 +2844,30 @@ const NS_DIGIT_STROKES = {
     [[66,14],[56,44],[46,70],[34,92],[18,98],[48,98],[86,98]],
     [[64,14],[64,60],[64,126]],
   ],
-  5: [[[72,16],[24,16],[19,54],[42,47],[63,57],[71,84],[57,116],[33,120],[19,106]]],
+  // 5: 위쪽 가로줄을 먼저 긋고 펜을 뗀 뒤, 왼쪽에서 다시 내려와 세로줄+아래쪽 곡선을 씁니다.
+  5: [
+    [[72,16],[24,16]],
+    [[22,18],[19,54],[42,47],[63,57],[71,84],[57,116],[33,120],[19,106]],
+  ],
   6: [[[66,18],[44,16],[27,34],[17,64],[17,96],[30,120],[52,124],[68,113],[70,90],[57,74],[36,75],[23,89]]],
   7: [[[18,16],[50,16],[82,16],[55,70],[36,126]]],
-  8: [[[50,18],[66,27],[68,44],[54,58],[40,70],[28,88],[30,108],[50,124],[70,108],[72,88],[60,70],[46,58],[32,44],[34,27],[50,18]]],
+  // 8: 위쪽 동그라미를 먼저 다 그린 뒤 펜을 떼고, 아래쪽(더 큰) 동그라미를 이어서 씁니다 -
+  // 실제로 아이들에게 8을 가르칠 때 흔히 쓰는, 두 개의 원을 겹쳐 그리는 방식입니다.
+  8: [
+    [[50,58],[35,52],[28,40],[32,24],[50,18],[68,24],[72,40],[65,52],[50,58]],
+    [[50,58],[32,66],[24,80],[26,100],[36,116],[50,124],[64,116],[74,100],[76,80],[68,66],[50,58]],
+  ],
   9: [[[62,50],[66,32],[54,18],[36,17],[22,28],[17,48],[22,66],[40,73],[58,68],[62,50],[58,72],[48,98],[34,120],[24,132]]],
+  // 10: 숫자 두 개(1, 0)를 나란히 배치한 좌표 - 아래 NS_DIGIT_SPACE_W_OF()가 이 숫자만 더
+  // 넓은 좌표계(170)를 쓰도록 처리합니다.
+  10: [
+    [[33,32],[43,14],[43,70],[43,126]],
+    [[128,14],[146,20],[158,45],[162,70],[158,95],[146,120],[128,126],[110,120],[98,95],[94,70],[98,45],[110,20],[128,14]],
+  ],
 };
-const NS_DIGIT_SPACE_W = 100, NS_DIGIT_SPACE_H = 140; // 위 좌표계의 가로/세로 크기
+const NS_DIGIT_SPACE_W = 100, NS_DIGIT_SPACE_H = 140; // 위 좌표계의 가로/세로 크기(한 자리 숫자 기준)
+// 두 자리 숫자(10)는 좌우로 폭이 더 필요해서 자릿수에 따라 가로 폭을 다르게 씁니다.
+function nsDigitSpaceW(n){ return n === 10 ? 170 : NS_DIGIT_SPACE_W; }
 
 // Catmull-Rom 스플라인으로 waypoint 사이를 촘촘한 점들로 채웁니다(직선 연결이 아니라 곡선으로 이어짐).
 function nsCatmullRomSample(points, samplesPerSeg){
@@ -2726,7 +2905,7 @@ function nsGetDigitStrokes(digit){
 }
 
 let ns = {
-  settings: { rangeMin:0, rangeMax:9, micGateOn:true },
+  settings: { rangeMin:0, rangeMax:10, micGateOn:true, mode:'sequential' },
   session: { completed:0 },
   current: null,
   stage: 'reveal',
@@ -2753,6 +2932,7 @@ function nsSaveSettings(){
 function openNumberStudy(){
   ns.session = { completed:0 };
   ns._noiseFloorCached = null; // 새 학습 세션을 시작할 때마다 그 자리의 소음을 다시 잽니다
+  nsRollPromptMajority(); // 이번 세션에서 "하나/둘..."과 "일/이..." 중 어느 쪽을 더 자주 들려줄지 무작위로 정함
   updateNsProgress();
   go('screen-numstudy');
   nsNextNumber();
@@ -2778,7 +2958,12 @@ function updateNsProgress(){
 }
 
 function nsPickNumber(){
-  const { rangeMin, rangeMax } = ns.settings;
+  const { rangeMin, rangeMax, mode } = ns.settings;
+  if(mode === 'sequential'){
+    // 순서 모드: 범위 안에서 작은 수 → 큰 수로 차례로 나오고, 끝까지 가면 다시 작은 수부터.
+    if(ns.current == null || ns.current < rangeMin || ns.current >= rangeMax) return rangeMin;
+    return ns.current + 1;
+  }
   const pool = [];
   for(let i=rangeMin; i<=rangeMax; i++) pool.push(i);
   if(pool.length===0) pool.push(0);
@@ -2928,18 +3113,39 @@ function nsSpeakNumber(n){
   // 기기 TTS가 그 숫자를 자기 방식대로 읽어버려(예: 순서상 이름 앞에 "이"가 한 번 더
   // 겹쳐 들리는 경우) 헷갈리는 문제가 있었습니다. 숫자 자체는 읽지 않고 이름만 자연스럽게
   // 읽어줍니다.
-  const text = native ? `${native}, 또는 ${sino}${nsCopula(sino)}.` : `${sino}${nsCopula(sino)}.`;
+  // 2026-09-13: 그냥 "하나, 또는 일이에요"라고만 하면 지금 배우는 게 숫자라는 게 명확하지
+  // 않아서, 앞에 "숫자"를 붙여 "숫자 하나, 또는 일이에요"처럼 말해줍니다.
+  const text = native ? `숫자 ${native}, 또는 ${sino}${nsCopula(sino)}.` : `숫자 ${sino}${nsCopula(sino)}.`;
   nsSpeak(text);
 }
 // 마이크 단계에서 들려주는 "OO! 소리내어 말해볼까요?" 안내 음성 — 아이가 화면 글자를
 // 아직 못 읽어도 무엇을 해야 하는지 귀로 알 수 있도록, 이 단계에 들어가면 자동으로
 // 한 번 들려주고, 작은 "다시 듣기" 버튼으로 몇 번이든 다시 들을 수 있게 합니다.
-function nsTracePromptText(n){
-  const name = NS_NATIVE_NAMES[n] || NS_SINO_NAMES[n];
-  return `${name}! 소리 내어 말해볼까요?`;
+// 2026-09-13: 마이크 단계에서 예전엔 항상 "하나","둘"처럼 순우리말 이름만 예시로 나왔는데,
+// "일","이" 같은 한자어 이름도 섞어서 들려주도록 했습니다(대략 2:1 비율). 어느 쪽이 더 자주
+// 나올지는 숫자공부 세션을 시작할 때 한 번 무작위로 정해서, 한 세션 안에서는 일관되게 씁니다.
+let nsPromptMajority = 'native';
+function nsRollPromptMajority(){
+  nsPromptMajority = Math.random() < 0.5 ? 'native' : 'sino';
+}
+function nsPickPromptSystem(){
+  const majorityWins = Math.random() < (2/3);
+  return majorityWins ? nsPromptMajority : (nsPromptMajority === 'native' ? 'sino' : 'native');
+}
+// 화면 표기와 실제 음성 안내가 항상 같은 낱말을 말하도록, 이번 회차에 쓸 낱말을 한 번만 뽑아
+// ns._promptWord에 저장해두고 화면/음성 양쪽에서 그 값을 그대로 씁니다.
+function nsPickPromptWord(n){
+  const native = NS_NATIVE_NAMES[n];
+  const sino = NS_SINO_NAMES[n];
+  let system = nsPickPromptSystem();
+  if(system === 'native' && !native) system = 'sino'; // 0처럼 순우리말 이름이 없으면 한자어로 대체
+  return system === 'native' ? native : sino;
+}
+function nsTracePromptText(){
+  return `${ns._promptWord}! 소리 내어 말해볼까요?`;
 }
 function nsSpeakTracePrompt(){
-  nsSpeak(nsTracePromptText(ns.current));
+  nsSpeak(nsTracePromptText());
 }
 
 // ---------------- 2단계: 쓰는 법 데모(애니메이션, 다시보기 가능) ----------------
@@ -2959,25 +3165,29 @@ function nsRenderDemoStage(){
 // (NS_DIGIT_STROKES)를 따라 연필이 x,y 둘 다 움직이면서 한 획씩 그려지고, 획이 끝나면
 // 펜을 살짝 들었다가 다음 획 시작점에 내려놓는 것처럼 보이게 합니다.
 let nsDemoRunId = 0;
-function nsPlayDemo(){
-  const canvas = document.getElementById('nsDemoCanvas');
+// 2026-09-13: 데모(쓰는 법 보기) 단계뿐 아니라 따라쓰기(트레이스) 화면에서도 "다시보기"가
+// 필요해져서(요청 2번), 캔버스/연필 엘리먼트 id를 인자로 받는 공용 함수로 뽑아냈습니다.
+function nsPlayStrokeAnim(canvasId, pencilId, opts){
+  opts = opts || {};
+  const canvas = document.getElementById(canvasId);
   if(!canvas) return;
   const runId = ++nsDemoRunId; // 다시보기를 연타해도 예전 애니메이션이 계속 겹쳐 그려지지 않도록
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const pencil = document.getElementById('nsPencil');
-  const SCALE = W / NS_DIGIT_SPACE_W;
+  const pencil = document.getElementById(pencilId);
+  const spaceW = nsDigitSpaceW(ns.current);
+  const SCALE = W / spaceW;
   const OFFY = (H - NS_DIGIT_SPACE_H*SCALE) / 2;
   const toCanvas = ([x,y]) => [x*SCALE, y*SCALE + OFFY];
   const strokes = nsGetDigitStrokes(ns.current).map(pts => pts.map(toCanvas));
   const lens = strokes.map(nsStrokeLength);
   const totalLen = lens.reduce((a,b)=>a+b,0) || 1;
-  const totalDur = 1700;
+  const totalDur = opts.totalDur || 1700;
   const strokeDurs = lens.map(l => Math.max(260, totalDur * (l/totalLen)));
 
   ctx.clearRect(0,0,W,H);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#2e2350';
+  ctx.strokeStyle = opts.color || '#2e2350';
   ctx.lineWidth = Math.max(7, SCALE*3.4);
   if(pencil) pencil.style.opacity = '1';
 
@@ -2993,6 +3203,7 @@ function nsPlayDemo(){
     if(runId !== nsDemoRunId || !nsIsActive()) return;
     if(idx >= strokes.length){
       if(pencil) setTimeout(()=>{ if(runId===nsDemoRunId) pencil.style.opacity = '0'; }, 300);
+      if(runId === nsDemoRunId && opts.onDone) opts.onDone();
       return;
     }
     const pts = strokes[idx];
@@ -3027,58 +3238,92 @@ function nsPlayDemo(){
   }
   playStroke(0);
 }
+function nsPlayDemo(){
+  nsPlayStrokeAnim('nsDemoCanvas', 'nsPencil');
+}
+// 따라쓰기 화면에서 "쓰는법 다시보기"를 누르면, 안내선/그림 위에 겹쳐진 투명 캔버스에
+// 잠깐 획순 애니메이션을 보여준 뒤 다시 지워서 원래 안내선+그린 그림이 보이게 합니다.
+function nsPlayTraceDemo(){
+  const overlay = document.getElementById('nsTraceDemoCanvas');
+  if(!overlay) return;
+  overlay.style.opacity = '1';
+  nsPlayStrokeAnim('nsTraceDemoCanvas', 'nsTracePencil', {
+    color: '#ff8f3c',
+    onDone: ()=>{
+      setTimeout(()=>{
+        const c = document.getElementById('nsTraceDemoCanvas');
+        if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); c.style.opacity = '0'; }
+      }, 300);
+    }
+  });
+}
 
 // ---------------- 3단계: 안내선 따라쓰기 ----------------
 function nsRenderTraceStage(){
   const gateOn = ns.settings.micGateOn;
+  // 이번 회차에 화면/음성에서 쓸 낱말을 한 번만 뽑아둡니다(둘이 서로 다른 낱말을 말하면 안 되므로).
+  ns._promptWord = nsPickPromptWord(ns.current);
   return `
     <div class="ns-trace-round">✍️ 따라쓰기 ${ns.traceRound+1} / ${NS_TRACE_REPEATS}</div>
     ${gateOn ? `
     <div class="ns-mic-gate" id="nsMicGate">
       <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
-        <span>🎤 "${NS_NATIVE_NAMES[ns.current] || NS_SINO_NAMES[ns.current]}" 소리내어 말해볼까요?</span>
-        <button class="pill ghost" id="nsRepeatPrompt" title="다시 듣기" style="padding:6px 10px; font-size:15px; line-height:1;">🔁</button>
+        <span>🎤 "${ns._promptWord}" 소리내어 말해볼까요?</span>
+        <button class="pill ghost" id="nsRepeatPrompt" title="다시 듣기" style="padding:10px 14px; font-size:18px; line-height:1;">🔁</button>
       </div>
       <button class="pill alt ns-big-btn" id="nsMicBtn">🎙️ 말하기 시작</button>
       <div class="ns-mic-hint" id="nsMicHint"></div>
     </div>` : ''}
+    <button class="pill ghost ns-big-btn" id="nsTraceReplayDemo">🔁 쓰는법 다시보기</button>
     <div class="ns-trace-wrap" id="nsTraceWrap" style="${gateOn?'opacity:.35; pointer-events:none;':''}">
       <canvas id="nsGuideCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <canvas id="nsDrawCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
+      <canvas id="nsTraceDemoCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}" style="position:absolute; top:0; left:0; opacity:0; pointer-events:none; transition:opacity .2s;"></canvas>
+      <div class="ns-pencil" id="nsTracePencil"></div>
     </div>
     <div class="action-row">
-      <button class="pill ghost" id="nsClearTrace">↩️ 지우고 다시</button>
-      <button class="pill alt" id="nsCheckTrace">✅ 다 썼어요!</button>
+      <button class="pill ghost ns-action-btn" id="nsClearTrace">↩️ 지우고 다시</button>
+      <button class="pill alt ns-action-btn" id="nsCheckTrace">✅ 다 썼어요!</button>
     </div>
   `;
+}
+// 2026-09-13: 예전엔 따라쓰기 안내선도 획순 데모와 똑같은 손글씨 스플라인 좌표로 그려서,
+// 실제 숫자 모양과 살짝 달라 보여 어색하다는 피드백이 있었습니다. 이제 안내선은 진짜 숫자
+// 글꼴(폰트)로 그려서 실제 숫자 모양 그대로 따라 쓰게 하고, 손으로 쓰는 순서를 보여주는
+// 데모 애니메이션(nsPlayDemo/nsPlayTraceDemo)만 획순 좌표(NS_DIGIT_STROKES)를 계속 씁니다.
+function nsRenderGlyphGuide(ctx, W, H, text){
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let size = Math.floor(H * 0.82);
+  ctx.font = `bold ${size}px 'Jua', sans-serif`;
+  while(ctx.measureText(text).width > W * 0.86 && size > 40){
+    size -= 6;
+    ctx.font = `bold ${size}px 'Jua', sans-serif`;
+  }
+  ctx.fillStyle = 'rgba(46,35,80,.24)';
+  ctx.fillText(text, W/2, H/2 + size*0.03);
+  ctx.restore();
 }
 function nsSetupTraceCanvases(){
   const guide = document.getElementById('nsGuideCanvas');
   const draw = document.getElementById('nsDrawCanvas');
   if(!guide || !draw) return;
   const W = guide.width, H = guide.height;
-  const SCALE = W / NS_DIGIT_SPACE_W;
-  const OFFY = (H - NS_DIGIT_SPACE_H*SCALE) / 2;
-  const toCanvas = ([x,y]) => [x*SCALE, y*SCALE + OFFY];
-  // 데모(2단계)와 완전히 같은 획 좌표를 그대로 안내선으로 씁니다 - 방금 본 궤적이랑
-  // 지금 따라 그릴 안내선이 항상 일치해야 아이가 헷갈리지 않습니다.
-  const strokes = nsGetDigitStrokes(ns.current).map(pts => pts.map(toCanvas));
 
   const gctx = guide.getContext('2d');
   gctx.clearRect(0,0,W,H);
-  gctx.strokeStyle = 'rgba(46,35,80,.3)';
-  gctx.lineWidth = Math.max(11, SCALE*4.4);
-  gctx.lineCap = 'round'; gctx.lineJoin = 'round';
-  strokes.forEach(pts=>{
-    gctx.beginPath();
-    pts.forEach(([x,y], i)=> i===0 ? gctx.moveTo(x,y) : gctx.lineTo(x,y));
-    gctx.stroke();
-  });
+  nsRenderGlyphGuide(gctx, W, H, String(ns.current));
 
-  // 채점용 마스크: 안내선을 그릴 때 쓴 점들을 성글게 뽑아서 그대로 사용합니다
-  // (폰트를 다시 그려서 픽셀을 스캔하는 대신, 이미 있는 궤적 점을 재사용 - 더 가볍고 항상 안내선과 정확히 일치).
+  // 채점용 마스크: 방금 그린 실제 숫자 글자의 픽셀(알파값이 있는 칸)을 성글게 스캔해서 사용합니다.
   const maskPixels = [];
-  strokes.forEach(pts=>{ pts.forEach(([x,y], i)=>{ if(i % 2 === 0) maskPixels.push([x,y]); }); });
+  const STEP = 6;
+  const gdata = gctx.getImageData(0,0,W,H).data;
+  for(let y=0; y<H; y+=STEP){
+    for(let x=0; x<W; x+=STEP){
+      if(gdata[(y*W+x)*4+3] > 15) maskPixels.push([x,y]);
+    }
+  }
   ns._traceMask = maskPixels;
 
   const dctx = draw.getContext('2d');
@@ -3133,6 +3378,8 @@ function nsCheckTraceCoverage(){
 }
 function nsWireTraceStage(){
   nsSetupTraceCanvases();
+  const replayBtn = document.getElementById('nsTraceReplayDemo');
+  if(replayBtn) replayBtn.addEventListener('click', nsPlayTraceDemo);
   if(ns.settings.micGateOn){
     const micBtn = document.getElementById('nsMicBtn');
     if(micBtn) micBtn.addEventListener('click', nsStartMicCheck);
@@ -3291,7 +3538,8 @@ function nsWireStage(stage){
 
 // ---------------- 설정(범위 · 마이크 확인 켜기/끄기) ----------------
 function openNumStudySettings(){
-  const rangeOptions = (selected)=> Array.from({length:10},(_,i)=>`<option value="${i}" ${i===selected?'selected':''}>${i}</option>`).join('');
+  const rangeOptions = (selected)=> Array.from({length:11},(_,i)=>`<option value="${i}" ${i===selected?'selected':''}>${i}</option>`).join('');
+  const mode = ns.settings.mode === 'random' ? 'random' : 'sequential';
   let el = document.getElementById('confirmOverlayEl');
   if(!el){ el = document.createElement('div'); el.id = 'confirmOverlayEl'; document.body.appendChild(el); }
   el.className = 'confirm-overlay';
@@ -3304,7 +3552,18 @@ function openNumStudySettings(){
         <span>~</span>
         <select id="nsMax">${rangeOptions(ns.settings.rangeMax)}</select>
       </div>
-      <div class="ns-settings-note">※ 지금은 0~9까지만 배울 수 있어요. 두 자리 숫자(~99)는 곧 추가할게요!</div>
+      <div class="ns-settings-note">※ 지금은 0~10까지 배울 수 있어요. 더 큰 숫자는 곧 추가할게요!</div>
+      <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+        <label style="font-weight:700;">순서</label>
+        <label class="ns-settings-toggle">
+          <input type="radio" name="nsMode" value="sequential" ${mode==='sequential'?'checked':''}>
+          순서대로 (작은 수 → 큰 수)
+        </label>
+        <label class="ns-settings-toggle">
+          <input type="radio" name="nsMode" value="random" ${mode==='random'?'checked':''}>
+          무작위
+        </label>
+      </div>
       <label class="ns-settings-toggle">
         <input type="checkbox" id="nsMicToggle" ${ns.settings.micGateOn?'checked':''}>
         말하고 나서 쓰기 (마이크로 확인)
@@ -3324,6 +3583,8 @@ function openNumStudySettings(){
       if(mn > mx){ const t = mn; mn = mx; mx = t; }
       ns.settings.rangeMin = mn; ns.settings.rangeMax = mx;
       ns.settings.micGateOn = document.getElementById('nsMicToggle').checked;
+      const modeInput = document.querySelector('input[name="nsMode"]:checked');
+      ns.settings.mode = modeInput ? modeInput.value : 'sequential';
       nsSaveSettings();
       toast('설정을 저장했어요!');
     }
@@ -3334,13 +3595,65 @@ function openNumStudySettings(){
 }
 
 // ---------------- 보상: 10개 완주 시 고고다이노 영상 ----------------
+// 2026-09-13: 예전엔 그냥 iframe만 심어서 자동재생/전체화면이 항상 되는지 확실하지 않았고,
+// 영상이 끝나도 아무 반응이 없어 계속 그 화면에 머물러 있었습니다. YouTube IFrame Player API로
+// 바꿔서 (1) 재생 준비가 되면 확실히 재생시키고 실제 브라우저 전체화면 진입도 시도하고,
+// (2) 영상 상태가 ENDED가 되면 자동으로 영상을 정리하고 홈 화면으로 돌아가게 했습니다.
+let nsYTPlayer = null;
+let nsYTApiLoading = false;
+function nsLoadYouTubeAPI(cb){
+  if(window.YT && window.YT.Player){ cb(); return; }
+  const prevReady = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = ()=>{
+    if(prevReady){ try{ prevReady(); }catch(e){} }
+    cb();
+  };
+  if(!nsYTApiLoading && !document.getElementById('nsYtApiScript')){
+    nsYTApiLoading = true;
+    const tag = document.createElement('script');
+    tag.id = 'nsYtApiScript';
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
+}
+function nsTryFullscreen(el){
+  if(!el) return;
+  try{
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitEnterFullscreen || el.mozRequestFullScreen;
+    if(req) Promise.resolve(req.call(el)).catch(()=>{}); // 권한/브라우저 제약으로 실패해도 조용히 무시(영상 자체는 이미 화면을 꽉 채움)
+  }catch(e){}
+}
 function showNumberReward(){
   const vid = REWARD_VIDEOS[Math.floor(Math.random()*REWARD_VIDEOS.length)];
   const host = document.getElementById('nsRewardVideoHost');
-  if(host) host.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  if(!host) return;
+  host.innerHTML = '<div id="nsYtPlayerEl"></div>';
   go('screen-numreward');
+  nsLoadYouTubeAPI(()=>{
+    if(!nsIsRewardActive()) return; // API 로딩 중에 아이가 이미 닫았으면 재생하지 않음
+    try{
+      if(nsYTPlayer){ try{ nsYTPlayer.destroy(); }catch(e){} nsYTPlayer = null; }
+      nsYTPlayer = new YT.Player('nsYtPlayerEl', {
+        videoId: vid,
+        playerVars: { autoplay:1, rel:0, playsinline:1, modestbranding:1 },
+        events: {
+          onReady: (e)=>{ e.target.playVideo(); nsTryFullscreen(host); },
+          onStateChange: (e)=>{ if(e.data === YT.PlayerState.ENDED) closeNumberReward(); }
+        }
+      });
+    }catch(e){
+      // API 생성이 실패해도 최소한 영상은 보이도록 예전 방식의 iframe으로 대체합니다.
+      host.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&playsinline=1" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+    }
+  });
+}
+function nsIsRewardActive(){
+  const el = document.getElementById('screen-numreward');
+  return !!(el && el.classList.contains('active'));
 }
 function closeNumberReward(){
+  if(nsYTPlayer){ try{ nsYTPlayer.destroy(); }catch(e){} nsYTPlayer = null; }
+  if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
   const host = document.getElementById('nsRewardVideoHost');
   if(host) host.innerHTML = '';
   ns.session = { completed:0 };
