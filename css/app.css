@@ -1,0 +1,570 @@
+/* ---------------------------------------------------------------
+   디자인 토큰 — 놀이방 팔레트 (버터크림 바탕 + 산호핑크 / 라군틸 / 잎그린 / 모래앰버 액센트)
+   이 앱은 "언제나 밝고 다채로운" 놀이 공간이라는 컨셉을 의도적으로 고정합니다.
+   (OS 다크모드와 무관하게 항상 밝은 팔레트 — 유아용 색칠앱 특성상 의도된 단일 테마)
+--------------------------------------------------------------- */
+:root{
+  --bg:#fff3d6;          /* 버터크림 바탕 */
+  --surface:#ffffff;     /* 카드 */
+  --surface-soft:#fff9ec;
+  --ink:#2e2350;         /* 딥 플럼 네이비 — 본문/외곽선 */
+  --ink-soft:#6b6285;
+  --accent:#ff6b81;      /* 산호핑크 — 포인트/CTA */
+  --accent-deep:#e6455e;
+  --lagoon:#2fb8cf;      /* 라군틸 — 선택/보조 */
+  --leaf:#4fae5f;        /* 잎그린 — 숲 */
+  --amber:#f0a53d;       /* 모래앰버 — 사막/포인트 */
+  --line:#efe1bd;
+  --danger:#e6455e;
+  --shadow:0 10px 26px -8px rgba(46,35,80,.22);
+  --shadow-sm:0 4px 12px rgba(46,35,80,.16);
+  --radius-lg:28px;
+  --radius-md:20px;
+}
+/* 안드로이드 웹뷰는 터치/드래그가 닿는 요소에 기본적으로 반투명한 파란색(또는 회색)
+   "탭 하이라이트"를 깜빡여줍니다 — 평소엔 안 보이다가, 손가락으로 문질러 칠하는 이
+   앱에서는 캔버스를 드래그할 때마다 그 파란 음영이 계속 번쩍여서 마치 텍스트를
+   드래그해서 선택한 것처럼 보기 흉하게 뒤덮이는 원인이었습니다. 전역으로 꺼둡니다. */
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;}
+html,body{margin:0;}
+body{
+  font-family:'Gowun Dodum','Malgun Gothic',sans-serif;
+  background:var(--bg); color:var(--ink);
+  -webkit-user-select:none; user-select:none; overscroll-behavior:none;
+  padding:22px clamp(16px,4vw,32px) 48px;
+}
+h1,h2,.display{font-family:'Jua','Malgun Gothic',sans-serif; font-weight:400;}
+h1{font-size:clamp(20px,3vw,26px); margin:0 0 4px; text-wrap:balance;}
+.sub{opacity:.62; font-size:13px; margin-bottom:18px; line-height:1.5;}
+
+.screen{display:none; max-width:1080px; margin:0 auto;}
+.screen.active{display:block;}
+
+.home-grid{display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-top:clamp(16px,6vh,56px);}
+.home-card{
+  width:230px; height:250px; background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  cursor:pointer; border:4px solid transparent; transition:transform .15s, border-color .15s;
+}
+.home-card:active{transform:scale(.96);}
+.home-card:hover{border-color:var(--accent);}
+.home-card .emoji{font-size:60px; line-height:1;}
+.home-card b{font-size:19px; font-family:'Jua';}
+
+.topbar{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+.backbtn{
+  width:44px; height:44px; border-radius:50%; background:var(--surface); box-shadow:var(--shadow-sm);
+  border:none; font-size:19px; cursor:pointer; color:var(--ink); flex:none;
+}
+
+.char-grid{display:flex; flex-direction:column; gap:4px;}
+/* 애니메이션(프랜차이즈)별 구획 - 은은한 색 배경(tint)과 테두리로 카드 묶음 자체를 구분하고,
+   위쪽에 색깔 배지+이모지+이름표를 붙여 "이 아래는 전부 이 만화 캐릭터"라는 걸 보여줍니다. */
+.char-section{
+  margin-bottom:20px; padding:14px 14px 18px; border-radius:22px;
+  background:var(--fr-tint, var(--surface-soft)); border:2px solid color-mix(in srgb, var(--fr-color, #999) 32%, transparent);
+}
+.char-section-head{display:flex; align-items:center; gap:9px; margin-bottom:12px; padding:0 4px;}
+.fr-badge{
+  width:34px; height:34px; border-radius:50%; background:var(--fr-color, #888); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:18px; flex:none;
+  box-shadow:0 2px 6px rgba(0,0,0,.22);
+}
+.fr-label{font-family:'Jua'; font-size:16.5px; color:var(--fr-color, #555); font-weight:700;}
+.char-section-grid{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
+.char-thumb{
+  width:132px; background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:10px;
+  text-align:center; cursor:pointer; border:3px solid transparent; transition:border-color .15s;
+  position:relative; border-top:5px solid transparent;
+}
+.char-thumb.has-fr{border-top-color:var(--fr-color, transparent);}
+.char-thumb:hover{border-color:var(--lagoon);}
+/* 2026-09-12: 예전엔 높이를 90px로 고정해서, 로보카폴리처럼 세로로 긴(폭이 좁은) 원본
+   이미지가 고고다이노(정사각형에 가까운) 그림보다 훨씬 좁고 작게 보였습니다(letterbox로
+   양옆이 비어보임). 높이를 auto로 바꿔서 항상 카드 폭 전체를 채우게 하면 어떤 원본
+   비율이든 "가로 크기"는 똑같이 꽉 차 보이고, 세로가 긴 그림은 카드가 조금 더 길어질
+   뿐 잘리는 부분 없이 원본 그대로 보입니다. */
+.char-thumb img{width:100%; height:auto; max-height:210px; object-fit:contain; display:block;}
+.char-thumb span:not(.fr-chip){font-size:12.5px; display:block; margin-top:4px;}
+.fr-chip{
+  position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+  background:var(--fr-color, #888); color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:13px; box-shadow:0 2px 5px rgba(0,0,0,.25); z-index:1;
+}
+
+.work-wrap{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;}
+.canvas-card{
+  background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:18px;
+  flex:1 1 552px; max-width:720px;
+}
+.canvas-card canvas{width:100%; height:auto; touch-action:none; cursor:pointer; border-radius:12px; display:block;}
+#svgHost{touch-action:none; overflow:hidden; border-radius:12px;}
+#colorCanvasEl{transform-origin:center center;}
+.loading-box{display:flex; align-items:center; justify-content:center; height:280px; font-size:14px; color:var(--ink-soft);}
+.toolpanel{flex:1 1 260px; max-width:320px;}
+/* 내보내기(저장/갤러리) 상자는 색깔 고르기 칸 아래로 밀려나 있던 것을, 색깔 고르기 칸
+   "옆"에 나란히 오는 별도의 좁은 칸으로 분리했습니다 (work-wrap이 flex-wrap이라
+   화면이 좁으면 자동으로 아래로 내려갑니다). */
+.toolpanel.export-panel{flex:0 1 200px; max-width:220px;}
+.tool-section{background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:14px 16px; margin-bottom:14px;}
+.tool-section h3{margin:0 0 10px; font-size:13px; color:var(--ink-soft); font-weight:700; letter-spacing:.02em;}
+.swatch-row{display:flex; flex-wrap:wrap; gap:10px;}
+.swatch{
+  width:48px; height:48px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 7px rgba(46,35,80,.3);
+  cursor:pointer; flex:0 0 auto; position:relative;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
+  animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards;
+}
+.swatch:active{transform:scale(.88);}
+/* 예전엔 outline이라 둥근 스와치에 각진 파란 테두리가 어색하게 겹쳐 보였는데,
+   box-shadow 이중 링(흰테+라군틸)은 둥근 모양을 그대로 따라가서 훨씬 고급스럽고,
+   체크마크까지 함께 "팡" 튀어오르는 느낌으로 선택된 색이 확실히 눈에 띕니다. */
+.swatch.active{
+  transform:scale(1.16); z-index:1;
+  box-shadow:0 0 0 3px #fff, 0 0 0 6px var(--lagoon), 0 6px 14px rgba(46,35,80,.45);
+  animation:swatchPick .45s cubic-bezier(.34,1.56,.64,1);
+}
+.swatch.active::after{
+  content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:18px; font-weight:900; color:#fff; pointer-events:none;
+  text-shadow:0 1px 3px rgba(0,0,0,.55), 0 0 4px rgba(0,0,0,.35);
+  animation:checkPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+.pat-swatch{
+  width:52px; height:52px; border-radius:14px; border:3px solid #fff; box-shadow:0 2px 7px rgba(46,35,80,.3);
+  cursor:pointer; background-size:cover; position:relative; flex:0 0 auto;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
+  animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards;
+}
+.pat-swatch.active{
+  transform:scale(1.16); z-index:1;
+  box-shadow:0 0 0 3px #fff, 0 0 0 6px var(--lagoon), 0 6px 14px rgba(46,35,80,.45);
+  animation:swatchPick .45s cubic-bezier(.34,1.56,.64,1);
+}
+.pat-swatch.active::after{
+  content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:20px; font-weight:900; color:#fff; pointer-events:none;
+  text-shadow:0 1px 3px rgba(0,0,0,.6), 0 0 4px rgba(0,0,0,.4);
+  animation:checkPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes swatchIn{ from{opacity:0; transform:scale(.4) translateY(8px);} to{opacity:1; transform:scale(1) translateY(0);} }
+@keyframes swatchPick{ 0%{transform:scale(1) rotate(0);} 45%{transform:scale(1.32) rotate(-8deg);} 70%{transform:scale(1.05) rotate(4deg);} 100%{transform:scale(1.16) rotate(0);} }
+/* 멀티컬러(무지개) 붓 스와치 - 실제 칠할 때 색이 붓질을 따라 계속 바뀌는 걸 미리 보여주려고
+   conic-gradient를 천천히 돌려서(rotateHue) "이건 특별한 색이다"가 한눈에 보이게 했습니다. */
+.swatch.rainbow{
+  background:conic-gradient(from 0deg, #ff5c7a, #ffd54f, #8be24a, #4a7bf7, #a855f7, #ff5c7a);
+  animation:swatchIn .4s cubic-bezier(.34,1.56,.64,1) backwards, rainbowSpin 4s linear infinite;
+}
+@keyframes rainbowSpin{ to{ filter:hue-rotate(360deg); } }
+.swatch.rainbow.active{ animation:rainbowSpin 4s linear infinite, swatchPick .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes checkPop{ from{opacity:0; transform:scale(.2) rotate(-15deg);} to{opacity:1; transform:scale(1) rotate(0);} }
+.action-row{display:flex; gap:10px; margin-top:8px;}
+button.pill{
+  border:none; border-radius:999px; padding:11px 16px; font-size:13px; font-weight:700;
+  background:var(--ink); color:#fff; cursor:pointer; font-family:'Gowun Dodum';
+}
+button.pill.alt{background:var(--accent);}
+button.pill.ghost{background:var(--surface-soft); color:var(--ink); box-shadow:var(--shadow-sm);}
+button.pill.danger{background:var(--danger); color:#fff;}
+button.pill:active{transform:scale(.97);}
+button.pill:disabled{opacity:.4; cursor:default;}
+
+.field-select{display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;}
+.field-card{
+  width:220px; border-radius:18px; background:var(--surface); box-shadow:var(--shadow-sm); cursor:pointer;
+  border:3px solid transparent; transition:border-color .15s, transform .15s; overflow:hidden;
+}
+.field-card:hover{border-color:var(--lagoon);}
+.field-card:active{transform:scale(.97);}
+.field-card .thumb{width:100%; height:118px; overflow:hidden; position:relative; pointer-events:none;}
+.field-card .thumb svg{width:100%; height:100%; display:block;}
+.field-card .label{padding:10px 14px; font-family:'Jua'; font-size:15px; text-align:center;}
+@media (max-width:480px){ .field-card{width:100%; max-width:320px;} }
+
+.scene{
+  position:relative; width:100%; max-width:980px; height:min(60vw,560px); min-height:300px; border-radius:var(--radius-lg);
+  overflow:hidden; box-shadow:var(--shadow); margin:0 auto;
+}
+.scene.forest{background:#bfe9ff;}
+.scene.ocean{background:#146a80;}
+.scene.desert{background:#ffe9b8;}
+.scene-deco{position:absolute; inset:0; z-index:0; pointer-events:none;}
+.scene-deco svg{width:100%; height:100%; display:block;}
+.cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed{transform-box:fill-box; transform-origin:center;}
+.weed{transform-origin:bottom center;}
+@keyframes driftCloud{0%{transform:translateX(0)}100%{transform:translateX(90px)}}
+@keyframes riseBubble{0%{transform:translateY(0) scale(1); opacity:.65}100%{transform:translateY(-260px) scale(1.3); opacity:0}}
+@keyframes swayWeed{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+@keyframes twinkleFly{0%,100%{opacity:.15; transform:scale(.7)}50%{opacity:1; transform:scale(1.15)}}
+@keyframes swimFish{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+/* 물고기/새는 방향에 따라 도안 자체를 미리 좌우로 그려두고, translateX만 한 방향으로 흘러가게
+   해서(도중에 scaleX로 반전하지 않음) 예전 캐릭터 애니메이션에서 겪었던 "순간적으로 납작해지는"
+   부자연스러운 반전 문제가 절대 생기지 않게 했습니다. */
+@keyframes swimAcrossR{0%{transform:translateX(-90px)}100%{transform:translateX(900px)}}
+@keyframes swimAcrossL{0%{transform:translateX(900px)}100%{transform:translateX(-90px)}}
+@keyframes flyAcrossR{0%{transform:translate(-90px,10px)}50%{transform:translate(400px,-18px)}100%{transform:translate(900px,10px)}}
+@keyframes flyAcrossL{0%{transform:translate(900px,10px)}50%{transform:translate(400px,-18px)}100%{transform:translate(-90px,10px)}}
+@keyframes wingFlap{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.35)}}
+/* 순수 translateY만 사용합니다 - scaleY를 같이 넣으면 브라우저마다 fill-box 기준점 계산이
+   달라져서(특히 여러 도형이 겹친 <g>에서) 몸통과 머리가 따로 노는 것처럼 어긋나 보일 수 있어서,
+   그런 문제가 생길 수 없는 순수 이동만 사용했습니다. */
+@keyframes hopCritter{0%,100%{transform:translateY(0)}30%{transform:translateY(-15px)}55%{transform:translateY(0)}}
+@keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes rollTumbleweed{0%{transform:translateX(-60px) rotate(0deg)}100%{transform:translateX(860px) rotate(720deg)}}
+@media (prefers-reduced-motion: reduce){
+  .cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed, .sprite, .sprite-inner{animation:none !important;}
+}
+.sprite{position:absolute; width:164px; height:164px; will-change:transform; z-index:2;}
+.sprite-inner{position:relative; width:100%; height:100%;}
+.sprite-inner img{width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)); pointer-events:none;}
+.sprite-inner img.form-a, .sprite-inner img.form-b{position:absolute; inset:0; transition:opacity .35s ease;}
+.sprite-inner.transforming{animation:transformPunch .8s cubic-bezier(.32,1.65,.55,1);}
+@keyframes transformPunch{
+  0%{transform:scale(1) rotate(0deg); filter:brightness(1) saturate(1);}
+  25%{transform:scale(1.32) rotate(12deg); filter:brightness(1.7) saturate(1.5) drop-shadow(0 0 14px #fff);}
+  50%{transform:scale(.8) rotate(-10deg); filter:brightness(1.35) saturate(1.2);}
+  75%{transform:scale(1.14) rotate(5deg); filter:brightness(1.1);}
+  100%{transform:scale(1) rotate(0deg); filter:brightness(1) saturate(1);}
+}
+.shock-ring{
+  position:absolute; left:50%; top:50%; width:42%; height:42%; border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(255,247,200,.55) 40%, rgba(255,247,200,0) 72%);
+  transform:translate(-50%,-50%) scale(0); opacity:1; pointer-events:none; z-index:1;
+  animation:shockExpand .65s ease-out forwards;
+}
+@keyframes shockExpand{ to{ transform:translate(-50%,-50%) scale(3.6); opacity:0; } }
+.add-friend-btn{
+  position:absolute; right:16px; bottom:16px; background:var(--surface); border:none; border-radius:999px;
+  padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:3;
+}
+.gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap; align-items:flex-start;}
+.gallery-item{
+  width:132px; background:var(--surface); border-radius:18px; box-shadow:var(--shadow-sm); padding:10px; text-align:center;
+  position:relative; border-top:5px solid transparent;
+}
+.gallery-item.has-fr{border-top-color:var(--fr-color, transparent);}
+.gallery-item img{width:100%; height:auto; max-height:210px; object-fit:contain; display:block;}
+.gallery-item div.name{font-size:14px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Jua';}
+.gallery-item button{width:100%; font-size:12.5px; padding:8px 8px; margin-top:6px; border-radius:999px;}
+.note{
+  background:var(--surface-soft); border:1px solid var(--line); border-radius:16px; padding:13px 15px; font-size:12.5px;
+  line-height:1.55; margin-top:18px; max-width:640px;
+}
+/* 홈 화면 제목/부제/안내문구를 위쪽 3개 카드(필드로가기·색칠하기·트랙모드)와 같은 중앙 축에
+   맞춥니다. .home-card 안의 작은 캡션용 .sub(직계 자식이 아님)는 건드리지 않도록
+   "#screen-home > .sub"로 최상단 부제 하나만 콕 집어 지정했습니다. */
+#screen-home > h1, #screen-home > .sub{ text-align:center; }
+#screen-home .note{ text-align:center; margin-left:auto; margin-right:auto; display:flex; flex-direction:column; gap:7px; }
+#toastHost{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;}
+.toast-bubble{
+  background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px; font-family:'Gowun Dodum'; font-size:13px;
+  box-shadow:var(--shadow); opacity:0; transform:translateY(8px); transition:opacity .25s, transform .25s; white-space:nowrap;
+}
+@media (max-width:480px){
+  .home-card{width:100%; max-width:280px; height:210px;}
+  .canvas-card, .toolpanel, .toolpanel.export-panel{max-width:100%;}
+}
+
+.track-wrap{position:relative; width:100%; max-width:920px; margin:0 auto; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); background:#bfe9ff;}
+#trackCanvas{width:100%; height:min(62vw,480px); min-height:280px; display:block; touch-action:none;}
+.track-hud{
+  position:absolute; top:14px; left:14px; background:rgba(46,35,80,.6); color:#fff; padding:8px 14px;
+  border-radius:14px; font-size:13px; font-family:'Jua'; letter-spacing:.02em; pointer-events:none; z-index:4;
+}
+.track-error{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; text-align:center;
+  background:rgba(255,255,255,.95); color:var(--ink); padding:18px 22px; border-radius:18px;
+  box-shadow:var(--shadow); font-size:14px; line-height:1.6; max-width:80%;
+}
+.track-hint-outside{
+  background:var(--surface-soft); border:1px solid var(--line); color:var(--ink); padding:9px 14px;
+  border-radius:14px; font-size:12px; line-height:1.5; margin:10px auto 0; max-width:920px; text-align:center;
+}
+.track-controls{position:absolute; left:0; right:0; bottom:16px; display:flex; justify-content:space-between; align-items:flex-end; padding:0 22px; pointer-events:none; z-index:4;}
+/* 예전엔 반투명 흰색이라 밝은 하늘 배경 위에서 경계가 흐릿하게 묻혀 보였습니다.
+   테두리를 더 두껍고 진하게, 안쪽은 은은한 유리질 그라디언트로 바꾸고, 좌우 방향을
+   암시하는 작은 화살표까지 넣어서 손 안 대고 봐도 "이게 조작기구구나"가 바로
+   보이게 했습니다. */
+.joystick{
+  pointer-events:auto; position:relative; width:130px; height:130px; border-radius:50%;
+  background:radial-gradient(circle at 33% 28%, rgba(255,255,255,.9), rgba(255,255,255,.6) 55%, rgba(46,35,80,.28) 100%);
+  border:4px solid rgba(255,255,255,.95);
+  box-shadow:0 8px 18px rgba(46,35,80,.4), inset 0 0 0 2px rgba(46,35,80,.12);
+  touch-action:none; -webkit-user-select:none; user-select:none;
+  transition:background .18s ease;
+}
+.joystick::before, .joystick::after{
+  content:''; position:absolute; top:50%; width:0; height:0; border-style:solid; opacity:.6; pointer-events:none;
+}
+.joystick::before{ left:16px; border-width:9px 13px 9px 0; border-color:transparent var(--ink) transparent transparent; transform:translateY(-50%); }
+.joystick::after{ right:16px; border-width:9px 0 9px 13px; border-color:transparent transparent transparent var(--ink); transform:translateY(-50%); }
+.joystick.active{ background:radial-gradient(circle at 33% 28%, rgba(255,255,255,.95), rgba(255,255,255,.75) 55%, rgba(47,184,207,.4) 100%); }
+.joystick-knob{
+  position:absolute; left:50%; top:50%; width:60px; height:60px; margin:-30px 0 0 -30px; border-radius:50%;
+  background:radial-gradient(circle at 35% 28%, #fff, #ffd7de 60%, var(--accent) 100%);
+  box-shadow:0 5px 12px rgba(46,35,80,.4); border:3px solid var(--accent);
+  pointer-events:none; transition:background .15s ease, border-color .15s ease;
+}
+.joystick.active .joystick-knob{
+  background:radial-gradient(circle at 35% 28%, #fff, #bdf0f8 55%, var(--lagoon) 100%); border-color:var(--lagoon);
+}
+.track-btn{
+  pointer-events:auto; width:74px; height:74px; border-radius:50%; border:none; font-size:28px;
+  background:rgba(255,255,255,.9); color:var(--ink); box-shadow:var(--shadow); cursor:pointer;
+  -webkit-user-select:none; user-select:none; font-family:'Jua';
+  touch-action:none; /* 조이스틱을 누른 채로 이 버튼도 같이 눌러도 브라우저가 이걸 확대/스크롤
+                        제스처로 오해해서 입력을 놓치지 않도록 - 두 손가락 동시 입력의 핵심 */
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.track-btn svg{ pointer-events:none; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.track-btn:active{transform:scale(.92); background:var(--accent); color:#fff;}
+.track-btn.jump-btn{
+  width:72px; height:72px; font-size:30px; color:#fff; border:3px solid #fff;
+  background:radial-gradient(circle at 34% 26%, #ffdb96, #f0a53d 55%, #d6822a 100%);
+  box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18);
+  animation:jumpPulse 2.2s ease-in-out infinite;
+}
+.track-btn.jump-btn:active{
+  background:radial-gradient(circle at 34% 26%, #ffb18c, var(--accent-deep) 60%, #a52c42 100%);
+  transform:scale(.88); animation-play-state:paused;
+}
+@keyframes jumpPulse{
+  0%,100%{ box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18), 0 0 0 0 rgba(240,165,61,.5); }
+  50%{ box-shadow:0 7px 16px rgba(46,35,80,.4), inset 0 -3px 6px rgba(0,0,0,.18), 0 0 0 9px rgba(240,165,61,0); }
+}
+.track-toast{
+  position:absolute; left:50%; top:16px; transform:translateX(-50%); background:rgba(46,35,80,.72); color:#fff;
+  padding:8px 16px; border-radius:14px; font-size:13px; z-index:5; opacity:0; transition:opacity .3s; pointer-events:none;
+}
+.track-toast.show{opacity:1;}
+
+.save-confirm{
+  position:fixed; left:50%; top:34%; transform:translate(-50%,-50%) scale(.7); z-index:10000;
+  background:var(--surface); border-radius:24px; box-shadow:var(--shadow); padding:22px 34px;
+  display:flex; flex-direction:column; align-items:center; gap:6px; opacity:0; pointer-events:none;
+  transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+.save-confirm.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+.save-confirm .icon{font-size:46px; line-height:1;}
+.save-confirm b{font-family:'Jua'; font-size:16.5px; color:var(--ink);}
+
+/* 삭제 등 되돌릴 수 없는 동작 전에 한 번 더 확인받는 공용 확인창 (기기 alert/confirm 대신
+   앱 톤에 맞춘 커스텀 팝업 - 저장 완료 팝업(.save-confirm)과 같은 자리에 뜸) */
+.confirm-overlay{
+  position:fixed; inset:0; background:rgba(46,35,80,.45); z-index:10001;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
+}
+.confirm-overlay.show{opacity:1; pointer-events:auto;}
+.confirm-card{
+  background:var(--surface); border-radius:24px; box-shadow:var(--shadow); padding:26px 28px;
+  max-width:300px; width:100%; text-align:center; display:flex; flex-direction:column; gap:16px;
+  transform:scale(.82); transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.confirm-overlay.show .confirm-card{transform:scale(1);}
+.confirm-card .msg{font-family:'Jua'; font-size:16px; line-height:1.55; color:var(--ink);}
+.confirm-card .msg small{display:block; font-family:'Gowun Dodum'; font-size:12px; opacity:.65; margin-top:6px;}
+.confirm-btn-row{display:flex; gap:10px;}
+.confirm-card.wide{max-width:360px;}
+
+/* ---------------- 홈 화면: "친구모드"(기존 3개) / "공부모드"(신규) 구획 구분 ---------------- */
+.mode-section-head{display:flex; align-items:center; justify-content:center; margin:28px 0 8px;}
+.home-grid + .mode-section-head{margin-top:34px;}
+.mode-tag{font-family:'Jua'; font-size:14.5px; padding:7px 20px; border-radius:999px; box-shadow:var(--shadow-sm); letter-spacing:.2px;}
+.mode-section-head.friend .mode-tag{background:#ffe1e9; color:var(--accent-deep);}
+.mode-section-head.study .mode-tag{background:#dff1ff; color:#1f6fb2;}
+.study-card{border:4px solid transparent;}
+.study-card:hover{border-color:#3aa0e6;}
+.study-card.disabled{opacity:.5; cursor:default;}
+.study-card.disabled:hover{border-color:transparent;}
+/* 버튼을 누르면 살짝 커졌다 작아지는 "통통 튀는" 피드백 (화면 전환은 이 애니메이션이
+   끝난 직후 일어나서 실제로 눈에 보입니다 - pressCard 참고) */
+@keyframes cardPop{ 0%{transform:scale(1);} 45%{transform:scale(1.14);} 100%{transform:scale(1);} }
+.home-card.pop{ animation:cardPop .32s ease; }
+
+/* ---------------- 숫자공부 (공부모드) ---------------- */
+.ns-progress-row{display:flex; align-items:center; gap:12px; max-width:420px; margin:6px auto 22px;}
+.ns-progress-bar{flex:1; height:14px; background:var(--surface-soft); border-radius:999px; box-shadow:inset 0 0 0 2px var(--line); overflow:hidden;}
+.ns-progress-fill{height:100%; width:0%; background:linear-gradient(90deg, var(--lagoon), var(--leaf)); border-radius:999px; transition:width .35s ease;}
+.ns-progress-label{font-family:'Jua'; font-size:14px; white-space:nowrap;}
+.ns-stage-card{
+  max-width:420px; margin:0 auto; background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+  padding:26px 22px; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center;
+}
+.ns-number-display{font-family:'Jua'; font-size:96px; line-height:1; color:var(--accent-deep);}
+.ns-number-names{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+.ns-name-chip{background:var(--surface-soft); border:2px solid var(--lagoon); color:var(--ink); font-family:'Jua'; font-size:16px; padding:6px 16px; border-radius:999px;}
+.ns-name-chip.alt{border-color:var(--amber);}
+/* 2026-09-13: 아기가 누르기 힘들어한다는 피드백으로 공부모드 버튼들을 전반적으로 키웠습니다.
+   주의: button.pill 기본 규칙이 element+class(0,1,1)라서 class 하나짜리 규칙(0,1,0)보다
+   명시도가 높아 예전엔 이 버튼들의 font-size/padding이 실제로는 적용되지 않고 있었습니다
+   (테스트로 확인). .pill과 묶은 두 클래스 선택자(0,2,0)로 명시도를 올려 확실히 이기게 했습니다. */
+.pill.ns-big-btn{width:100%; font-size:20px; padding:20px 14px; border-radius:22px;}
+.pill.ns-action-btn{flex:1; font-size:16.5px; padding:17px 10px; white-space:nowrap;}
+@media (max-width:420px){ .pill.ns-action-btn{font-size:15px; padding:16px 6px;} }
+#screen-numstudy .topbar .backbtn{width:52px; height:52px; font-size:22px;}
+#screen-numstudy .topbar button.pill{font-size:15px; padding:12px 18px;}
+.confirm-card.wide select{font-size:17px; padding:10px 12px;}
+.confirm-card.wide .ns-settings-toggle{font-size:15px;}
+.confirm-card.wide input[type="checkbox"], .confirm-card.wide input[type="radio"]{width:20px; height:20px;}
+.confirm-card.wide .confirm-btn-row .pill{font-size:16px; padding:16px 14px;}
+.ns-demo-wrap{position:relative; width:300px; max-width:100%;}
+.ns-demo-wrap canvas{width:100%; height:auto; display:block; background:var(--surface-soft); border-radius:16px; box-shadow:inset 0 0 0 2px var(--line);}
+.ns-pencil{position:absolute; top:0; left:0; font-size:30px; transform:translateX(-50%) rotate(-38deg); opacity:0; transition:opacity .15s; pointer-events:none;}
+.ns-trace-round{font-family:'Jua'; font-size:15px; color:var(--ink-soft);}
+.ns-mic-gate{
+  display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--surface-soft);
+  border-radius:18px; padding:16px; width:100%;
+}
+.ns-mic-hint{font-size:12.5px; opacity:.7; min-height:16px;}
+.ns-trace-wrap{position:relative; width:300px; max-width:100%; transition:opacity .25s;}
+.ns-trace-wrap canvas{position:absolute; top:0; left:0; width:100%; height:auto; display:block; border-radius:16px;}
+.ns-trace-wrap canvas#nsGuideCanvas{position:relative; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line);}
+.ns-trace-wrap canvas#nsDrawCanvas{touch-action:none; cursor:crosshair;}
+.ns-celebrate-emoji{font-size:64px; line-height:1;}
+.ns-settings-row{display:flex; align-items:center; gap:8px; justify-content:center; font-family:'Gowun Dodum'; font-size:14px;}
+.ns-settings-row select{font-size:15px; padding:5px 8px; border-radius:8px; border:1px solid var(--line); background:var(--surface);}
+.ns-settings-note{font-size:11px; opacity:.6; text-align:center; line-height:1.5;}
+.ns-settings-toggle{display:flex; align-items:center; gap:8px; font-size:13.5px; justify-content:center; font-family:'Gowun Dodum';}
+/* 2026-09-13: 보상 영상은 화면을 꽉 채운 진짜 "전체화면"처럼 보이도록 화면 전체를 덮는
+   고정 오버레이로 바꿨습니다(요청 1번). 자동 재생 + 종료 시 자동으로 닫히므로, 우측 상단의
+   ✕ 버튼은 아이가 중간에 나가고 싶을 때 쓰는 보조 수단입니다. */
+.ns-reward-wrap{
+  position:fixed; inset:0; z-index:5000; margin:0; background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.ns-reward-title{color:#fff; font-size:17px; text-align:center; margin:0; padding:14px 60px 10px;}
+.ns-reward-video{position:relative; width:100%; flex:1; min-height:0; border-radius:0; overflow:hidden; background:#000;}
+.ns-reward-video iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+.ns-reward-close{
+  position:absolute; top:14px; right:14px; z-index:5001; width:44px; height:44px; border-radius:50%;
+  border:none; background:rgba(255,255,255,.85); color:var(--ink); font-size:19px; cursor:pointer; box-shadow:var(--shadow-sm);
+}
+@media (max-width:480px){
+  .ns-stage-card{padding:20px 14px;}
+  .ns-number-display{font-size:76px;}
+}
+
+/* ---------------- 공용: 상단바 오른쪽 버튼 묶음 / 키보드 포커스 ---------------- */
+.topbar-right{margin-left:auto; display:flex; gap:8px; align-items:center;}
+.pill.icon-btn{padding:0; width:48px; height:48px; font-size:20px; display:inline-flex; align-items:center; justify-content:center;}
+#undoBtn, #redoBtn{font-size:28px; font-weight:900; color:var(--ink); font-family:system-ui, sans-serif;}
+.home-head{display:flex; align-items:center; justify-content:center; gap:12px; position:relative;}
+.home-head .help-btn{position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:13px; padding:9px 14px;}
+[role="button"]:focus-visible, button:focus-visible, .swatch:focus-visible, .pat-swatch:focus-visible{outline:3px solid var(--lagoon); outline-offset:3px;}
+@media (max-width:560px){
+  .home-head{flex-direction:column; gap:6px;}
+  .home-head .help-btn{position:static; transform:none;}
+}
+
+/* ---------------- 색칠 도구 트레이 ---------------- */
+.tool-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+.tool-btn{
+  border:none; background:var(--surface-soft); border-radius:16px; min-width:58px; height:58px; padding:4px 6px;
+  font-size:22px; line-height:1; cursor:pointer; box-shadow:var(--shadow-sm); color:var(--ink);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-family:'Gowun Dodum';
+}
+.tool-btn span{font-size:10.5px; font-weight:700;}
+.tool-btn.active{background:var(--lagoon); color:#fff; box-shadow:0 0 0 3px #fff, 0 0 0 5px var(--lagoon);}
+.tool-sep{width:2px; height:34px; background:var(--line); border-radius:2px; margin:0 2px;}
+.size-btn{
+  width:48px; height:48px; border-radius:50%; border:none; background:var(--surface-soft); box-shadow:var(--shadow-sm);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+}
+.size-btn i{display:block; border-radius:50%; background:var(--ink);}
+.size-btn.active{box-shadow:0 0 0 3px #fff, 0 0 0 5px var(--lagoon);}
+.tool-tabs{display:flex; gap:6px; margin-bottom:10px;}
+.tool-tab{
+  flex:1; border:none; border-radius:999px; padding:10px 8px; font-family:'Jua'; font-size:15px; cursor:pointer;
+  background:var(--surface-soft); color:var(--ink-soft);
+}
+.tool-tab.active{background:var(--ink); color:#fff;}
+.swatch-row[hidden]{display:none;}
+.pill.icon-btn:disabled{opacity:.35;}
+.save-main{width:100%; font-size:16px; padding:15px 16px;}
+.export-row{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+.export-row .pill{font-size:12.5px; padding:10px 12px;}
+/* 화면이 좁을 때(폰/세로 태블릿)는 팔레트가 캔버스 아래로 밀려나 매번 스크롤해야 했습니다.
+   도구 트레이를 화면 아래에 붙여두고(sticky) 색 줄은 가로로 스크롤되게 해서, 칠하면서
+   바로 색을 바꿀 수 있게 합니다. */
+@media (max-width:860px){
+  #screen-color .work-wrap{gap:12px;}
+  #screen-color .tool-tray{
+    position:sticky; bottom:0; z-index:20; order:2; flex:0 0 auto; max-width:none;
+    width:calc(100% + 2 * clamp(16px,4vw,32px)); margin:0 calc(-1 * clamp(16px,4vw,32px)); padding:0;
+  }
+  #screen-color .tool-tray .tool-section{
+    border-radius:22px 22px 0 0; margin:0; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 22px -8px rgba(46,35,80,.3);
+  }
+  #screen-color .tool-tray .tool-row{flex-wrap:nowrap; overflow-x:auto; margin-bottom:8px; padding:4px 2px;}
+  #screen-color .tool-tray .swatch-row{flex-wrap:nowrap; overflow-x:auto; padding:8px 8px 6px; scrollbar-width:none;}
+  #screen-color .tool-tray .swatch-row::-webkit-scrollbar{display:none;}
+  #screen-color .canvas-card{order:1; padding:12px;}
+  #screen-color .export-panel{order:3; flex:1 1 100%; max-width:100%;}
+  #screen-color .zoom-hint{display:none;}
+  #screen-color{padding-bottom:0;}
+}
+
+/* ---------------- 필드: 친구 반응 / 갤러리 ---------------- */
+.sprite{touch-action:none; cursor:grab;}
+.sprite.dragging{cursor:grabbing; z-index:6;}
+.sprite-hop.hello{animation:helloJump .6s cubic-bezier(.3,1.6,.5,1);}
+@keyframes helloJump{0%{transform:translateY(0) scale(1);}40%{transform:translateY(-38px) scale(1.08);}100%{transform:translateY(0) scale(1);}}
+.sprite-bubble{
+  position:absolute; left:50%; top:-8px; transform:translate(-50%,-100%); background:#fff; color:var(--ink);
+  font-family:'Jua'; font-size:15px; padding:6px 12px; border-radius:14px; white-space:nowrap; box-shadow:var(--shadow-sm);
+  pointer-events:none; animation:bubbleIn .25s ease;
+}
+@keyframes bubbleIn{from{opacity:0; transform:translate(-50%,-80%);}to{opacity:1; transform:translate(-50%,-100%);}}
+.gallery-item{cursor:pointer; transition:transform .15s;}
+.gallery-item:active{transform:scale(.96);}
+.gallery-item.in-field{box-shadow:0 0 0 4px var(--leaf), var(--shadow-sm);}
+.gallery-item .in-badge{
+  position:absolute; left:6px; top:6px; background:var(--leaf); color:#fff; font-size:11px; font-weight:700;
+  padding:3px 8px; border-radius:999px; z-index:1;
+}
+.sheet-actions{display:flex; flex-direction:column; gap:10px;}
+.sheet-actions .pill{font-size:16px; padding:15px 14px;}
+
+/* ---------------- 트랙: 테마 / 기록 ---------------- */
+.track-theme-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+.theme-chip{
+  border:none; border-radius:999px; padding:12px 18px; font-family:'Jua'; font-size:15px; cursor:pointer;
+  background:var(--surface); box-shadow:var(--shadow-sm); color:var(--ink);
+}
+.theme-chip.active{background:var(--ink); color:#fff;}
+.track-best{font-family:'Jua'; font-size:14px; color:var(--ink-soft); margin-bottom:14px;}
+.empty-cta{display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:18px; background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm);}
+.empty-cta .pill{font-size:15px; padding:13px 18px;}
+.track-milestone{
+  position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) scale(.6); z-index:6; pointer-events:none;
+  font-family:'Jua'; font-size:clamp(26px,5vw,42px); color:#fff; text-shadow:0 3px 0 var(--accent-deep), 0 6px 16px rgba(0,0,0,.35);
+  opacity:0; transition:opacity .25s, transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.track-milestone.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+
+/* ---------------- 공부모드: 스티커 / 칭찬 ---------------- */
+.ns-sticker-row{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:520px; margin:-10px auto 16px;}
+.ns-sticker{
+  min-width:30px; height:30px; padding:0 6px; border-radius:999px; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line);
+  font-family:'Jua'; font-size:14px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
+}
+.ns-sticker.done{background:#fff1c4; box-shadow:inset 0 0 0 2px var(--amber); color:var(--ink);}
+.ns-sticker.done::after{content:'⭐'; font-size:10px; margin-left:2px;}
+.ns-letter-word{font-family:'Jua'; font-size:20px; color:var(--ink-soft);}
+.ns-reward-tap{
+  position:absolute; inset:0; z-index:2; background:transparent; border:none; cursor:pointer;
+}
+.ns-reward-tap.paused{background:rgba(0,0,0,.45);}
+.ns-reward-tap.paused::after{content:'▶ 눌러서 보기'; color:#fff; font-family:'Jua'; font-size:22px; background:var(--accent); padding:14px 26px; border-radius:999px;}
+.ns-reward-tap{display:flex; align-items:center; justify-content:center;}
+.parent-gate-q{font-family:'Jua'; font-size:26px;}
+.parent-gate-input{font-size:22px; width:110px; text-align:center; padding:8px; border-radius:12px; border:2px solid var(--line); margin:0 auto; font-family:'Jua';}
+.help-list{text-align:left; font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:6px; max-height:40vh; overflow:auto; font-family:'Gowun Dodum';}
+
+/* 축하 색종이 (칭찬/저장 완료 공용) */
+.confetti-layer{position:fixed; inset:0; pointer-events:none; z-index:10002; overflow:hidden;}
+.confetti-bit{position:absolute; top:-20px; width:10px; height:14px; border-radius:2px; animation:confettiFall 1.6s cubic-bezier(.25,.6,.4,1) forwards;}
+@keyframes confettiFall{to{transform:translate(var(--dx), 105vh) rotate(var(--rot)); opacity:.9;}}
+@media (prefers-reduced-motion: reduce){ .confetti-bit{display:none;} .sprite-hop.hello{animation:none;} }
