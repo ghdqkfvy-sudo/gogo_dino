@@ -154,12 +154,32 @@ const HANGUL_SYLLABLE_ITEMS = HANGUL_ITEMS.map((c, i)=>({
   word: HANGUL_SYLLABLE_WORDS[i][0], emoji: HANGUL_SYLLABLE_WORDS[i][1],
   strokes: nsSyllableStrokes(c.strokes),
 }));
-// 한글공부에서 배울 글자 묶음: syllable(가나다라, 기본) / consonant(ㄱㄴㄷ)
-function nsHangulSet(){ return ns.settings.hangulSet === 'consonant' ? 'consonant' : 'syllable'; }
+// 한글 모음 10개(ㅏ~ㅣ). 획순은 국어 교과서 순서: 세로획 모음(ㅏ ㅑ ㅣ)은 세로획 먼저,
+// ㅓ ㅕ는 짧은 가로획 먼저, ㅗ ㅛ는 짧은 세로획 먼저 긋고 긴 가로획, ㅜ ㅠ는 긴 가로획 먼저.
+const HANGUL_VOWEL_ITEMS = [
+  { glyph:'ㅏ', name:'아', word:'아기', emoji:'👶', strokes:[ L([140,90],[140,330]), L([140,210],[215,210]) ] },
+  { glyph:'ㅑ', name:'야', word:'야구', emoji:'⚾', strokes:[ L([140,90],[140,330]), L([140,170],[215,170]), L([140,250],[215,250]) ] },
+  { glyph:'ㅓ', name:'어', word:'어부', emoji:'🎣', strokes:[ L([85,210],[160,210]), L([160,90],[160,330]) ] },
+  { glyph:'ㅕ', name:'여', word:'여우', emoji:'🦊', strokes:[ L([85,170],[160,170]), L([85,250],[160,250]), L([160,90],[160,330]) ] },
+  { glyph:'ㅗ', name:'오', word:'오리', emoji:'🦆', strokes:[ L([150,130],[150,250]), L([65,250],[235,250]) ] },
+  { glyph:'ㅛ', name:'요', word:'요리', emoji:'🍳', strokes:[ L([115,140],[115,250]), L([185,140],[185,250]), L([65,250],[235,250]) ] },
+  { glyph:'ㅜ', name:'우', word:'우유', emoji:'🥛', strokes:[ L([65,170],[235,170]), L([150,170],[150,300]) ] },
+  { glyph:'ㅠ', name:'유', word:'유령', emoji:'👻', strokes:[ L([65,170],[235,170]), L([115,170],[115,300]), L([185,170],[185,300]) ] },
+  { glyph:'ㅡ', name:'으', word:'으르렁', emoji:'🐯', strokes:[ L([65,210],[235,210]) ] },
+  { glyph:'ㅣ', name:'이', word:'이빨', emoji:'🦷', strokes:[ L([150,90],[150,330]) ] },
+];
+
+// 한글공부에서 배울 글자 묶음: syllable(가나다라, 기본) / consonant(ㄱㄴㄷ) / vowel(ㅏㅑㅓ)
+function nsHangulSet(){
+  const v = ns.settings.hangulSet;
+  return (v === 'consonant' || v === 'vowel') ? v : 'syllable';
+}
+function nsHangulJamoItems(){ return nsHangulSet() === 'vowel' ? HANGUL_VOWEL_ITEMS : HANGUL_ITEMS; }
 // 학습 기록/획 캐시 키 - 한글은 묶음마다 따로 기록합니다(예전 ㄱㄴㄷ 기록은 'hangul' 그대로 유지).
 function nsRecordKey(){
   if(ns.subject !== 'hangul') return ns.subject;
-  return nsHangulSet() === 'consonant' ? 'hangul' : 'hangul_syllable';
+  const set = nsHangulSet();
+  return set === 'consonant' ? 'hangul' : set === 'vowel' ? 'hangul_vowel' : 'hangul_syllable';
 }
 
 // 공부모드 보상은 과목과 상관없이 같은 화면·같은 영상을 씁니다.
@@ -187,8 +207,9 @@ const STUDY_SUBJECTS = {
   },
   hangul: {
     title:'🇰🇷 한글공부',
-    keys(){ return HANGUL_ITEMS.map((_,i)=>i); },
-    target(){ return 7; }, // 14글자를 두 번에 나눠 배움(순서 모드는 다음에 이어서)
+    keys(){ return (nsHangulSet() === 'syllable' ? HANGUL_ITEMS : nsHangulJamoItems()).map((_,i)=>i); },
+    // 묶음을 두 번에 나눠 배움(가나다/자음 14개 → 7개씩, 모음 10개 → 5개씩. 순서 모드는 다음에 이어서)
+    target(){ return Math.ceil(this.keys().length / 2); },
     item(i){
       if(nsHangulSet() === 'syllable'){
         const sy = HANGUL_SYLLABLE_ITEMS[i];
@@ -200,7 +221,7 @@ const STUDY_SUBJECTS = {
           strokes: sy.strokes, demoWidth: 12,
         };
       }
-      const it = HANGUL_ITEMS[i];
+      const it = nsHangulJamoItems()[i];
       return {
         glyph: it.glyph,
         chips: [`<span class="ns-name-chip">${it.name}</span>`, `<span class="ns-name-chip alt">${it.emoji} ${it.word}</span>`],
@@ -313,11 +334,11 @@ function nsSaveSettings(){
 }
 
 // ---- 학습 기록: 과목별로 글자마다 몇 번 끝냈는지 + 마지막으로 배운 글자(순서 모드 이어하기) ----
-let nsRecords = { number:{}, hangul:{}, hangul_syllable:{}, english:{}, last:{} };
+let nsRecords = { number:{}, hangul:{}, hangul_syllable:{}, hangul_vowel:{}, english:{}, last:{} };
 function nsLoadRecords(){
   try{
     const p = JSON.parse(localStorage.getItem(NS_RECORDS_KEY) || 'null');
-    if(p) nsRecords = Object.assign({ number:{}, hangul:{}, hangul_syllable:{}, english:{}, last:{} }, p);
+    if(p) nsRecords = Object.assign({ number:{}, hangul:{}, hangul_syllable:{}, hangul_vowel:{}, english:{}, last:{} }, p);
   }catch(e){}
 }
 function nsSaveRecords(){
@@ -1055,6 +1076,7 @@ function openNumStudySettings(){
         <label style="font-weight:700;">배울 글자</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="syllable" ${hset==='syllable'?'checked':''}> 가 나 다 라 (글자)</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="consonant" ${hset==='consonant'?'checked':''}> ㄱ ㄴ ㄷ ㄹ (자음)</label>
+        <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="vowel" ${hset==='vowel'?'checked':''}> ㅏ ㅑ ㅓ ㅕ (모음)</label>
       </div>` : ''}
       <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
         <label style="font-weight:700;">순서</label>

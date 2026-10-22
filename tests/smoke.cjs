@@ -150,11 +150,13 @@ function check(cond, msg){
   const setSwitch = await page.evaluate(()=>{
     ns.settings.hangulSet = 'consonant'; ns.subject = 'hangul';
     const a = STUDY_SUBJECTS.hangul.item(0).glyph;
+    ns.settings.hangulSet = 'vowel';
+    const v = STUDY_SUBJECTS.hangul.item(9).glyph + STUDY_SUBJECTS.hangul.keys().length;
     ns.settings.hangulSet = 'syllable';
     const b = STUDY_SUBJECTS.hangul.item(13).glyph;
-    return a + b;
+    return a + v + b;
   });
-  check(setSwitch === 'ㄱ하', 'ㄱㄴㄷ / 가나다 묶음 전환 (' + setSwitch + ')');
+  check(setSwitch === 'ㄱㅣ10하', 'ㄱㄴㄷ / 모음 / 가나다 묶음 전환 (' + setSwitch + ')');
   const zero = await page.evaluate(()=> NS_DIGIT_STROKES[0][0]);
   check(zero[0][1] < zero[1][1] && zero[1][0] < zero[0][0], '0은 위에서 시작해 왼쪽으로(시계 반대 방향)');
   check(await page.evaluate(()=> !STUDY_SUBJECTS.hangul.rewardTitle && typeof NS_REWARD_TITLE === 'string'), '보상 화면을 모든 과목이 공유');
@@ -162,7 +164,7 @@ function check(cond, msg){
   console.log('모든 글자 데이터');
   const bad = await page.evaluate(()=>{
     const out = [];
-    [['number'],['hangul','syllable'],['hangul','consonant'],['english']].forEach(([sub,set])=>{ ns.subject = sub; if(set) ns.settings.hangulSet = set; STUDY_SUBJECTS[sub].keys().forEach(k=>{ ns.current = k; const st = nsGetStrokes(); if(!st.length || st.some(p=>p.length<2 || p.some(q=>!isFinite(q[0])||!isFinite(q[1])||q[0]<0||q[0]>300||q[1]<0||q[1]>420))) out.push(sub+(set||'')+':'+k); }); });
+    [['number'],['hangul','syllable'],['hangul','consonant'],['hangul','vowel'],['english']].forEach(([sub,set])=>{ ns.subject = sub; if(set) ns.settings.hangulSet = set; STUDY_SUBJECTS[sub].keys().forEach(k=>{ ns.current = k; const st = nsGetStrokes(); if(!st.length || st.some(p=>p.length<2 || p.some(q=>!isFinite(q[0])||!isFinite(q[1])||q[0]<0||q[0]>300||q[1]<0||q[1]>420))) out.push(sub+(set||'')+':'+k); }); });
     ns.settings.hangulSet = 'syllable';
     return out;
   });
