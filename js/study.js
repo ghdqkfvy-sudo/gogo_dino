@@ -580,11 +580,22 @@ function nsSpeakTracePrompt(){
 
 // ---------------- 2단계: 쓰는 법 데모(애니메이션, 다시보기 가능) ----------------
 const NS_DEMO_CANVAS_W = 300, NS_DEMO_CANVAS_H = 420;
+// 쓰는 법 애니메이션의 연필. 예전엔 ✏️ 이모지를 돌려서 썼는데, 이모지는 기기마다 모양이 다르고
+// 심 끝 위치를 알 수 없어서 선이 그려지는 곳과 연필 끝이 어긋났습니다. 심 끝이 정확히 (3,43)에
+// 오도록 직접 그린 연필을 쓰고, CSS에서 그만큼 당겨서 심 끝 = 지금 그리는 점이 되게 합니다.
+const NS_PENCIL_SVG = `<svg viewBox="0 0 46 46" aria-hidden="true"><g transform="translate(3,43) rotate(-45)">
+  <polygon points="0,0 13,-6.5 13,6.5" fill="#f3c999"/>
+  <polygon points="0,0 4.5,-2.3 4.5,2.3" fill="#2e2350"/>
+  <rect x="13" y="-6.5" width="30" height="13" fill="#ffc53d"/>
+  <rect x="13" y="-6.5" width="30" height="4.3" fill="#ffd970"/>
+  <rect x="43" y="-6.5" width="4" height="13" fill="#b9b9c4"/>
+  <rect x="47" y="-6.5" width="7" height="13" rx="2.5" fill="#ff8fab"/>
+</g></svg>`;
 function nsRenderDemoStage(){
   return `
     <div class="ns-demo-wrap">
       <canvas id="nsDemoCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
-      <div class="ns-pencil" id="nsPencil">✏️</div>
+      <div class="ns-pencil" id="nsPencil">${NS_PENCIL_SVG}</div>
     </div>
     <button class="pill ghost ns-big-btn" id="nsReplayDemo">🔁 다시 보기</button>
     <button class="pill ns-big-btn" id="nsToTrace">나도 써볼래요! ✍️</button>
@@ -619,8 +630,10 @@ function nsPlayStrokeAnim(canvasId, pencilId, opts){
     if(!pencil) return;
     const rect = canvas.getBoundingClientRect();
     const rw = rect.width || W, rh = rect.height || H;
-    pencil.style.left = (rw * (cx/W)) + 'px';
-    pencil.style.top = (rh * (cy/H) - 20) + 'px';
+    // 캔버스가 감싸는 상자 안에서 놓인 위치(offsetLeft/Top)까지 더해서, 연필 심 끝이 정확히
+    // 지금 그리고 있는 점 위에 오게 합니다(예전엔 위로 20px 임의로 띄워 둬서 어긋났음).
+    pencil.style.left = (canvas.offsetLeft + rw * (cx/W)) + 'px';
+    pencil.style.top = (canvas.offsetTop + rh * (cy/H)) + 'px';
   }
 
   function playStroke(idx){
@@ -707,7 +720,7 @@ function nsRenderTraceStage(){
       <canvas id="nsGuideCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <canvas id="nsDrawCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <canvas id="nsTraceDemoCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}" style="position:absolute; top:0; left:0; opacity:0; pointer-events:none; transition:opacity .2s;"></canvas>
-      <div class="ns-pencil" id="nsTracePencil"></div>
+      <div class="ns-pencil" id="nsTracePencil">${NS_PENCIL_SVG}</div>
     </div>
     <div class="action-row">
       <button class="pill ghost ns-action-btn" id="nsClearTrace">↩️ 지우고 다시</button>
