@@ -27,7 +27,8 @@ const REWARD_VIDEOS = ['gH2z4FE1Jao','-8C64eTSXVs','8wkmZsa8_ho','ekyj8kBMv_E','
 // 보면서 자연스러운 지점으로 새로 정함). 그 결과 이 좌표를 캔버스에 그대로(스케일 변환 없이)
 // 그리면 실제 숫자 도안과 정확히 겹치도록 만들었습니다.
 const NS_DIGIT_STROKES = {
-  0: [[[150,100],[184,113.2],[208.9,149.2],[218,198.5],[208.9,247.7],[184,283.8],[150,297],[116,283.8],[91.1,247.8],[82,198.5],[91.1,149.2],[116,113.2],[150,100]]],
+  // 0: 맨 위에서 시작해 왼쪽으로 내려가며 한 바퀴(시계 반대 방향) - 아이들이 실제로 0을 쓰는 방향.
+  0: [[[150,100],[116,113.2],[91.1,149.2],[82,198.5],[91.1,247.8],[116,283.8],[150,297],[184,283.8],[208.9,247.7],[218,198.5],[208.9,149.2],[184,113.2],[150,100]]],
   1: [[[106,114],[162,96],[162,150],[162,220],[162,303]]],
   2: [[[86,141],[109,110],[143,100],[177,104],[205,131],[207,164],[196,198],[164,230],[130,257],[118,290],[147,300],[181,300],[215,301]]],
   // 3: 위쪽 반달을 그린 뒤 펜을 떼고, 가운데 오목한 지점에서 다시 시작해 아래쪽 반달을 씁니다.
@@ -138,10 +139,36 @@ const ENGLISH_ITEMS = [
   { glyph:'Z', ko:'지', word:'Zebra', emoji:'🦓', strokes:[ L([80,95],[220,95],[80,325],[220,325]) ] },
 ];
 
+// 한글 "가나다라" 버전: 자음 획을 왼쪽에 조금 작게 옮겨 그린 뒤 ㅏ(세로획 → 오른쪽 짧은 가로획)를
+// 붙여서 만듭니다. 자음 획 순서는 위의 자음 데이터를 그대로 따릅니다.
+function nsSyllableStrokes(consonantStrokes){
+  const tf = (st)=>({ kind: st.kind, pts: st.pts.map(([x,y])=>[40 + (x-70)*0.78, 110 + (y-90)*0.8]) });
+  return consonantStrokes.map(tf).concat([ L([215,90],[215,335]), L([215,212],[262,212]) ]);
+}
+const HANGUL_SYLLABLE_WORDS = [
+  ['가방','🎒'], ['나비','🦋'], ['다람쥐','🐿️'], ['라면','🍜'], ['마늘','🧄'], ['바나나','🍌'], ['사과','🍎'],
+  ['아기','👶'], ['자동차','🚗'], ['차','🚙'], ['카메라','📷'], ['타요 버스','🚌'], ['파인애플','🍍'], ['하마','🦛'],
+];
+const HANGUL_SYLLABLE_ITEMS = HANGUL_ITEMS.map((c, i)=>({
+  glyph: String.fromCharCode(0xAC00 + [0,2,3,5,6,7,9,11,12,14,15,16,17,18][i] * 588),
+  word: HANGUL_SYLLABLE_WORDS[i][0], emoji: HANGUL_SYLLABLE_WORDS[i][1],
+  strokes: nsSyllableStrokes(c.strokes),
+}));
+// 한글공부에서 배울 글자 묶음: syllable(가나다라, 기본) / consonant(ㄱㄴㄷ)
+function nsHangulSet(){ return ns.settings.hangulSet === 'consonant' ? 'consonant' : 'syllable'; }
+// 학습 기록/획 캐시 키 - 한글은 묶음마다 따로 기록합니다(예전 ㄱㄴㄷ 기록은 'hangul' 그대로 유지).
+function nsRecordKey(){
+  if(ns.subject !== 'hangul') return ns.subject;
+  return nsHangulSet() === 'consonant' ? 'hangul' : 'hangul_syllable';
+}
+
+// 공부모드 보상은 과목과 상관없이 같은 화면·같은 영상을 씁니다.
+const NS_REWARD_TITLE = '🎉 오늘 공부 다 했어요! 🎉';
+
 // 과목별 정보. items(key 목록)와 item(key) → {glyph, chips, speakText, speakLang, prompt, strokes}
 const STUDY_SUBJECTS = {
   number: {
-    title:'🔢 숫자공부', rewardTitle:'🎉 오늘 숫자 다 배웠어요! 🎉',
+    title:'🔢 숫자공부',
     keys(){ const out=[]; for(let i=ns.settings.rangeMin;i<=ns.settings.rangeMax;i++) out.push(i); return out.length?out:[0]; },
     // 범위 안의 숫자를 한 번씩은 다 배우도록 목표 개수를 범위 크기에 맞춥니다(너무 적으면 최소 5번).
     target(){ return Math.max(5, this.keys().length); },
@@ -159,10 +186,20 @@ const STUDY_SUBJECTS = {
     },
   },
   hangul: {
-    title:'🇰🇷 한글공부', rewardTitle:'🎉 오늘 한글 다 배웠어요! 🎉',
+    title:'🇰🇷 한글공부',
     keys(){ return HANGUL_ITEMS.map((_,i)=>i); },
-    target(){ return 7; }, // 자음 14개를 두 번에 나눠 배움(순서 모드는 다음에 이어서)
+    target(){ return 7; }, // 14글자를 두 번에 나눠 배움(순서 모드는 다음에 이어서)
     item(i){
+      if(nsHangulSet() === 'syllable'){
+        const sy = HANGUL_SYLLABLE_ITEMS[i];
+        return {
+          glyph: sy.glyph,
+          chips: [`<span class="ns-name-chip">${sy.glyph}</span>`, `<span class="ns-name-chip alt">${sy.emoji} ${sy.word}</span>`],
+          speakText: `${sy.glyph}. ${sy.word} 할 때 ${sy.glyph}${nsCopula(sy.glyph)}.`, speakLang:'ko-KR',
+          promptWord: sy.glyph,
+          strokes: sy.strokes, demoWidth: 12,
+        };
+      }
       const it = HANGUL_ITEMS[i];
       return {
         glyph: it.glyph,
@@ -174,7 +211,7 @@ const STUDY_SUBJECTS = {
     },
   },
   english: {
-    title:'🔤 영어공부', rewardTitle:'🎉 오늘 영어 다 배웠어요! 🎉',
+    title:'🔤 영어공부',
     keys(){ return ENGLISH_ITEMS.map((_,i)=>i); },
     target(){ return 7; },
     item(i){
@@ -230,7 +267,7 @@ function nsStrokeLength(points){
 }
 const nsStrokePathCache = new Map();
 function nsGetStrokes(){
-  const cacheKey = ns.subject + ':' + ns.current;
+  const cacheKey = nsRecordKey() + ':' + ns.current;
   if(nsStrokePathCache.has(cacheKey)) return nsStrokePathCache.get(cacheKey);
   const it = nsItem();
   const dense = it.strokes.map(st=>{
@@ -243,7 +280,7 @@ function nsGetStrokes(){
 
 let ns = {
   subject: 'number',
-  settings: { rangeMin:0, rangeMax:10, micMode:'every', mode:'sequential' },
+  settings: { rangeMin:0, rangeMax:10, micMode:'every', mode:'sequential', hangulSet:'syllable' },
   session: { completed:0 },
   current: null,
   stage: 'reveal',
@@ -276,27 +313,28 @@ function nsSaveSettings(){
 }
 
 // ---- 학습 기록: 과목별로 글자마다 몇 번 끝냈는지 + 마지막으로 배운 글자(순서 모드 이어하기) ----
-let nsRecords = { number:{}, hangul:{}, english:{}, last:{} };
+let nsRecords = { number:{}, hangul:{}, hangul_syllable:{}, english:{}, last:{} };
 function nsLoadRecords(){
   try{
     const p = JSON.parse(localStorage.getItem(NS_RECORDS_KEY) || 'null');
-    if(p) nsRecords = Object.assign({ number:{}, hangul:{}, english:{}, last:{} }, p);
+    if(p) nsRecords = Object.assign({ number:{}, hangul:{}, hangul_syllable:{}, english:{}, last:{} }, p);
   }catch(e){}
 }
 function nsSaveRecords(){
   try{ localStorage.setItem(NS_RECORDS_KEY, JSON.stringify(nsRecords)); }catch(e){}
 }
 function nsMarkLearned(){
-  const rec = nsRecords[ns.subject] || (nsRecords[ns.subject] = {});
+  const key = nsRecordKey();
+  const rec = nsRecords[key] || (nsRecords[key] = {});
   rec[ns.current] = (rec[ns.current] || 0) + 1;
-  nsRecords.last[ns.subject] = ns.current;
+  nsRecords.last[key] = ns.current;
   nsSaveRecords();
 }
 function renderNsStickers(){
   const row = document.getElementById('nsStickerRow');
   if(!row) return;
   const subj = nsSubject();
-  const rec = nsRecords[ns.subject] || {};
+  const rec = nsRecords[nsRecordKey()] || {};
   row.innerHTML = subj.keys().map(k=>{
     const glyph = subj.item(k).glyph;
     const cnt = rec[k] || 0;
@@ -308,7 +346,7 @@ function openStudy(subject){
   ns.subject = STUDY_SUBJECTS[subject] ? subject : 'number';
   ns.session = { completed:0 };
   // 순서 모드는 지난번에 배운 다음 글자부터 이어서 시작합니다.
-  const last = nsRecords.last[ns.subject];
+  const last = nsRecords.last[nsRecordKey()];
   ns.current = (last === undefined) ? null : last;
   ns._noiseFloorCached = null; // 새 학습 세션을 시작할 때마다 그 자리의 소음을 다시 잽니다
   nsRollPromptMajority(); // 이번 세션에서 "하나/둘..."과 "일/이..." 중 어느 쪽을 더 자주 들려줄지 무작위로 정함
@@ -385,18 +423,6 @@ function nsRenderRevealStage(){
     <button class="pill ns-big-btn" id="nsToDemo">다음: 쓰는 법 보기 ✏️</button>
   `;
 }
-// 일부 브라우저/웹뷰는 음성 목록(voices)이 페이지 로드 직후엔 비어있다가 조금 뒤에
-// 'voiceschanged' 이벤트로 채워집니다. 그 전에 speak()를 부르면 소리가 전혀 안 나는
-// 경우가 있어서, 목록이 찰 때까지(최대 600ms) 기다린 다음 말하게 합니다.
-function nsEnsureVoicesReady(cb){
-  if(!('speechSynthesis' in window)){ cb(); return; }
-  const voices = speechSynthesis.getVoices();
-  if(voices && voices.length){ cb(); return; }
-  let done = false;
-  const finish = ()=>{ if(done) return; done = true; cb(); };
-  try{ speechSynthesis.onvoiceschanged = finish; }catch(e){}
-  setTimeout(finish, 600);
-}
 function nsPickVoice(lang){
   try{
     const prefix = (lang || 'ko-KR').slice(0,2);
@@ -429,6 +455,59 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang){
     return (network || matched[0]).idx;
   });
 }
+// 모바일 브라우저(특히 iOS Safari, 안드로이드 크롬)에서 소리가 안 나던 원인들:
+//  ① 음성 목록이 늦게 채워질 때 setTimeout으로 기다렸다가 말해서, "터치한 그 순간"에 말하지 않아
+//     브라우저가 소리를 막음 → 이제 목록을 기다리지 않고 즉시 말합니다(언어만 지정하면 기본 음성 사용).
+//  ② cancel() 직후 바로 speak()하면 안드로이드 크롬이 새 문장까지 같이 취소해버림
+//     (카드 이름 안내 → 곧바로 숫자 발음처럼 연달아 말할 때) → 말하는 중일 때만 취소하고 잠깐 뒤에 말합니다.
+//  ③ 문장(utterance) 객체가 말하는 도중 메모리에서 정리되면 소리가 끊김 → 끝날 때까지 붙잡아 둡니다.
+//  ④ iOS는 첫 소리를 반드시 터치 안에서 내야 이후에도 소리가 남 → 첫 터치 때 무음 문장으로 "잠금 해제".
+let nsActiveUtterance = null;
+function nsWebSpeakNow(text, lang){
+  const u = new SpeechSynthesisUtterance(text);
+  const voice = nsPickVoice(lang);
+  if(voice) u.voice = voice;
+  u.lang = lang; u.rate = 0.85; u.pitch = 1.05;
+  u.onend = ()=>{ if(nsActiveUtterance === u) nsActiveUtterance = null; };
+  u.onerror = (e)=>{
+    if(nsActiveUtterance === u) nsActiveUtterance = null;
+    const reason = e && e.error;
+    if(reason === 'interrupted' || reason === 'canceled') return; // 다음 문장으로 넘어가며 끊긴 것은 정상
+    if(reason === 'not-allowed') toast('화면을 한 번 누른 뒤 🔊 버튼을 눌러주세요');
+    else if(!voice) toast('이 기기에 해당 언어 음성이 설치되어 있지 않은 것 같아요 🔇');
+  };
+  nsActiveUtterance = u;
+  speechSynthesis.speak(u);
+  // 일부 안드로이드 브라우저는 speak() 직후 멈춰있는 상태로 남는 버그가 있어 한 번 깨워줍니다.
+  setTimeout(()=>{ try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }, 150);
+}
+function nsWebSpeak(text, lang){
+  if(!('speechSynthesis' in window)){
+    toast('이 기기에서는 소리를 들려줄 수 없어요 🔇');
+    return;
+  }
+  try{
+    if(speechSynthesis.paused) speechSynthesis.resume();
+    if(speechSynthesis.speaking || speechSynthesis.pending){
+      speechSynthesis.cancel();
+      setTimeout(()=>{ try{ nsWebSpeakNow(text, lang); }catch(e){} }, 120);
+    } else {
+      nsWebSpeakNow(text, lang);
+    }
+  }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
+}
+function nsUnlockWebSpeech(){
+  try{
+    if(!('speechSynthesis' in window) || nsNativeTTS()) return;
+    speechSynthesis.getVoices(); // 음성 목록 미리 불러오기
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+document.addEventListener('pointerdown', nsUnlockWebSpeech, { once:true, capture:true });
+try{ if('speechSynthesis' in window) speechSynthesis.getVoices(); }catch(e){}
+
 function nsSpeak(text, lang){
   lang = lang || 'ko-KR';
   const nativeTTS = nsNativeTTS();
@@ -438,30 +517,15 @@ function nsSpeak(text, lang){
       nsGetPreferredNativeVoiceIndex(nativeTTS, lang).then(voiceIdx=>{
         const opts = { text, lang, rate:0.85, pitch:1.1, volume:1.0, category:'ambient' };
         if(voiceIdx !== undefined) opts.voice = voiceIdx;
-        nativeTTS.speak(opts).catch(()=> toast('소리 재생에 문제가 있었어요 🔇'));
+        // 지정한 음성으로 실패하면 기본 음성으로, 그것도 안 되면 브라우저 음성으로 한 번 더 시도합니다.
+        nativeTTS.speak(opts)
+          .catch(()=>{ delete opts.voice; return nativeTTS.speak(opts); })
+          .catch(()=>{ if('speechSynthesis' in window) nsWebSpeak(text, lang); else toast('소리 재생에 문제가 있었어요 🔇'); });
       });
-    }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
+    }catch(e){ nsWebSpeak(text, lang); }
     return;
   }
-
-  if(!('speechSynthesis' in window)){
-    toast('이 기기에서는 소리를 들려줄 수 없어요 🔇');
-    return;
-  }
-  nsEnsureVoicesReady(()=>{
-    try{
-      speechSynthesis.cancel();
-      if(speechSynthesis.paused) speechSynthesis.resume();
-      const u = new SpeechSynthesisUtterance(text);
-      const voice = nsPickVoice(lang);
-      if(voice) u.voice = voice;
-      u.lang = lang; u.rate = 0.85; u.pitch = 1.05;
-      u.onerror = ()=>{ if(!voice) toast('이 기기에 해당 언어 음성이 설치되어 있지 않은 것 같아요 🔇'); };
-      speechSynthesis.speak(u);
-      // 일부 안드로이드 웹뷰는 speak() 직후 바로 멈춰있는 상태로 남는 버그가 있어 한 번 깨워줍니다.
-      setTimeout(()=>{ try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }, 150);
-    }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
-  });
+  nsWebSpeak(text, lang);
 }
 // 앱 곳곳의 음성 안내(카드 이름, 캐릭터 이름, 필드 이름 등). 아직 글을 못 읽는 아이를 위한
 // 기능이라 기본으로 켜져 있고, 보호자 설정에서 끌 수 있습니다. 공부모드 발음은 항상 나옵니다.
@@ -961,6 +1025,8 @@ function openNumStudySettings(){
   const mode = ns.settings.mode === 'random' ? 'random' : 'sequential';
   const mic = ['every','once','off'].includes(ns.settings.micMode) ? ns.settings.micMode : 'every';
   const isNumber = ns.subject === 'number';
+  const isHangul = ns.subject === 'hangul';
+  const hset = nsHangulSet();
   showChoiceDialog(`
       <div>⚙️ ${nsSubject().title.replace(/^\S+\s/,'')} 설정</div>
       ${isNumber ? `
@@ -971,6 +1037,12 @@ function openNumStudySettings(){
         <select id="nsMax">${rangeOptions(ns.settings.rangeMax)}</select>
       </div>
       <div class="ns-settings-note">※ 지금은 0~10까지 배울 수 있어요.</div>` : ''}
+      ${isHangul ? `
+      <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
+        <label style="font-weight:700;">배울 글자</label>
+        <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="syllable" ${hset==='syllable'?'checked':''}> 가 나 다 라 (글자)</label>
+        <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="consonant" ${hset==='consonant'?'checked':''}> ㄱ ㄴ ㄷ ㄹ (자음)</label>
+      </div>` : ''}
       <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
         <label style="font-weight:700;">순서</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsMode" value="sequential" ${mode==='sequential'?'checked':''}> 순서대로 (지난번 다음부터)</label>
@@ -995,7 +1067,21 @@ function openNumStudySettings(){
       ns.settings.mode = modeInput ? modeInput.value : 'sequential';
       const micInput = document.querySelector('input[name="nsMic"]:checked');
       ns.settings.micMode = micInput ? micInput.value : 'every';
+      let hangulSetChanged = false;
+      if(isHangul){
+        const setInput = document.querySelector('input[name="nsHangulSet"]:checked');
+        const next = setInput ? setInput.value : 'syllable';
+        hangulSetChanged = next !== hset;
+        ns.settings.hangulSet = next;
+      }
       nsSaveSettings();
+      if(hangulSetChanged){
+        // 글자 묶음을 바꾸면 그 묶음에서 지난번에 배운 다음 글자부터 새로 시작합니다.
+        const last = nsRecords.last[nsRecordKey()];
+        ns.current = (last === undefined) ? null : last;
+        ns.session = { completed:0 };
+        nsNextNumber();
+      }
       updateNsProgress();
       renderNsStickers();
       toast('설정을 저장했어요!');
@@ -1042,7 +1128,7 @@ function showNumberReward(){
   const vid = REWARD_VIDEOS[Math.floor(Math.random()*REWARD_VIDEOS.length)];
   const host = document.getElementById('nsRewardVideoHost');
   if(!host) return;
-  document.getElementById('nsRewardTitle').textContent = nsSubject().rewardTitle;
+  document.getElementById('nsRewardTitle').textContent = NS_REWARD_TITLE;
   host.innerHTML = '<div id="nsYtPlayerEl"></div><button class="ns-reward-tap paused" id="nsRewardTap" aria-label="재생/일시정지"></button>';
   document.getElementById('nsRewardTap').addEventListener('click', ()=>{
     if(!nsYTPlayer || !nsYTPlayer.getPlayerState) return;

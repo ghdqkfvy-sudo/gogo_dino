@@ -121,7 +121,18 @@ function check(cond, msg){
   await page.evaluate(()=>{ ns.settings.micMode = 'off'; });
   await page.click('.home-card[aria-label="한글공부"]');
   await page.waitForSelector('#nsToDemo');
-  check((await page.textContent('.ns-number-display')).trim() === 'ㄱ', '한글공부 첫 글자 ㄱ');
+  check((await page.textContent('.ns-number-display')).trim() === '가', '한글공부 기본은 가나다 (첫 글자 가)');
+  // 🔊 소리 듣기를 누르면 그 터치 안에서 곧바로 speak()가 불려야 함(모바일 브라우저 정책)
+  const spoke = await page.evaluate(()=>{
+    let calls = []; const orig = speechSynthesis.speak.bind(speechSynthesis);
+    speechSynthesis.speak = (u)=>{ calls.push(u.text); };
+    Object.defineProperty(speechSynthesis, 'speaking', { configurable:true, get:()=>false });
+    Object.defineProperty(speechSynthesis, 'pending', { configurable:true, get:()=>false });
+    document.getElementById('nsPlaySound').click();
+    speechSynthesis.speak = orig; delete speechSynthesis.speaking; delete speechSynthesis.pending;
+    return calls;
+  });
+  check(spoke.length === 1 && spoke[0].includes('가방'), '소리 듣기 버튼이 즉시 발음 (' + spoke.join('|') + ')');
   await page.click('#nsToDemo');
   await page.click('#nsToTrace');
   await page.waitForFunction(()=> ns._traceMask && ns._traceMask.length > 0);
@@ -135,10 +146,24 @@ function check(cond, msg){
   check(await page.evaluate(()=> ns.traceRound) === 1, '안내선을 따라 쓰면 통과');
   await page.click('#screen-numstudy .backbtn');
 
+  console.log('설정/보상/획순');
+  const setSwitch = await page.evaluate(()=>{
+    ns.settings.hangulSet = 'consonant'; ns.subject = 'hangul';
+    const a = STUDY_SUBJECTS.hangul.item(0).glyph;
+    ns.settings.hangulSet = 'syllable';
+    const b = STUDY_SUBJECTS.hangul.item(13).glyph;
+    return a + b;
+  });
+  check(setSwitch === 'ㄱ하', 'ㄱㄴㄷ / 가나다 묶음 전환 (' + setSwitch + ')');
+  const zero = await page.evaluate(()=> NS_DIGIT_STROKES[0][0]);
+  check(zero[0][1] < zero[1][1] && zero[1][0] < zero[0][0], '0은 위에서 시작해 왼쪽으로(시계 반대 방향)');
+  check(await page.evaluate(()=> !STUDY_SUBJECTS.hangul.rewardTitle && typeof NS_REWARD_TITLE === 'string'), '보상 화면을 모든 과목이 공유');
+
   console.log('모든 글자 데이터');
   const bad = await page.evaluate(()=>{
     const out = [];
-    ['number','hangul','english'].forEach(sub=>{ ns.subject = sub; STUDY_SUBJECTS[sub].keys().forEach(k=>{ ns.current = k; const st = nsGetStrokes(); if(!st.length || st.some(p=>p.length<2 || p.some(q=>!isFinite(q[0])||!isFinite(q[1])||q[0]<0||q[0]>300||q[1]<0||q[1]>420))) out.push(sub+':'+k); }); });
+    [['number'],['hangul','syllable'],['hangul','consonant'],['english']].forEach(([sub,set])=>{ ns.subject = sub; if(set) ns.settings.hangulSet = set; STUDY_SUBJECTS[sub].keys().forEach(k=>{ ns.current = k; const st = nsGetStrokes(); if(!st.length || st.some(p=>p.length<2 || p.some(q=>!isFinite(q[0])||!isFinite(q[1])||q[0]<0||q[0]>300||q[1]<0||q[1]>420))) out.push(sub+(set||'')+':'+k); }); });
+    ns.settings.hangulSet = 'syllable';
     return out;
   });
   check(bad.length === 0, '숫자/한글/영어 획 데이터가 모두 캔버스 안에 있음' + (bad.length ? ' ('+bad.join(',')+')' : ''));
