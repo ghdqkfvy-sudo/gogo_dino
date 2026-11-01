@@ -287,7 +287,7 @@ function renderCharGrid(){
   grid.querySelectorAll('.char-thumb').forEach(el=>{
     el.addEventListener('click', ()=>{
       const def = getDef(el.dataset.char);
-      speak(def.name);
+      speak(def.name, voiceFor(def.id));
       startColoring(def);
     });
   });
@@ -708,7 +708,7 @@ function toggleForm(){
   renderColorCanvas();
   updateUndoButtons();
   playChime('pop');
-  speak('변신!');
+  speak('변신!', voiceFor(currentChar.defId));
 }
 // 다 지우기 - 실수로 눌러도 되돌릴 수 있게 되돌리기 기록에 남기고, 그래도 한 번 더 물어봅니다.
 function resetColors(){

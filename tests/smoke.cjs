@@ -243,6 +243,32 @@ function check(cond, msg){
   check(pl.list === 'PLweHyEHJTEBUMqlsD48NWJNGeAurKX5y-' && pl.index === 7, '재생목록의 고른 편(8번째)을 재생');
   check(pl.stillOpen && pl.closedAfterNext, '한 편이 끝나 다음 편으로 넘어가면 보상 종료(한 번에 한 편)');
 
+  console.log('기본 친구 이름 / 캐릭터별 목소리');
+  const vt = await page.evaluate(()=>{
+    const names = DEFAULT_FIELD_FRIENDS.map(f=>f.name).join(',');
+    // 실제로 말하지 않고, 어떤 높낮이/음성으로 말하려 했는지만 기록
+    const spoken = [];
+    const origSpeak = speechSynthesis.speak.bind(speechSynthesis);
+    const origVoices = speechSynthesis.getVoices.bind(speechSynthesis);
+    // 가짜 음성 목록을 쓰므로 문장 객체도 평범한 객체로 바꿔 둠(진짜 객체는 가짜 음성을 거부함)
+    const OrigU = window.SpeechSynthesisUtterance;
+    window.SpeechSynthesisUtterance = function(t){ this.text = t; };
+    speechSynthesis.speak = (u)=> spoken.push({ text:u.text, pitch:u.pitch, rate:u.rate, voice:u.voice && u.voice.name });
+    speechSynthesis.getVoices = ()=> [ { name:'Korean Male (InJoon)', voiceURI:'injoon', lang:'ko-KR' }, { name:'Yuna', voiceURI:'yuna', lang:'ko-KR' } ];
+    Object.defineProperty(speechSynthesis, 'speaking', { configurable:true, get:()=>false });
+    Object.defineProperty(speechSynthesis, 'pending', { configurable:true, get:()=>false });
+    voiceGuideOn = true;
+    ['rex','vicky','amber','anki','default-kid-1'].forEach(id=> speak('안녕', voiceFor(id)));
+    speechSynthesis.speak = origSpeak; speechSynthesis.getVoices = origVoices; window.SpeechSynthesisUtterance = OrigU;
+    delete speechSynthesis.speaking; delete speechSynthesis.pending;
+    return { names, spoken };
+  });
+  check(vt.names === '율,온', '기본 친구 이름이 율, 온 (' + vt.names + ')');
+  const [rexV, vickyV, amberV, ankiV, yulV] = vt.spoken;
+  check(new Set(vt.spoken.map(v=>v.pitch.toFixed(2)+'/'+v.rate.toFixed(2))).size === 5, '캐릭터마다 목소리 높낮이/빠르기가 다름');
+  check(vickyV.voice === 'Yuna' && amberV.voice === 'Yuna', '비키·엠버는 여성 음성이 있으면 그 음성 사용');
+  check(vickyV.pitch > rexV.pitch && amberV.pitch > ankiV.pitch && yulV.pitch > rexV.pitch, '여성/아이 캐릭터는 더 높은 목소리');
+
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();
   console.log(failures ? `\n실패 ${failures}건` : '\n모두 통과');
