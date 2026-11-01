@@ -351,6 +351,7 @@ function renderScene(){
       minX: usableLeft - anchorLeft, maxX: Math.max(usableLeft, sceneW - boxW - 4) - anchorLeft,
       period: variant.period, phase: variant.phase + i*0.13,
       facing: 1, showingVehicle: false, stepSeed: i*1.7, held: false, lastX: 0,
+      voice: voiceFor(snap.defId || snap.uid), // 친구마다 다른 목소리로 인사
       doTransform: null,
     };
     fieldSprites.push(spriteState);
@@ -442,7 +443,7 @@ function greetSprite(sp){
   hop.appendChild(bubble);
   setTimeout(()=> bubble.remove(), 1800);
   playChime('pop');
-  speak(`안녕! 나는 ${sp.name}${koYa(sp.name)}`);
+  speak(`안녕! 나는 ${sp.name}${koYa(sp.name)}`, sp.voice);
   if(sp.doTransform) setTimeout(sp.doTransform, 450);
 }
 
@@ -514,7 +515,7 @@ function openGalleryActions(uid){
   const snap = savedCharacters.find(s=>s.uid===uid);
   if(!snap) return;
   const inField = isInField(currentField, uid);
-  speak(snap.name);
+  speak(snap.name, voiceFor(snap.defId));
   showChoiceDialog(`<div><img src="${snap.image}" alt="" style="width:110px;height:110px;object-fit:contain;display:block;margin:0 auto 6px;">${escapeHtml(snap.name)}</div>`, [
     inField ? { label:'✕ 필드에서 빼기', cls:'ghost', value:'remove' } : { label:'＋ 필드에 넣기', cls:'alt', value:'add' },
     { label:'✏️ 이어서 칠하기', cls:'ghost', value:'edit' },

@@ -463,11 +463,19 @@ function nsRenderRevealStage(){
     <button class="pill ns-big-btn" id="nsToDemo">다음: 쓰는 법 보기 ✏️</button>
   `;
 }
-function nsPickVoice(lang){
+// 음성 이름으로 성별을 짐작합니다(기기마다 이름 규칙이 달라서, 알아볼 수 있는 이름만 맞춤).
+const NS_FEMALE_VOICE_RE = /female|여성|여자|yuna|heami|sunhi|seoyeon|sora|jimin|yujin/i;
+const NS_MALE_VOICE_RE = /(^|[^e])male|남성|남자|injoon|hyunsu|minsu|jihun/i;
+function nsMatchGender(list, gender, nameOf){
+  if(!gender) return null;
+  const re = gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE;
+  return list.find(v => re.test(nameOf(v) || '')) || null;
+}
+function nsPickVoice(lang, gender){
   try{
     const prefix = (lang || 'ko-KR').slice(0,2);
-    const voices = speechSynthesis.getVoices() || [];
-    return voices.find(v => v.lang && v.lang.toLowerCase().startsWith(prefix)) || null;
+    const voices = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
+    return nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI) || voices[0] || null;
   }catch(e){ return null; }
 }
 // 안드로이드 웹뷰는 Web Speech API(speechSynthesis)가 아예 없거나 음성 목록이 비어 소리가 안
@@ -480,7 +488,7 @@ function nsNativeTTS(){
 // 기기에 같은 언어 음성이 여러 개면 인터넷 기반(localService:false, 대개 더 자연스러운) 음성을
 // 우선 고릅니다. 목록 조회는 한 번만 하고 결과를 캐시해둡니다.
 let nsNativeVoicesPromise = null;
-function nsGetPreferredNativeVoiceIndex(nativeTTS, lang){
+function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
   if(!nsNativeVoicesPromise){
     nsNativeVoicesPromise = nativeTTS.getSupportedVoices()
       .then(res => (res && res.voices) || [])
@@ -491,6 +499,8 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang){
     if(!voices.length) return undefined;
     const matched = voices.map((v,i)=>({...v, idx:i})).filter(v => (v.lang || '').toLowerCase().startsWith(prefix));
     if(!matched.length) return undefined;
+    const byGender = nsMatchGender(matched, gender, v => (v.name || '') + ' ' + (v.voiceURI || ''));
+    if(byGender) return byGender.idx;
     const network = matched.find(v => v.localService === false);
     return (network || matched[0]).idx;
   });
@@ -503,11 +513,19 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang){
 //  ③ 문장(utterance) 객체가 말하는 도중 메모리에서 정리되면 소리가 끊김 → 끝날 때까지 붙잡아 둡니다.
 //  ④ iOS는 첫 소리를 반드시 터치 안에서 내야 이후에도 소리가 남 → 첫 터치 때 무음 문장으로 "잠금 해제".
 let nsActiveUtterance = null;
-function nsWebSpeakNow(text, lang){
+// voice: 캐릭터별 목소리 {pitch, rate, gender} (없으면 기본 안내 목소리)
+function nsVoiceParams(voice){
+  return {
+    rate: Math.max(0.5, Math.min(1.6, 0.85 * ((voice && voice.rate) || 1))),
+    pitch: Math.max(0.3, Math.min(2, (voice && voice.pitch) || 1.05)),
+  };
+}
+function nsWebSpeakNow(text, lang, charVoice){
   const u = new SpeechSynthesisUtterance(text);
-  const voice = nsPickVoice(lang);
+  const voice = nsPickVoice(lang, charVoice && charVoice.gender);
   if(voice) u.voice = voice;
-  u.lang = lang; u.rate = 0.85; u.pitch = 1.05;
+  const vp = nsVoiceParams(charVoice);
+  u.lang = lang; u.rate = vp.rate; u.pitch = vp.pitch;
   u.onend = ()=>{ if(nsActiveUtterance === u) nsActiveUtterance = null; };
   u.onerror = (e)=>{
     if(nsActiveUtterance === u) nsActiveUtterance = null;
@@ -521,7 +539,7 @@ function nsWebSpeakNow(text, lang){
   // 일부 안드로이드 브라우저는 speak() 직후 멈춰있는 상태로 남는 버그가 있어 한 번 깨워줍니다.
   setTimeout(()=>{ try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} }, 150);
 }
-function nsWebSpeak(text, lang){
+function nsWebSpeak(text, lang, charVoice){
   if(!('speechSynthesis' in window)){
     toast('이 기기에서는 소리를 들려줄 수 없어요 🔇');
     return;
@@ -530,9 +548,9 @@ function nsWebSpeak(text, lang){
     if(speechSynthesis.paused) speechSynthesis.resume();
     if(speechSynthesis.speaking || speechSynthesis.pending){
       speechSynthesis.cancel();
-      setTimeout(()=>{ try{ nsWebSpeakNow(text, lang); }catch(e){} }, 120);
+      setTimeout(()=>{ try{ nsWebSpeakNow(text, lang, charVoice); }catch(e){} }, 120);
     } else {
-      nsWebSpeakNow(text, lang);
+      nsWebSpeakNow(text, lang, charVoice);
     }
   }catch(e){ toast('소리 재생에 문제가 있었어요 🔇'); }
 }
@@ -548,33 +566,35 @@ function nsUnlockWebSpeech(){
 document.addEventListener('pointerdown', nsUnlockWebSpeech, { once:true, capture:true });
 try{ if('speechSynthesis' in window) speechSynthesis.getVoices(); }catch(e){}
 
-function nsSpeak(text, lang){
+function nsSpeak(text, lang, charVoice){
   lang = lang || 'ko-KR';
   const nativeTTS = nsNativeTTS();
   if(nativeTTS){
     try{
       nativeTTS.stop().catch(()=>{});
-      nsGetPreferredNativeVoiceIndex(nativeTTS, lang).then(voiceIdx=>{
-        const opts = { text, lang, rate:0.85, pitch:1.1, volume:1.0, category:'ambient' };
+      nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender).then(voiceIdx=>{
+        const vp = nsVoiceParams(charVoice || { pitch:1.1 });
+        const opts = { text, lang, rate:vp.rate, pitch:vp.pitch, volume:1.0, category:'ambient' };
         if(voiceIdx !== undefined) opts.voice = voiceIdx;
         // 지정한 음성으로 실패하면 기본 음성으로, 그것도 안 되면 브라우저 음성으로 한 번 더 시도합니다.
         nativeTTS.speak(opts)
           .catch(()=>{ delete opts.voice; return nativeTTS.speak(opts); })
-          .catch(()=>{ if('speechSynthesis' in window) nsWebSpeak(text, lang); else toast('소리 재생에 문제가 있었어요 🔇'); });
+          .catch(()=>{ if('speechSynthesis' in window) nsWebSpeak(text, lang, charVoice); else toast('소리 재생에 문제가 있었어요 🔇'); });
       });
-    }catch(e){ nsWebSpeak(text, lang); }
+    }catch(e){ nsWebSpeak(text, lang, charVoice); }
     return;
   }
-  nsWebSpeak(text, lang);
+  nsWebSpeak(text, lang, charVoice);
 }
 // 앱 곳곳의 음성 안내(카드 이름, 캐릭터 이름, 필드 이름 등). 아직 글을 못 읽는 아이를 위한
 // 기능이라 기본으로 켜져 있고, 보호자 설정에서 끌 수 있습니다. 공부모드 발음은 항상 나옵니다.
 const VOICE_GUIDE_KEY = 'gogodino_voice_guide_v1';
 let voiceGuideOn = true;
 try{ voiceGuideOn = localStorage.getItem(VOICE_GUIDE_KEY) !== '0'; }catch(e){}
-function speak(text){
+// charVoice를 넘기면 그 캐릭터 목소리로 말합니다(voiceFor(캐릭터 id) 참고).
+function speak(text, charVoice){
   if(!voiceGuideOn || !text) return;
-  try{ nsSpeak(text, 'ko-KR'); }catch(e){}
+  try{ nsSpeak(text, 'ko-KR', charVoice); }catch(e){}
 }
 // 한국어 조사 "이에요"/"예요"는 앞 낱말이 받침으로 끝나는지에 따라 달라집니다. 이걸 구분 안
 // 하고 무조건 "이에요"를 붙이면 "오이에요", "구이에요"처럼 다른 낱말로 들려서, 마지막 글자의

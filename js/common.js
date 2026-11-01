@@ -188,10 +188,32 @@ const CHARACTERS = [
 // aspectRatio(=가로/세로)를 넣어두면, 저장된 캐릭터들처럼 정사각형 틀에 억지로 끼워
 // 넣지 않고 원본 사진 비율 그대로(옆으로 눌리지 않게) 자리 배치됩니다.
 const DEFAULT_FIELD_FRIENDS = [
-  { uid: 'default-kid-1', name: '까르르', image: 'characters/default_kid1.webp', aspectRatio: 229/495 },
-  { uid: 'default-kid-2', name: '몬스터 옷', image: 'characters/default_kid2.webp', aspectRatio: 558/900 },
+  { uid: 'default-kid-1', name: '율', image: 'characters/default_kid1.webp', aspectRatio: 229/495 },
+  { uid: 'default-kid-2', name: '온', image: 'characters/default_kid2.webp', aspectRatio: 558/900 },
 ];
 function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
+
+// 캐릭터별 목소리: 같은 기기 음성이라도 높낮이(pitch)와 빠르기(rate)를 다르게 줘서 친구마다
+// 다른 목소리처럼 들리게 합니다(덩치 큰 친구는 낮고 느리게, 작은 친구는 높고 빠르게).
+// gender:'female'인 친구(비키, 엠버)는 기기에 여성 음성이 따로 있으면 그 음성을 고릅니다.
+// pitch/rate 기준값은 1.0(보통 목소리)입니다.
+const CHARACTER_VOICES = {
+  rex:   { pitch:0.8,  rate:0.9  },                   // 렉스 - 듬직한 대장
+  tomo:  { pitch:1.1,  rate:1.0  },                   // 토모 - 씩씩하고 빠르게
+  vicky: { pitch:1.45, rate:0.9,  gender:'female' },  // 비키 - 여성 캐릭터
+  ping:  { pitch:1.3,  rate:1.05 },                   // 핑 - 작고 귀엽게
+  loki:  { pitch:0.95, rate:0.95 },
+  poki:  { pitch:1.2,  rate:1.0  },
+  anki:  { pitch:0.7,  rate:0.8  },                   // 안키 - 덩치 큰 안킬로사우루스
+  storm: { pitch:0.85, rate:1.05 },
+  poli:  { pitch:1.0,  rate:0.9  },
+  roy:   { pitch:0.65, rate:0.8  },                   // 로이 - 큰 소방차
+  amber: { pitch:1.5,  rate:0.9,  gender:'female' },  // 엠버 - 여성 캐릭터
+  helly: { pitch:1.25, rate:1.05 },
+  'default-kid-1': { pitch:1.6,  rate:0.95 },         // 율
+  'default-kid-2': { pitch:1.55, rate:0.9  },         // 온
+};
+function voiceFor(id){ return CHARACTER_VOICES[id] || null; }
 
 // 만화(프랜차이즈)별 구분용 메타데이터 - 실제 방송사 로고를 그대로 쓰는 대신, 저작권 문제 없이
 // 한눈에 구분되는 색상 배지+이모지 조합을 씁니다. 나중에 진짜 엠블럼 이미지를 갖고 계시면
