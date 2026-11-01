@@ -209,6 +209,40 @@ function check(cond, msg){
   const migrated = await page.evaluate(async ()=>{ const st = await idbGet('state'); return !!(st && st.savedCharacters[0].uid === 'old1' && fieldFriends.forest.length === 1 && !localStorage.getItem('gogodino_saved_v1')); });
   check(migrated, '예전 localStorage 저장분을 IndexedDB로 옮김');
 
+  console.log('보상 영상 랜덤(가짜 YouTube 플레이어)');
+  const rw = await page.evaluate(()=>{
+    // 실제 YouTube 대신 호출 내용을 기록하는 가짜 플레이어
+    const log = [];
+    window.YT = { PlayerState:{ ENDED:0, PLAYING:1, PAUSED:2, BUFFERING:3 }, Player: function(el, opts){
+      const self = this; let idx = null;
+      this.opts = opts; log.push(this);
+      this.loadPlaylist = (o)=>{ self.playlist = o; idx = o.index; };
+      this.playVideo = ()=>{}; this.pauseVideo = ()=>{}; this.destroy = ()=>{};
+      this.getPlayerState = ()=>1; this.getPlaylistIndex = ()=> idx;
+      this._setIndex = (i)=>{ idx = i; };
+      setTimeout(()=> opts.events.onReady({ target:self }), 0);
+    }};
+    // 1) 뽑기 분포와 직전 편 피하기
+    const seen = new Set(); let repeats = 0, prev = null;
+    for(let i=0;i<2000;i++){ const p = nsPickReward(); const k = p.videoId || ('pl:'+p.index); if(k===prev) repeats++; prev = k; seen.add(k); }
+    return { kinds: seen.size, repeats };
+  });
+  check(rw.kinds === 36 && rw.repeats === 0, `보상 후보 36편 모두 나오고 직전 편은 반복 안 함 (${rw.kinds}종, 반복 ${rw.repeats})`);
+  // 2) 재생목록 편이 뽑혔을 때: loadPlaylist로 그 편을 틀고, 다음 편으로 넘어가면 보상 종료
+  await page.evaluate(()=>{ go('screen-home'); window._origPick = nsPickReward; nsPickReward = ()=>({ list:REWARD_PLAYLIST.id, index:7 }); showNumberReward(); });
+  await page.waitForFunction(()=> window.YT && nsYTPlayer && nsYTPlayer.playlist, null, { timeout: 3000 }).catch(()=>{});
+  const pl = await page.evaluate(()=>{
+    const p = nsYTPlayer; const r = { list: p.playlist && p.playlist.list, index: p.playlist && p.playlist.index };
+    p.opts.events.onStateChange({ data:1, target:p });           // 8편 재생 시작
+    r.stillOpen = currentScreenId() === 'screen-numreward';
+    p._setIndex(8); p.opts.events.onStateChange({ data:1, target:p }); // 자동으로 9편으로 넘어감
+    r.closedAfterNext = currentScreenId() === 'screen-home';
+    nsPickReward = window._origPick;
+    return r;
+  });
+  check(pl.list === 'PLweHyEHJTEBUMqlsD48NWJNGeAurKX5y-' && pl.index === 7, '재생목록의 고른 편(8번째)을 재생');
+  check(pl.stillOpen && pl.closedAfterNext, '한 편이 끝나 다음 편으로 넘어가면 보상 종료(한 번에 한 편)');
+
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();
   console.log(failures ? `\n실패 ${failures}건` : '\n모두 통과');

@@ -14,6 +14,25 @@ const NS_TRACE_COVERAGE_PASS = 0.5;  // 안내선의 이 비율 이상을 덧그
 const NS_TRACE_PRECISION_PASS = 0.55; // 그린 선 중 이 비율 이상이 안내선 근처여야 통과(마구 문지르기 방지)
 // 보호자가 전달해준 "고고다이노 공룡탐험대 시즌5" 실제 에피소드 10개 (YouTube 공식 embed - 재배포 아님)
 const REWARD_VIDEOS = ['gH2z4FE1Jao','-8C64eTSXVs','8wkmZsa8_ho','ekyj8kBMv_E','LMnGbfgxgRA','_12NwGgyL58','YHcvKaIs7lg','NEb0NQP6eA0','NcrKF2bm0ng','1ScmgfmYKqA'];
+// 보호자가 전달해준 고고다이노 YouTube 재생목록(26편). 영상 ID를 하나하나 적지 않고 재생목록을 통째로
+// 넘긴 뒤 "몇 번째 편"만 무작위로 고릅니다 - 재생목록에 편이 추가돼도 코드를 고칠 필요가 없습니다.
+const REWARD_PLAYLIST = { id:'PLweHyEHJTEBUMqlsD48NWJNGeAurKX5y-', count:26 };
+const REWARD_LAST_KEY = 'gogodino_reward_last_v1';
+// 보상 후보 = 위 영상 10편 + 재생목록 26편. 그중 하나를 무작위로 고르되, 바로 직전에 본 편은 피합니다.
+function nsPickReward(){
+  const total = REWARD_VIDEOS.length + REWARD_PLAYLIST.count;
+  let last = null;
+  try{ last = localStorage.getItem(REWARD_LAST_KEY); }catch(e){}
+  let pick, key;
+  for(let tries=0; tries<5; tries++){
+    const r = Math.floor(Math.random()*total);
+    pick = r < REWARD_VIDEOS.length ? { videoId: REWARD_VIDEOS[r] } : { list: REWARD_PLAYLIST.id, index: r - REWARD_VIDEOS.length };
+    key = pick.videoId || ('pl:' + pick.index);
+    if(key !== last) break;
+  }
+  try{ localStorage.setItem(REWARD_LAST_KEY, key); }catch(e){}
+  return pick;
+}
 
 // ---------------- 숫자 획순 데이터 (캔버스 실제 좌표계 300x420, 숫자 하나당 획 1~2개) ----------------
 // 실제로 펜이 지나가는 순서대로 좌표를 찍어두고, Catmull-Rom 스플라인으로 부드럽게 이어서
@@ -1160,7 +1179,7 @@ function nsSetRewardPaused(paused){
   if(tap) tap.classList.toggle('paused', !!paused);
 }
 function showNumberReward(){
-  const vid = REWARD_VIDEOS[Math.floor(Math.random()*REWARD_VIDEOS.length)];
+  const pick = nsPickReward();
   const host = document.getElementById('nsRewardVideoHost');
   if(!host) return;
   document.getElementById('nsRewardTitle').textContent = NS_REWARD_TITLE;
@@ -1176,20 +1195,36 @@ function showNumberReward(){
     if(!nsIsRewardActive()) return; // API 로딩 중에 이미 닫았으면 재생하지 않음
     try{
       if(nsYTPlayer){ try{ nsYTPlayer.destroy(); }catch(e){} nsYTPlayer = null; }
-      nsYTPlayer = new YT.Player('nsYtPlayerEl', {
-        videoId: vid,
+      // 재생목록에서 고른 편은 그 편이 끝나면 다음 편으로 자동으로 넘어가 버리므로, 처음 재생된 편의
+      // 순서(index)를 기억해 뒀다가 다른 편으로 바뀌는 순간에도 보상을 끝냅니다(한 번에 한 편만).
+      let startedIndex = null;
+      const playerOpts = {
         playerVars: { autoplay:1, rel:0, playsinline:1, modestbranding:1, controls:0, disablekb:1, fs:0, iv_load_policy:3 },
         events: {
-          onReady: (e)=>{ e.target.playVideo(); nsTryFullscreen(host); },
+          onReady: (e)=>{
+            if(pick.list) e.target.loadPlaylist({ list: pick.list, listType:'playlist', index: pick.index });
+            else e.target.playVideo();
+            nsTryFullscreen(host);
+          },
           onStateChange: (e)=>{
             if(e.data === YT.PlayerState.ENDED){ closeNumberReward(); return; }
+            if(pick.list && e.data === YT.PlayerState.PLAYING && e.target.getPlaylistIndex){
+              const idx = e.target.getPlaylistIndex();
+              if(startedIndex === null) startedIndex = idx;
+              else if(idx !== startedIndex){ closeNumberReward(); return; }
+            }
             nsSetRewardPaused(e.data !== YT.PlayerState.PLAYING && e.data !== YT.PlayerState.BUFFERING);
           }
         }
-      });
+      };
+      if(pick.videoId) playerOpts.videoId = pick.videoId;
+      nsYTPlayer = new YT.Player('nsYtPlayerEl', playerOpts);
     }catch(e){
       // API 생성이 실패해도 최소한 영상은 보이도록 예전 방식의 iframe으로 대체합니다.
-      host.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&playsinline=1" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+      const src = pick.list
+        ? `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(pick.list)}&index=${pick.index}&autoplay=1&rel=0&playsinline=1`
+        : `https://www.youtube.com/embed/${pick.videoId}?autoplay=1&rel=0&playsinline=1`;
+      host.innerHTML = `<iframe src="${src}" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
     }
   });
 }
