@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>고고 컬러링 스튜디오</title>
+<meta name="theme-color" content="#fff3d6">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
@@ -16,38 +20,40 @@
 <audio id="enginePlayer" loop preload="none"></audio>
 <div id="screen-home" class="screen active">
   <div class="home-head">
+    <button class="egg-badge" onclick="openEggShop()" aria-label="알 가게 열기">🥚 <b class="egg-count">0</b></button>
     <h1>🦖 고고 컬러링 스튜디오</h1>
     <button class="pill ghost help-btn" onclick="openParentHelp()" aria-label="보호자 안내와 설정">❓ 보호자</button>
   </div>
 
   <div class="mode-section-head friend"><span class="mode-tag">🧸 친구모드</span></div>
   <div class="home-grid">
-    <div class="home-card" role="button" tabindex="0" aria-label="필드로 가기" data-say="필드로 가기" onclick="pressCard(this, ()=>go('screen-fieldselect'))">
-      <div class="emoji">🌲</div><b>필드로 가기</b>
+    <div class="home-card c-field" role="button" tabindex="0" aria-label="필드로 가기" data-say="필드로 가기" onclick="pressCard(this, ()=>go('screen-fieldselect'))">
+      <div class="emoji"><span>🌲</span></div><b>필드로 가기</b>
       <div class="sub" style="margin:0;">저장한 친구들 만나기</div>
+      <div class="peek" id="homePeekField"></div>
     </div>
-    <div class="home-card" role="button" tabindex="0" aria-label="색칠하기" data-say="색칠하기" onclick="pressCard(this, ()=>openCharPick())">
-      <div class="emoji">🖍️</div><b>색칠하기</b>
+    <div class="home-card c-color" role="button" tabindex="0" aria-label="색칠하기" data-say="색칠하기" onclick="pressCard(this, ()=>openCharPick())">
+      <div class="emoji"><span>🖍️</span></div><b>색칠하기</b>
       <div class="sub" style="margin:0;">캐릭터 도안 선택</div>
     </div>
-    <div class="home-card" role="button" tabindex="0" aria-label="트랙 모드" data-say="트랙 모드" onclick="pressCard(this, ()=>openTrackPick())">
-      <div class="emoji">🏎️</div><b>트랙 모드</b>
+    <div class="home-card c-track" role="button" tabindex="0" aria-label="트랙 모드" data-say="트랙 모드" onclick="pressCard(this, ()=>openTrackPick())">
+      <div class="emoji"><span>🏎️</span></div><b>트랙 모드</b>
       <div class="sub" style="margin:0;">변신한 친구들과 질주!</div>
     </div>
   </div>
 
   <div class="mode-section-head study"><span class="mode-tag">📚 공부모드</span></div>
   <div class="home-grid">
-    <div class="home-card study-card" role="button" tabindex="0" aria-label="숫자공부" data-say="숫자공부" onclick="pressCard(this, ()=>openStudy('number'))">
-      <div class="emoji">🔢</div><b>숫자공부</b>
+    <div class="home-card study-card c-num" role="button" tabindex="0" aria-label="숫자공부" data-say="숫자공부" onclick="pressCard(this, ()=>openStudy('number'))">
+      <div class="emoji"><span class="glyph">123</span></div><b>숫자공부</b>
       <div class="sub" style="margin:0;">읽고 · 듣고 · 따라쓰기</div>
     </div>
-    <div class="home-card study-card" role="button" tabindex="0" aria-label="한글공부" data-say="한글공부" onclick="pressCard(this, ()=>openStudy('hangul'))">
-      <div class="emoji" style="font-family:'Jua'; font-size:40px;">가나다</div><b>한글공부</b>
+    <div class="home-card study-card c-han" role="button" tabindex="0" aria-label="한글공부" data-say="한글공부" onclick="pressCard(this, ()=>openStudy('hangul'))">
+      <div class="emoji"><span class="glyph">가나</span></div><b>한글공부</b>
       <div class="sub" style="margin:0;">가 나 다 따라쓰기</div>
     </div>
-    <div class="home-card study-card" role="button" tabindex="0" aria-label="영어공부" data-say="영어공부" onclick="pressCard(this, ()=>openStudy('english'))">
-      <div class="emoji">🔤</div><b>영어공부</b>
+    <div class="home-card study-card c-eng" role="button" tabindex="0" aria-label="영어공부" data-say="영어공부" onclick="pressCard(this, ()=>openStudy('english'))">
+      <div class="emoji"><span class="glyph">ABC</span></div><b>영어공부</b>
       <div class="sub" style="margin:0;">A B C 따라쓰기</div>
     </div>
   </div>
@@ -71,6 +77,7 @@
       <button class="pill ghost icon-btn" id="undoBtn" onclick="undoPaint()" aria-label="되돌리기" title="되돌리기">↶</button>
       <button class="pill ghost icon-btn" id="redoBtn" onclick="redoPaint()" aria-label="다시하기" title="다시하기">↷</button>
       <button class="pill ghost icon-btn bgm-toggle-btn" onclick="toggleBgmMute()" aria-label="배경음악 켜기/끄기" title="배경음악 켜기/끄기">🔊</button>
+      <button class="pill alt save-main" onclick="saveCharacter()">💾 저장</button>
     </div>
   </div>
   <div class="work-wrap">
@@ -80,6 +87,9 @@
         <button class="pill ghost" id="transformBtn" onclick="toggleForm()">🔄 변신!</button>
         <button class="pill ghost" onclick="resetColors()">🧽 다 지우기</button>
         <button class="pill ghost" onclick="resetCanvasZoom()">🔍 원래 크기</button>
+        <button class="pill ghost" id="replayBtn" onclick="replayPainting()">🎬 다시보기</button>
+        <button class="pill ghost" onclick="exportPNG(false)">📤 그림 내보내기</button>
+        <button class="pill ghost" onclick="exportPNG(true)">✂️ 스티커로 내보내기</button>
       </div>
       <div class="sub zoom-hint" style="margin:6px 0 0;">🤏 손가락 두 개로 벌리면 확대, 오므리면 축소돼요!</div>
     </div>
@@ -93,22 +103,17 @@
           <button class="size-btn" data-size="10" onclick="pickBrushSize(10)" aria-label="가는 붓"><i style="width:10px;height:10px"></i></button>
           <button class="size-btn active" data-size="20" onclick="pickBrushSize(20)" aria-label="보통 붓"><i style="width:18px;height:18px"></i></button>
           <button class="size-btn" data-size="34" onclick="pickBrushSize(34)" aria-label="굵은 붓"><i style="width:26px;height:26px"></i></button>
+          <span class="tool-sep"></span>
+          <div class="recent-row" id="recentRow" role="group" aria-label="최근에 쓴 색"></div>
         </div>
         <div class="tool-tabs" role="tablist">
           <button class="tool-tab active" data-tab="color" onclick="pickToolTab('color')" role="tab">🎨 색깔</button>
           <button class="tool-tab" data-tab="pattern" onclick="pickToolTab('pattern')" role="tab">🌈 문양</button>
+          <button class="tool-tab" data-tab="brush" onclick="pickToolTab('brush')" role="tab">✨ 붓</button>
         </div>
         <div class="swatch-row" id="colorRow" role="listbox" aria-label="색깔"></div>
         <div class="swatch-row" id="patternRow" role="listbox" aria-label="문양" hidden></div>
-      </div>
-    </div>
-    <div class="toolpanel export-panel">
-      <div class="tool-section">
-        <button class="pill alt save-main" onclick="saveCharacter()">💾 저장하기</button>
-        <div class="export-row">
-          <button class="pill ghost" onclick="exportPNG(false)">📤 그림 내보내기</button>
-          <button class="pill ghost" onclick="exportPNG(true)">✂️ 스티커로 내보내기</button>
-        </div>
+        <div class="brush-row" id="brushRow" role="group" aria-label="붓 종류" hidden></div>
       </div>
     </div>
   </div>
@@ -129,11 +134,14 @@
     <button class="backbtn" onclick="go('screen-fieldselect')" aria-label="뒤로">←</button>
     <h1 style="margin:0;" id="fieldTitle">숲속</h1>
     <div class="topbar-right">
+      <button class="pill ghost icon-btn" id="fieldNightBtn" onclick="toggleFieldNight()" aria-label="낮과 밤 바꾸기" title="낮/밤">🌙</button>
+      <button class="pill ghost icon-btn" onclick="openPropPicker()" aria-label="필드 꾸미기" title="꾸미기">🎀</button>
+      <button class="pill ghost icon-btn" onclick="captureFieldPhoto()" aria-label="필드 사진 찍기" title="사진 찍기">📸</button>
       <button class="pill ghost icon-btn bgm-toggle-btn" onclick="toggleBgmMute()" aria-label="배경음악 켜기/끄기" title="배경음악 켜기/끄기">🔊</button>
     </div>
   </div>
   <div class="scene forest" id="sceneEl"></div>
-  <div class="sub" style="margin-top:12px;">👆 친구를 톡 누르면 인사하고, 꾹 끌면 자리를 옮겨요. 아래 친구를 누르면 필드에 넣거나 뺄 수 있어요.</div>
+  <div class="sub" style="margin-top:12px;">👆 친구를 톡 누르면 인사하고, 꾹 끌면 자리를 옮겨요. 아래 친구를 누르면 필드에 넣거나 뺄 수 있어요. 🎀로 꾸미고 📸로 사진을 찍어요.</div>
   <div class="gallery-strip" id="galleryStrip"></div>
 </div>
 
@@ -144,6 +152,7 @@
     <h1 style="margin:0;">누구랑 달릴까?</h1>
   </div>
   <div class="track-theme-row" id="trackThemeRow" role="radiogroup" aria-label="트랙 테마"></div>
+  <div class="track-theme-row" id="trackCourseRow" role="radiogroup" aria-label="코스 길이"></div>
   <div class="track-best" id="trackBestLabel"></div>
   <div class="char-grid" id="trackPickGrid"></div>
 </div>
@@ -155,6 +164,7 @@
     <h1 style="margin:0;" id="trackTitle">트랙 모드</h1>
     <div class="topbar-right">
       <button class="pill ghost icon-btn bgm-toggle-btn" onclick="toggleBgmMute()" aria-label="배경음악 켜기/끄기" title="배경음악 켜기/끄기">🔊</button>
+      <button class="pill ghost icon-btn" id="trackPauseBtn" onclick="toggleTrackPause()" aria-label="잠깐 멈추기">⏸</button>
       <button class="pill ghost" onclick="restartTrack()">🔁 처음부터</button>
     </div>
   </div>
@@ -176,7 +186,7 @@
       </button>
     </div>
   </div>
-  <div class="track-hint-outside">🕹️ 조이스틱으로 달리고 ⤴️ 버튼으로 점프! 🥚 공룡알을 모아보세요. 뒤집히면 자동으로 다시 떨어져요.</div>
+  <div class="track-hint-outside">🕹️ 조이스틱으로 달리고 ⤴️ 버튼으로 점프! 🥚 공룡알을 모으고 🚀 부스터와 🔴 점프대를 밟아보세요. 🏁 깃발까지 가면 별을 받아요!</div>
 </div>
 
 <!-- ============ 공부모드 (숫자/한글/영어 공용) ============ -->
@@ -199,7 +209,7 @@
 <!-- ============ 공부모드 보상 영상 ============ -->
 <div id="screen-numreward" class="screen">
   <div class="ns-reward-wrap">
-    <button class="ns-reward-close" onclick="requestCloseReward()" aria-label="닫고 홈으로">✕</button>
+    <button class="ns-reward-close" id="nsRewardCloseBtn" onclick="requestCloseReward()" aria-label="닫고 홈으로">✕</button>
     <h1 class="ns-reward-title" id="nsRewardTitle">🎉 오늘 공부 다 했어요! 🎉</h1>
     <div class="ns-reward-video" id="nsRewardVideoHost"></div>
   </div>

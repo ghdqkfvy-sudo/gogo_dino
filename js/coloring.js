@@ -168,6 +168,7 @@ function getSilhouetteMask(analysis){
 //   지우개(eraser) - 문지른 자리의 색을 지움. 어느 도구든 그 부위의 실제 선 밖으로는 번지지 않습니다.
 let brushRadius = 20;          // 분석 해상도(가로 최대 560px) 기준 붓 반지름 - 가는 10 / 보통 20 / 굵은 34
 let paintMode = 'brush';          // 'brush' | 'fill' | 'eraser'
+let brushStyle = 'crayon';        // 'crayon' | 'glitter' | 'spray' | 'stamp' (크레용 도구의 붓 종류)
 const UNDO_LIMIT = 20;            // 되돌리기 최대 단계 (한 단계 = 붓질 한 번)
 
 let currentChar = null;      // {defId, currentForm, forms, paintCanvas, editingUid, dirty}
@@ -266,31 +267,98 @@ function renderCharGrid(){
   // 한눈에 구분되게 그립니다. CHARACTERS 배열에 등장하는 순서대로 섹션을 만듭니다.
   const order = [];
   CHARACTERS.forEach(ch=>{ if(!order.includes(ch.franchise)) order.push(ch.franchise); });
-  grid.innerHTML = order.map(fr=>{
+  const section = (fr, inner)=>{
     const meta = FRANCHISES[fr] || { label:fr, emoji:'✨', color:'#888', tint:'#f2f2f2' };
-    const chars = CHARACTERS.filter(c=>c.franchise===fr);
     return `
     <div class="char-section" style="--fr-color:${meta.color}; --fr-tint:${meta.tint};">
       <div class="char-section-head">
         <span class="fr-badge">${meta.emoji}</span>
         <span class="fr-label">${meta.label}</span>
       </div>
-      <div class="char-section-grid">
-        ${chars.map(ch=>`
-          <div class="char-thumb has-fr" role="button" tabindex="0" aria-label="${ch.name} 색칠하기" data-char="${ch.id}" style="--fr-color:${meta.color};">
-            <img src="${ch.src}" alt="${ch.name}" loading="lazy">
-            <span>${ch.name}</span>
-          </div>`).join('')}
-      </div>
+      <div class="char-section-grid">${inner}</div>
     </div>`;
-  }).join('');
-  grid.querySelectorAll('.char-thumb').forEach(el=>{
-    el.addEventListener('click', ()=>{
+  };
+  const thumb = (ch, fr, custom)=>`
+          <div class="char-thumb has-fr" role="button" tabindex="0" aria-label="${escapeHtml(ch.name)} 색칠하기" data-char="${ch.id}" style="--fr-color:${(FRANCHISES[fr]||{}).color||'#888'};">
+            ${custom?`<button class="thumb-del" data-del="${ch.id}" aria-label="${escapeHtml(ch.name)} 도안 지우기">✕</button>`:''}
+            <img src="${ch.src}" alt="${escapeHtml(ch.name)}" loading="lazy">
+            <span>${escapeHtml(ch.name)}</span>
+          </div>`;
+  grid.innerHTML = order.map(fr=> section(fr, CHARACTERS.filter(c=>c.franchise===fr).map(ch=>thumb(ch, fr)).join(''))).join('')
+    // 내 그림: 직접 그린 그림이나 색칠 도안 사진을 불러와서 똑같이 색칠할 수 있습니다.
+    + section('custom', customTemplates.map(t=>thumb(t, 'custom', true)).join('') + `
+          <div class="char-thumb add-template" role="button" tabindex="0" aria-label="내 그림 불러오기" id="addTemplateBtn">
+            <div class="plus">＋</div><span>내 그림 불러오기</span>
+          </div>`)
+    + `<input type="file" id="templateFile" accept="image/*" hidden>`;
+  grid.querySelectorAll('.char-thumb[data-char]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      if(e.target.closest('.thumb-del')) return;
       const def = getDef(el.dataset.char);
+      if(!def) return;
       speak(def.name, voiceFor(def.id));
       startColoring(def);
     });
   });
+  grid.querySelectorAll('.thumb-del').forEach(b=> b.addEventListener('click', (e)=>{ e.stopPropagation(); deleteTemplate(b.dataset.del); }));
+  const file = document.getElementById('templateFile');
+  document.getElementById('addTemplateBtn').addEventListener('click', ()=>{ speak('내 그림 불러오기'); file.click(); });
+  file.addEventListener('change', ()=>{ if(file.files && file.files[0]) importTemplate(file.files[0]); file.value = ''; });
+}
+
+// ---- 내 그림 불러오기 ----
+// 사진으로 찍은 도안은 종이가 회색빛으로 찍혀서 그대로 두면 종이 전체가 "선"으로 인식됩니다.
+// 밝기 분포를 보고 종이 색(밝은 쪽 대부분)을 흰색으로 끌어올리고 흑백으로 바꿔 선만 또렷하게 남깁니다.
+const TEMPLATE_MAX = 900, TEMPLATE_LIMIT = 12;
+async function importTemplate(file){
+  if(customTemplates.length >= TEMPLATE_LIMIT){ toast(`내 그림은 ${TEMPLATE_LIMIT}개까지 넣을 수 있어요. 안 쓰는 것을 지워주세요.`); return; }
+  let img, url = null;
+  try{ url = URL.createObjectURL(file); img = await loadImage(url); }
+  catch(e){ toast('😥 이 파일은 그림으로 열 수 없어요.'); return; }
+  finally{ if(url) setTimeout(()=> URL.revokeObjectURL(url), 2000); }
+  const sc = Math.min(1, TEMPLATE_MAX / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width*sc)), h = Math.max(1, Math.round(img.height*sc));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently:true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(img, 0, 0, w, h);
+  const id = ctx.getImageData(0,0,w,h), d = id.data;
+  const hist = new Uint32Array(256);
+  for(let i=0;i<d.length;i+=4){ const l = Math.round(d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114); d[i] = l; hist[l]++; }
+  // 밝기 중앙값을 종이 색으로 보고(도안은 대부분이 종이), 그 85%보다 밝으면 흰색으로 올립니다.
+  let acc = 0, median = 255; const half = (w*h)/2;
+  for(let l=0;l<256;l++){ acc += hist[l]; if(acc >= half){ median = l; break; } }
+  const white = Math.max(60, median*0.85), black = white*0.45;
+  let dark = 0;
+  for(let i=0;i<d.length;i+=4){
+    const v = Math.max(0, Math.min(255, Math.round((d[i]-black) / (white-black) * 255)));
+    d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+    if(v < 180) dark++;
+  }
+  ctx.putImageData(id, 0, 0);
+  // 가장자리에 흰 테두리를 둘러서 "왼쪽 위 = 그림 바깥"이라는 분석 가정이 항상 맞게 합니다.
+  const out = document.createElement('canvas'); out.width = w+24; out.height = h+24;
+  const octx = out.getContext('2d');
+  octx.fillStyle = '#fff'; octx.fillRect(0,0,out.width,out.height);
+  octx.drawImage(c, 12, 12);
+  const tpl = { id:'custom-' + Date.now().toString(36), name:'내 그림 ' + (customTemplates.length+1), src: out.toDataURL('image/jpeg', 0.88) };
+  customTemplates.push(tpl);
+  const ok = await persistState();
+  if(!ok){ customTemplates = customTemplates.filter(t=>t.id!==tpl.id); toast('😥 저장 공간이 부족해서 넣지 못했어요.'); return; }
+  renderCharGrid();
+  celebrate({count:20});
+  if(dark / (w*h) > 0.45) toast('그림이 많이 어두워요. 검은 선으로 그린 그림이 색칠하기 좋아요!');
+  else toast('📷 내 그림을 넣었어요! 눌러서 색칠해봐요.');
+}
+function deleteTemplate(id){
+  const t = customTemplates.find(x=>x.id===id);
+  if(!t) return;
+  showConfirmDialog(`<div>${escapeHtml(t.name)} 도안을<br>지울까요?</div><small>이 도안으로 이미 저장한 그림은 남아 있지만, 이어서 칠할 수는 없어요.</small>`, ()=>{
+    customTemplates = customTemplates.filter(x=>x.id!==id);
+    delete analysisCache[id + '_base'];
+    persistState();
+    renderCharGrid();
+  }, '네, 지울래요');
 }
 
 function blankPaintCanvas(analysis){
@@ -306,6 +374,8 @@ async function startColoring(def, resumeSnap){
   document.getElementById('transformBtn').style.display = hasVehicle ? '' : 'none';
   renderColorRow();
   renderPatternRow();
+  renderBrushRow();
+  renderRecentRow();
   go('screen-color');
   playFranchiseBGM(def.franchise);
   const host = document.getElementById('svgHost');
@@ -320,7 +390,7 @@ async function startColoring(def, resumeSnap){
       const img = await loadImage(resumeSnap.paintData.base);
       baseCanvas.getContext('2d').drawImage(img, 0, 0);
     }
-    const forms = { base: { analysis: baseAnalysis, paintCanvas: baseCanvas, undo:[], redo:[] } };
+    const forms = { base: { analysis: baseAnalysis, paintCanvas: baseCanvas, undo:[], redo:[], ops:[], base: snapBase(baseCanvas, resumeSnap && resumeSnap.paintData && resumeSnap.paintData.base) } };
     if(hasVehicle){
       const vAnalysis = await loadAndAnalyze(def.id + '_vehicle', def.vehicleSrc);
       const vCanvas = blankPaintCanvas(vAnalysis);
@@ -328,7 +398,7 @@ async function startColoring(def, resumeSnap){
         const vImg = await loadImage(resumeSnap.paintData.vehicle);
         vCanvas.getContext('2d').drawImage(vImg, 0, 0);
       }
-      forms.vehicle = { analysis: vAnalysis, paintCanvas: vCanvas, undo:[], redo:[] };
+      forms.vehicle = { analysis: vAnalysis, paintCanvas: vCanvas, undo:[], redo:[], ops:[], base: snapBase(vCanvas, resumeSnap && resumeSnap.paintData && resumeSnap.paintData.vehicle) };
     }
     if(currentScreenId() !== 'screen-color') return; // 불러오는 사이에 아이가 이미 나갔으면 중단
 
@@ -343,6 +413,10 @@ async function startColoring(def, resumeSnap){
   }
 }
 
+// 다시보기(타임랩스)의 출발점: 이어서 칠하기로 열었다면 그때의 그림, 새 그림이면 빈 종이(null).
+function snapBase(canvas, had){
+  return had ? canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height) : null;
+}
 function currentForm(){ return currentChar ? currentChar.forms[currentChar.currentForm] : null; }
 
 function mountColorCanvas(){
@@ -380,11 +454,15 @@ function scheduleColorRender(){
 
 // ---- 되돌리기 / 다시하기 ----
 // 붓질 한 번(손가락을 대서 뗄 때까지)이 시작되기 직전의 붓칠 레이어를 통째로 저장해 둡니다.
+// 붓질 기록(ops)도 함께 관리해서, 되돌린 붓질은 다시보기(타임랩스)에도 나오지 않게 합니다.
+function grabPaint(form){
+  const c = form.paintCanvas;
+  return c.getContext('2d').getImageData(0,0,c.width,c.height);
+}
 function pushUndo(){
   const form = currentForm();
   if(!form) return;
-  const c = form.paintCanvas;
-  form.undo.push(c.getContext('2d').getImageData(0,0,c.width,c.height));
+  form.undo.push({ img: grabPaint(form), n: form.ops.length });
   if(form.undo.length > UNDO_LIMIT) form.undo.shift();
   form.redo.length = 0;
   updateUndoButtons();
@@ -393,22 +471,25 @@ function restoreSnapshot(form, imgData){
   form.paintCanvas.getContext('2d').putImageData(imgData, 0, 0);
 }
 function undoPaint(){
+  stopReplay();
   const form = currentForm();
   if(!form || !form.undo.length) return;
-  const c = form.paintCanvas;
-  form.redo.push(c.getContext('2d').getImageData(0,0,c.width,c.height));
-  restoreSnapshot(form, form.undo.pop());
+  const entry = form.undo.pop();
+  form.redo.push({ img: grabPaint(form), ops: form.ops.splice(entry.n) });
+  restoreSnapshot(form, entry.img);
   currentChar.dirty = true;
   renderColorCanvas();
   updateUndoButtons();
   playChime('pop');
 }
 function redoPaint(){
+  stopReplay();
   const form = currentForm();
   if(!form || !form.redo.length) return;
-  const c = form.paintCanvas;
-  form.undo.push(c.getContext('2d').getImageData(0,0,c.width,c.height));
-  restoreSnapshot(form, form.redo.pop());
+  const entry = form.redo.pop();
+  form.undo.push({ img: grabPaint(form), n: form.ops.length });
+  form.ops.push(...entry.ops);
+  restoreSnapshot(form, entry.img);
   currentChar.dirty = true;
   renderColorCanvas();
   updateUndoButtons();
@@ -418,7 +499,9 @@ function redoPaint(){
 function cancelLastStroke(){
   const form = currentForm();
   if(!form || !form.undo.length) return;
-  restoreSnapshot(form, form.undo.pop());
+  const entry = form.undo.pop();
+  form.ops.length = entry.n;
+  restoreSnapshot(form, entry.img);
   renderColorCanvas();
   updateUndoButtons();
 }
@@ -478,8 +561,32 @@ function stampStroke(label, x0, y0, x1, y1, tool, erase){
   const src = erase ? '#000' : paintSourceFor(sctx, tool);
   sctx.fillStyle = src; sctx.strokeStyle = src;
   sctx.lineWidth = r*2; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
-  sctx.beginPath(); sctx.arc(x0, y0, r, 0, Math.PI*2); sctx.fill();
-  if(x0!==x1 || y0!==y1){ sctx.beginPath(); sctx.moveTo(x0,y0); sctx.lineTo(x1,y1); sctx.stroke(); }
+  const style = erase ? 'crayon' : brushStyle;
+  const segLen = Math.hypot(x1-x0, y1-y0);
+  if(style === 'spray'){
+    // 스프레이: 붓 반지름 안에 작은 점을 흩뿌립니다(여러 번 지나갈수록 진해짐).
+    const n = Math.ceil(segLen*0.9) + Math.round(r*0.9);
+    for(let i=0;i<n;i++){
+      const t = Math.random(), a = Math.random()*Math.PI*2, d = Math.sqrt(Math.random())*r;
+      sctx.beginPath();
+      sctx.arc(x0+(x1-x0)*t + Math.cos(a)*d, y0+(y1-y0)*t + Math.sin(a)*d, 0.8 + Math.random()*1.5, 0, Math.PI*2);
+      sctx.fill();
+    }
+  } else if(style === 'stamp'){
+    drawStarShape(sctx, x1, y1, r*1.05, r*0.48, 5);
+  } else {
+    sctx.beginPath(); sctx.arc(x0, y0, r, 0, Math.PI*2); sctx.fill();
+    if(x0!==x1 || y0!==y1){ sctx.beginPath(); sctx.moveTo(x0,y0); sctx.lineTo(x1,y1); sctx.stroke(); }
+    if(style === 'glitter'){
+      // 반짝이: 칠한 색 위에 흰색/금색 작은 별을 뿌립니다.
+      const n = 1 + Math.floor(segLen/5);
+      for(let i=0;i<n;i++){
+        const t = Math.random(), a = Math.random()*Math.PI*2, d = Math.sqrt(Math.random())*r*0.9;
+        sctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,.95)' : 'rgba(255,236,150,.95)';
+        drawStarShape(sctx, x0+(x1-x0)*t + Math.cos(a)*d, y0+(y1-y0)*t + Math.sin(a)*d, 1.6 + Math.random()*2.2, 0.6, 4);
+      }
+    }
+  }
   sctx.globalCompositeOperation = 'destination-in';
   sctx.drawImage(region.maskCanvas, bx0, by0, bw, bh, bx0, by0, bw, bh);
   sctx.restore();
@@ -552,13 +659,21 @@ function attachDragPaint(canvas){
   }
   function markDirty(){ if(currentChar) currentChar.dirty = true; }
 
+  function logOp(op){ const f = currentForm(); if(f) f.ops.push(op); }
+  function strokeOp(x0, y0, x1, y1, tool){
+    const erase = paintMode==='eraser';
+    stampStroke(lockedLabel, x0, y0, x1, y1, tool, erase);
+    logOp({ k:'s', label:lockedLabel, x0, y0, x1, y1, tool, r:brushRadius, style:brushStyle, erase });
+  }
   function begin(clientX, clientY){
-    if(!currentChar) return;
+    if(!currentChar || replayState) return;
     const p = pointAt(clientX, clientY);
     if(!p || !paintable(p.label)) return;
     if(paintMode === 'fill'){
       pushUndo(); strokeActive = true;
       fillRegion(p.label, currentTool);
+      logOp({ k:'f', label:p.label, tool:currentTool });
+      rememberRecent(currentTool);
       markDirty();
       scheduleColorRender();
       playChime('pop');
@@ -567,7 +682,8 @@ function attachDragPaint(canvas){
     lockedLabel = p.label; lastX = p.x; lastY = p.y;
     pushUndo(); strokeActive = true;
     if(currentTool.type==='rainbow') rainbowHue = Math.random()*360;
-    stampStroke(lockedLabel, p.x, p.y, p.x, p.y, toolForSegment(currentTool, 0), paintMode==='eraser');
+    strokeOp(p.x, p.y, p.x, p.y, toolForSegment(currentTool, 0));
+    if(paintMode !== 'eraser') rememberRecent(currentTool);
     markDirty();
     scheduleColorRender();
   }
@@ -578,7 +694,9 @@ function attachDragPaint(canvas){
     const y = (clientY - rect.top) / rect.height * currentAnalysis.h;
     const segLen = Math.hypot(x-lastX, y-lastY);
     if(segLen < 0.5) return;
-    stampStroke(lockedLabel, lastX, lastY, x, y, toolForSegment(currentTool, segLen), paintMode==='eraser');
+    // 도장은 붓 크기만큼 떨어진 다음에야 하나씩 찍습니다(문지르면 한 덩어리가 되지 않게).
+    if(brushStyle === 'stamp' && paintMode !== 'eraser' && segLen < brushRadius*2.1) return;
+    strokeOp(lastX, lastY, x, y, toolForSegment(currentTool, segLen));
     lastX = x; lastY = y;
     scheduleColorRender();
   }
@@ -645,6 +763,59 @@ function pickToolTab(tab){
   document.querySelectorAll('.tool-tab').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('colorRow').hidden = tab !== 'color';
   document.getElementById('patternRow').hidden = tab !== 'pattern';
+  document.getElementById('brushRow').hidden = tab !== 'brush';
+}
+// ---- 붓 종류(크레용/반짝이/스프레이/도장) - 특별한 붓은 알 가게에서 엽니다 ----
+const BRUSH_STYLES = [
+  { id:'crayon',  emoji:'🖍️', label:'크레용' },
+  { id:'glitter', emoji:'✨', label:'반짝이', shop:'brush-glitter' },
+  { id:'spray',   emoji:'💨', label:'스프레이', shop:'brush-spray' },
+  { id:'stamp',   emoji:'⭐', label:'별 도장', shop:'brush-stamp' },
+];
+function renderBrushRow(){
+  const row = document.getElementById('brushRow');
+  if(!row) return;
+  row.innerHTML = BRUSH_STYLES.map(b=>{
+    const locked = b.shop && !isUnlocked(b.shop);
+    return `<button class="brush-btn${brushStyle===b.id?' active':''}${locked?' locked':''}" data-brush="${b.id}" aria-label="${b.label}${locked?' (잠김)':''}">
+      <span class="em">${b.emoji}</span><span>${b.label}</span>${locked?`<span class="lock">🔒 🥚${shopItem(b.shop).cost}</span>`:''}</button>`;
+  }).join('');
+  row.querySelectorAll('.brush-btn').forEach(el=> el.addEventListener('click', ()=> pickBrushStyle(el.dataset.brush)));
+}
+function pickBrushStyle(id){
+  const b = BRUSH_STYLES.find(x=>x.id===id);
+  if(!b) return;
+  if(b.shop && !isUnlocked(b.shop)){ tryUnlock(b.shop, ()=>{ renderBrushRow(); pickBrushStyle(id); }); return; }
+  brushStyle = id;
+  if(paintMode !== 'brush') pickMode('brush');
+  renderBrushRow();
+  speak(b.label);
+}
+// ---- 최근에 쓴 색/문양: 도구 줄 끝에 작은 동그라미로 보여줘서 긴 팔레트를 다시 뒤지지 않게 합니다 ----
+const RECENT_KEY = 'gogodino_recent_tools_v1';
+let recentTools = [];
+try{ recentTools = (JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []).filter(t=> t && (t.type==='color' || (t.type==='pattern' && findPattern(t.value)))).slice(0,5); }catch(e){}
+function rememberRecent(tool){
+  if(!tool || (tool.type !== 'color' && tool.type !== 'pattern')) return;
+  if(recentTools[0] && recentTools[0].type===tool.type && recentTools[0].value===tool.value) return;
+  recentTools = [{ type:tool.type, value:tool.value }].concat(recentTools.filter(t=> !(t.type===tool.type && t.value===tool.value))).slice(0,5);
+  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(recentTools)); }catch(e){}
+  renderRecentRow();
+}
+function renderRecentRow(){
+  const host = document.getElementById('recentRow');
+  if(!host) return;
+  host.innerHTML = recentTools.map((t,i)=> t.type==='color'
+    ? `<button class="recent-swatch" data-i="${i}" aria-label="최근 색" style="background:${t.value}"></button>`
+    : `<button class="recent-swatch pat" data-i="${i}" aria-label="최근 문양" style="background-image:url(${getPatternTile(t.value).dataURL}); background-size:14px 14px;"></button>`).join('');
+  host.querySelectorAll('.recent-swatch').forEach(el=> el.addEventListener('click', ()=>{
+    const t = recentTools[+el.dataset.i];
+    if(!t) return;
+    currentTool = { type:t.type, value:t.value };
+    leaveEraser();
+    renderColorRow(); renderPatternRow();
+    playChime('pop');
+  }));
 }
 // 색/문양을 고르면 지우개 상태였더라도 자동으로 크레용으로 돌아갑니다(지우개로 칠하려다 헷갈리지 않게).
 function leaveEraser(){ if(paintMode === 'eraser') pickMode('brush'); }
@@ -700,6 +871,7 @@ function toggleForm(){
     toast('이 캐릭터는 아직 변신 모드 도안이 없어요!');
     return;
   }
+  stopReplay();
   currentChar.currentForm = currentChar.currentForm==='base' ? 'vehicle' : 'base';
   const f = currentChar.forms[currentChar.currentForm];
   currentAnalysis = f.analysis;
@@ -714,16 +886,65 @@ function toggleForm(){
 function resetColors(){
   if(!currentChar) return;
   showConfirmDialog('<div>지금 그림을<br>다 지울까요?</div><small>↶ 되돌리기로 다시 살릴 수 있어요.</small>', ()=>{
+    stopReplay();
     pushUndo();
     const c = currentChar.paintCanvas;
     c.getContext('2d').clearRect(0,0,c.width,c.height);
+    currentForm().ops.push({ k:'c' });
     currentChar.dirty = true;
     renderColorCanvas();
   }, '네, 지울래요');
 }
 
+// ---- 다시보기(타임랩스): 지금까지의 붓질 기록을 빈 종이부터 빠르게 다시 그려 보여줍니다 ----
+// 끝나거나 중간에 멈추면 원래 그림(픽셀 그대로 저장해 둔 것)으로 되돌리므로 그림이 바뀌지 않습니다.
+let replayState = null;   // {form, final, raf, saved}
+function applyPaintOp(op){
+  if(op.k === 'c'){ const c = currentChar.paintCanvas; c.getContext('2d').clearRect(0,0,c.width,c.height); return; }
+  if(op.k === 'f'){ fillRegion(op.label, op.tool); return; }
+  brushRadius = op.r; brushStyle = op.style;
+  stampStroke(op.label, op.x0, op.y0, op.x1, op.y1, op.tool, op.erase);
+}
+function replayPainting(){
+  if(replayState){ stopReplay(); return; }
+  const form = currentForm();
+  if(!form) return;
+  if(!form.ops.length){ toast('먼저 색칠을 하면 그리는 모습을 다시 볼 수 있어요!'); return; }
+  const c = form.paintCanvas, ctx = c.getContext('2d');
+  replayState = { form, final: grabPaint(form), raf: null, saved: { r: brushRadius, style: brushStyle } };
+  ctx.clearRect(0,0,c.width,c.height);
+  if(form.base) ctx.putImageData(form.base, 0, 0);
+  renderColorCanvas();
+  speak('다시 보기');
+  const ops = form.ops.slice();
+  const perFrame = Math.max(1, Math.ceil(ops.length / 270)); // 전체가 약 4~5초 안에 끝나게
+  let i = 0;
+  const btn = document.getElementById('replayBtn');
+  if(btn) btn.textContent = '⏹ 멈추기';
+  function frame(){
+    if(!replayState) return;
+    for(let k=0; k<perFrame && i<ops.length; k++, i++) applyPaintOp(ops[i]);
+    renderColorCanvas();
+    if(i < ops.length) replayState.raf = requestAnimationFrame(frame);
+    else { stopReplay(); playChime('fanfare'); }
+  }
+  replayState.raf = requestAnimationFrame(frame);
+}
+function stopReplay(){
+  if(!replayState) return;
+  const st = replayState;
+  replayState = null;
+  if(st.raf) cancelAnimationFrame(st.raf);
+  restoreSnapshot(st.form, st.final);
+  brushRadius = st.saved.r; brushStyle = st.saved.style;
+  renderColorCanvas();
+  const btn = document.getElementById('replayBtn');
+  if(btn) btn.textContent = '🎬 다시보기';
+}
+
 // 저장하지 않은 그림이 있는데 ← (또는 기기 뒤로가기)를 누르면 한 번 물어봅니다.
 function leaveColoring(){
+  stopReplay();
   const back = ()=>{
     const origin = coloringOrigin;
     if(origin && origin.type === 'field') openField(origin.field);
@@ -779,6 +1000,7 @@ function snapshotForm(form){
 let saving = false;
 async function saveCharacter(){
   if(!currentChar || saving) return;
+  stopReplay();
   saving = true;
   try{
     const def = getDef(currentChar.defId);
@@ -821,6 +1043,7 @@ async function saveCharacter(){
       return;
     }
     currentChar.editingUid = uid; // 같은 세션에서 다시 저장하면 새로 만들지 않고 덮어씁니다.
+    renderHomePeek();
     currentChar.dirty = false;
     showSaveConfirm(def.name, isUpdate);
     celebrate({count:30});
@@ -864,6 +1087,7 @@ function blobToBase64(blob){
 //   ③ 그 외(PC 브라우저 등): 일반 파일 다운로드
 //   (Claude 미리보기 안에서는 기존 downloads 기능)
 async function exportPNG(sticker){
+  stopReplay();
   if(!currentChar){ toast('그림을 불러온 다음에 내보낼 수 있어요.'); return; }
   const def = getDef(currentChar.defId);
   const canvas = composeForm(currentForm(), !!sticker, 2);
@@ -871,6 +1095,11 @@ async function exportPNG(sticker){
   if(!blob){ toast('내보내기에 실패했어요.'); return; }
   const filename = `gogodino_${def.id}${sticker?'_sticker':''}_${Date.now()}.png`;
 
+  await shareOrDownloadBlob(blob, filename, def.name + ' 그림');
+}
+
+// 만든 그림 파일을 환경에 맞는 방법으로 내보냅니다(색칠 그림/필드 사진 공용).
+async function shareOrDownloadBlob(blob, filename, title){
   if(downloadsApi){
     try{ await downloadsApi.save({ filename, data: blob }); toast('🖼️ 저장됐어요!'); }
     catch(e){ if(!(e && e.code==='declined')) toast('내보내기에 실패했어요.'); }
@@ -884,7 +1113,7 @@ async function exportPNG(sticker){
       const data = await blobToBase64(blob);
       const res = await plugins.Filesystem.writeFile({ path: filename, data, directory: plugins.Share ? 'CACHE' : 'DOCUMENTS' });
       if(plugins.Share){
-        await plugins.Share.share({ title: def.name + ' 그림', files: [res.uri], url: res.uri, dialogTitle: '그림 보내기' });
+        await plugins.Share.share({ title: title, files: [res.uri], url: res.uri, dialogTitle: '그림 보내기' });
       } else {
         toast('📁 내 파일(Documents)에 저장했어요!');
       }
@@ -897,7 +1126,7 @@ async function exportPNG(sticker){
   try{
     const file = new File([blob], filename, { type:'image/png' });
     if(navigator.canShare && navigator.canShare({ files:[file] })){
-      await navigator.share({ files:[file], title: def.name + ' 그림' });
+      await navigator.share({ files:[file], title: title });
       return;
     }
   }catch(e){

@@ -16,7 +16,10 @@ async function initApp(){
   initTrackControls();
   updateBgmButtons();
   initBackButton();
+  updateEggBadges();
   await loadPersistedState();
+  renderCharGrid();   // 저장돼 있던 '내 그림' 도안까지 포함해서 다시 그림
+  renderHomePeek();
   requestPersistentStorage();
 }
 initApp();

@@ -105,7 +105,6 @@ h1{font-size:clamp(20px,3vw,26px); margin:0 0 4px; text-wrap:balance;}
 /* 내보내기(저장/갤러리) 상자는 색깔 고르기 칸 아래로 밀려나 있던 것을, 색깔 고르기 칸
    "옆"에 나란히 오는 별도의 좁은 칸으로 분리했습니다 (work-wrap이 flex-wrap이라
    화면이 좁으면 자동으로 아래로 내려갑니다). */
-.toolpanel.export-panel{flex:0 1 200px; max-width:220px;}
 .tool-section{background:var(--surface); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:14px 16px; margin-bottom:14px;}
 .tool-section h3{margin:0 0 10px; font-size:13px; color:var(--ink-soft); font-weight:700; letter-spacing:.02em;}
 .swatch-row{display:flex; flex-wrap:wrap; gap:10px;}
@@ -234,8 +233,8 @@ button.pill:disabled{opacity:.4; cursor:default;}
 }
 @keyframes shockExpand{ to{ transform:translate(-50%,-50%) scale(3.6); opacity:0; } }
 .add-friend-btn{
-  position:absolute; right:16px; bottom:16px; background:var(--surface); border:none; border-radius:999px;
-  padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:3;
+  position:absolute; right:16px; top:16px; background:var(--surface); border:none; border-radius:999px;
+  padding:11px 18px; box-shadow:var(--shadow); font-weight:700; cursor:pointer; font-family:'Jua'; color:var(--ink); z-index:40;
 }
 .gallery-strip{display:flex; gap:14px; margin-top:16px; flex-wrap:wrap; align-items:flex-start;}
 .gallery-item{
@@ -255,14 +254,14 @@ button.pill:disabled{opacity:.4; cursor:default;}
    "#screen-home > .sub"로 최상단 부제 하나만 콕 집어 지정했습니다. */
 #screen-home > h1, #screen-home > .sub{ text-align:center; }
 #screen-home .note{ text-align:center; margin-left:auto; margin-right:auto; display:flex; flex-direction:column; gap:7px; }
-#toastHost{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;}
+#toastHost{position:fixed; left:50%; top:calc(14px + env(safe-area-inset-top)); transform:translateX(-50%); max-width:calc(100vw - 24px); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;}
 .toast-bubble{
   background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px; font-family:'Gowun Dodum'; font-size:13px;
-  box-shadow:var(--shadow); opacity:0; transform:translateY(8px); transition:opacity .25s, transform .25s; white-space:nowrap;
+  box-shadow:var(--shadow); opacity:0; transform:translateY(-8px); transition:opacity .25s, transform .25s; white-space:normal; text-align:center; line-height:1.4;
 }
 @media (max-width:480px){
   .home-card{width:100%; max-width:280px; height:210px;}
-  .canvas-card, .toolpanel, .toolpanel.export-panel{max-width:100%;}
+  .canvas-card, .toolpanel{max-width:100%;}
 }
 
 .track-wrap{position:relative; width:100%; max-width:920px; margin:0 auto; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); background:#bfe9ff;}
@@ -365,7 +364,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .confirm-card .msg{font-family:'Jua'; font-size:16px; line-height:1.55; color:var(--ink);}
 .confirm-card .msg small{display:block; font-family:'Gowun Dodum'; font-size:12px; opacity:.65; margin-top:6px;}
 .confirm-btn-row{display:flex; gap:10px;}
-.confirm-card.wide{max-width:360px;}
+.confirm-card.wide{max-width:380px; max-height:88vh; overflow:auto;}
 
 /* ---------------- 홈 화면: "친구모드"(기존 3개) / "공부모드"(신규) 구획 구분 ---------------- */
 .mode-section-head{display:flex; align-items:center; justify-content:center; margin:28px 0 8px;}
@@ -383,13 +382,13 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .home-card.pop{ animation:cardPop .32s ease; }
 
 /* ---------------- 숫자공부 (공부모드) ---------------- */
-.ns-progress-row{display:flex; align-items:center; gap:12px; max-width:420px; margin:6px auto 22px;}
+.ns-progress-row{display:flex; align-items:center; gap:12px; max-width:420px; margin:0 auto 16px;}
 .ns-progress-bar{flex:1; height:14px; background:var(--surface-soft); border-radius:999px; box-shadow:inset 0 0 0 2px var(--line); overflow:hidden;}
 .ns-progress-fill{height:100%; width:0%; background:linear-gradient(90deg, var(--lagoon), var(--leaf)); border-radius:999px; transition:width .35s ease;}
 .ns-progress-label{font-family:'Jua'; font-size:14px; white-space:nowrap;}
 .ns-stage-card{
   max-width:420px; margin:0 auto; background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
-  padding:26px 22px; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center;
+  padding:20px 22px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center;
 }
 .ns-number-display{font-family:'Jua'; font-size:96px; line-height:1; color:var(--accent-deep);}
 .ns-number-names{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
@@ -408,7 +407,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .confirm-card.wide .ns-settings-toggle{font-size:15px;}
 .confirm-card.wide input[type="checkbox"], .confirm-card.wide input[type="radio"]{width:20px; height:20px;}
 .confirm-card.wide .confirm-btn-row .pill{font-size:16px; padding:16px 14px;}
-.ns-demo-wrap{position:relative; width:300px; max-width:100%;}
+.ns-demo-wrap{position:relative; width:min(300px, calc((100dvh - 400px) * 300 / 420)); min-width:170px; max-width:100%;}
 .ns-demo-wrap canvas{width:100%; height:auto; display:block; background:var(--surface-soft); border-radius:16px; box-shadow:inset 0 0 0 2px var(--line);}
 .ns-pencil{position:absolute; top:0; left:0; width:46px; height:46px; opacity:0; transition:opacity .15s; pointer-events:none; z-index:2;}
 /* 연필 그림(SVG)의 심 끝이 (3,43)에 있으므로, 그만큼 당겨서 심 끝이 정확히 left/top 좌표에 오게 합니다. */
@@ -419,7 +418,8 @@ button.pill:disabled{opacity:.4; cursor:default;}
   border-radius:18px; padding:16px; width:100%;
 }
 .ns-mic-hint{font-size:12.5px; opacity:.7; min-height:16px;}
-.ns-trace-wrap{position:relative; width:300px; max-width:100%; transition:opacity .25s;}
+/* 쓰기 칸을 화면 높이에 맞춰 줄여서(가로세로 비율 유지) "다 썼어요" 버튼이 화면 밖으로 밀리지 않게 합니다. */
+.ns-trace-wrap{position:relative; width:min(300px, calc((100dvh - 350px) * 300 / 420)); min-width:170px; max-width:100%; transition:opacity .25s;}
 .ns-trace-wrap canvas{position:absolute; top:0; left:0; width:100%; height:auto; display:block; border-radius:16px;}
 .ns-trace-wrap canvas#nsGuideCanvas{position:relative; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line);}
 .ns-trace-wrap canvas#nsDrawCanvas{touch-action:none; cursor:crosshair;}
@@ -483,7 +483,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .tool-tab.active{background:var(--ink); color:#fff;}
 .swatch-row[hidden]{display:none;}
 .pill.icon-btn:disabled{opacity:.35;}
-.save-main{width:100%; font-size:16px; padding:15px 16px;}
+.pill.save-main{font-size:16px; padding:13px 20px; white-space:nowrap;}
 .export-row{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
 .export-row .pill{font-size:12.5px; padding:10px 12px;}
 /* 화면이 좁을 때(폰/세로 태블릿)는 팔레트가 캔버스 아래로 밀려나 매번 스크롤해야 했습니다.
@@ -500,17 +500,22 @@ button.pill:disabled{opacity:.4; cursor:default;}
     box-shadow:0 -8px 22px -8px rgba(46,35,80,.3);
   }
   #screen-color .tool-tray .tool-row{flex-wrap:nowrap; overflow-x:auto; margin-bottom:8px; padding:4px 2px;}
-  #screen-color .tool-tray .swatch-row{flex-wrap:nowrap; overflow-x:auto; padding:8px 8px 6px; scrollbar-width:none;}
+  /* 색이 33개라 한 줄 가로 스크롤로는 찾기 어려웠습니다. 두 줄 격자로 한 번에 더 많이 보이게 합니다. */
+  #screen-color .tool-tray .swatch-row{display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto); grid-auto-columns:max-content; gap:10px; overflow-x:auto; padding:8px 8px 6px; scrollbar-width:none;}
+  #screen-color .tool-tray .swatch-row[hidden]{display:none;}
+  #screen-color .tool-tray .swatch{width:42px; height:42px;}
+  #screen-color .tool-tray .pat-swatch{width:44px; height:44px;}
   #screen-color .tool-tray .swatch-row::-webkit-scrollbar{display:none;}
   #screen-color .canvas-card{order:1; padding:12px;}
-  #screen-color .export-panel{order:3; flex:1 1 100%; max-width:100%;}
+  /* 아래에 붙은 도구 트레이에 그림이 가리지 않게, 트레이 높이만큼 더 줄입니다. */
+  #screen-color .canvas-card #colorCanvasEl{max-height:max(220px, calc(100dvh - 400px));}
   #screen-color .zoom-hint{display:none;}
   #screen-color{padding-bottom:0;}
 }
 
 /* ---------------- 필드: 친구 반응 / 갤러리 ---------------- */
 .sprite{touch-action:none; cursor:grab;}
-.sprite.dragging{cursor:grabbing; z-index:6;}
+.sprite.dragging{cursor:grabbing; z-index:45 !important;}
 .sprite-hop.hello{animation:helloJump .6s cubic-bezier(.3,1.6,.5,1);}
 @keyframes helloJump{0%{transform:translateY(0) scale(1);}40%{transform:translateY(-38px) scale(1.08);}100%{transform:translateY(0) scale(1);}}
 .sprite-bubble{
@@ -547,7 +552,10 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .track-milestone.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
 
 /* ---------------- 공부모드: 스티커 / 칭찬 ---------------- */
-.ns-sticker-row{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:520px; margin:-10px auto 16px;}
+.ns-sticker-row{display:flex; flex-wrap:nowrap; gap:6px; max-width:560px; margin:-6px auto 12px; overflow-x:auto; scrollbar-width:none; padding:2px;}
+.ns-sticker-row::-webkit-scrollbar{display:none;}
+.ns-sticker-row > :first-child{margin-left:auto;} .ns-sticker-row > :last-child{margin-right:auto;}
+.ns-sticker{flex:none;}
 .ns-sticker{
   min-width:30px; height:30px; padding:0 6px; border-radius:999px; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line);
   font-family:'Jua'; font-size:14px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
@@ -570,3 +578,159 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .confetti-bit{position:absolute; top:-20px; width:10px; height:14px; border-radius:2px; animation:confettiFall 1.6s cubic-bezier(.25,.6,.4,1) forwards;}
 @keyframes confettiFall{to{transform:translate(var(--dx), 105vh) rotate(var(--rot)); opacity:.9;}}
 @media (prefers-reduced-motion: reduce){ .confetti-bit{display:none;} .sprite-hop.hello{animation:none;} }
+
+/* =====================================================================
+   2차 개선: 홈 카드 색 구분 · 알 지갑/가게 · 색칠 도구 · 필드 꾸미기 · 트랙 코스 · 공부 화면 맞춤
+   ===================================================================== */
+
+/* ---------------- 홈: 카드마다 색과 그림으로 구분(글을 못 읽어도 한눈에) ---------------- */
+.home-grid{margin-top:clamp(10px,3vh,28px);}
+.home-card{position:relative; overflow:hidden; background:linear-gradient(165deg, var(--c-tint,#fff) 0%, #fff 62%); border-color:color-mix(in srgb, var(--c-main,#ccc) 30%, transparent);}
+.home-card:hover, .study-card:hover{border-color:var(--c-main, var(--accent));}
+.home-card .emoji{
+  width:112px; height:112px; border-radius:50%; background:var(--c-main,#eee); display:flex; align-items:center; justify-content:center;
+  font-size:58px; box-shadow:inset 0 -6px 0 rgba(0,0,0,.12), 0 6px 14px -4px color-mix(in srgb, var(--c-main,#888) 60%, transparent);
+}
+.home-card .emoji .glyph{font-family:'Jua'; font-size:36px; color:#fff; letter-spacing:-1px; text-shadow:0 2px 0 rgba(0,0,0,.18);}
+.home-card b{font-size:21px;}
+.home-card.c-field{--c-main:#5cc46c; --c-tint:#e3f7e0;}
+.home-card.c-color{--c-main:#ff7f95; --c-tint:#ffe6ea;}
+.home-card.c-track{--c-main:#f6ad3f; --c-tint:#fff0d2;}
+.home-card.c-num{--c-main:#4a9df0; --c-tint:#e2f0ff;}
+.home-card.c-han{--c-main:#a56df0; --c-tint:#f1e6ff;}
+.home-card.c-eng{--c-main:#27b9a4; --c-tint:#dcf7f1;}
+.home-card .peek{position:absolute; right:8px; bottom:6px; width:64px; height:64px; pointer-events:none;}
+.home-card .peek img{width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 3px 4px rgba(0,0,0,.25)); animation:idleBob 2.4s ease-in-out infinite;}
+.egg-badge{
+  position:absolute; left:0; top:50%; transform:translateY(-50%); border:none; cursor:pointer; background:#fff8dc; color:var(--ink);
+  border-radius:999px; padding:8px 16px; font-family:'Jua'; font-size:17px; box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--amber);
+}
+.egg-pill{display:inline-block; background:#fff8dc; border-radius:999px; padding:2px 10px; font-size:14px; box-shadow:inset 0 0 0 2px var(--amber); margin-left:4px;}
+@media (max-width:560px){ .egg-badge{position:static; transform:none;} }
+@media (max-width:480px){ .home-card .emoji{width:88px; height:88px; font-size:46px;} .home-card .emoji .glyph{font-size:29px;} }
+
+/* ---------------- 알 가게 / 소품 고르기 ---------------- */
+.shop-head{font-family:'Jua'; font-size:14px; text-align:left; margin:12px 0 6px; color:var(--ink-soft);}
+.shop-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px; margin-top:8px;}
+.shop-cell{
+  border:none; border-radius:16px; background:var(--surface-soft); box-shadow:inset 0 0 0 2px var(--line); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 4px; font-family:'Gowun Dodum'; color:var(--ink);
+}
+.shop-cell .em{font-size:30px; line-height:1.1; filter:grayscale(.85); opacity:.6;}
+.shop-cell .nm{font-size:12px; font-weight:700;}
+.shop-cell .ct{font-size:11.5px; color:var(--ink-soft);}
+.shop-cell.open{background:#fff; box-shadow:inset 0 0 0 2px var(--leaf);}
+.shop-cell.open .em{filter:none; opacity:1;}
+.shop-cell.open .ct{color:var(--leaf); font-weight:700;}
+.shop-cell:active{transform:scale(.95);}
+
+/* ---------------- 색칠: 넓어진 캔버스 + 도구(붓 종류, 최근 색) ---------------- */
+/* 세로로 긴 도안도 화면 높이를 넘지 않도록(스크롤 없이 한눈에) 그림 높이를 화면에 맞춰 제한합니다. */
+.canvas-card{max-width:760px;}
+.canvas-card #colorCanvasEl{width:auto; max-width:100%; max-height:max(240px, calc(100dvh - 215px)); margin:0 auto;}
+.toolpanel{max-width:300px;}
+/* 버튼이 6개로 늘어서, 두 줄로 접혀 그림을 밀어내지 않도록 한 줄로 두고 넘치면 옆으로 밉니다. */
+#screen-color .action-row{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding:4px 2px 6px; margin-top:10px;}
+#screen-color .action-row::-webkit-scrollbar{display:none;}
+#screen-color .action-row .pill{flex:none; white-space:nowrap; font-size:12.5px; padding:10px 12px;}
+#screen-color .topbar h1{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.recent-row{display:flex; gap:6px; align-items:center;}
+.recent-swatch{width:34px; height:34px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 6px rgba(46,35,80,.3); cursor:pointer; padding:0; flex:none;}
+.recent-swatch.pat{border-radius:10px;}
+.brush-row{display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;}
+.brush-row[hidden]{display:none;}
+.brush-btn{
+  position:relative; border:none; border-radius:16px; background:var(--surface-soft); box-shadow:var(--shadow-sm); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 6px; font-family:'Gowun Dodum'; font-size:12.5px; font-weight:700; color:var(--ink);
+}
+.brush-btn .em{font-size:28px; line-height:1.1;}
+.brush-btn.active{background:var(--lagoon); color:#fff; box-shadow:0 0 0 3px #fff, 0 0 0 5px var(--lagoon);}
+.brush-btn.locked .em{filter:grayscale(.9); opacity:.55;}
+.brush-btn .lock{font-size:11px; color:var(--ink-soft);}
+@media (max-width:860px){
+  #screen-color .tool-tray .brush-row{grid-template-columns:repeat(4, 1fr); padding:6px 4px;}
+}
+@media (max-width:560px){
+  #screen-color #colorTitle{display:none;}
+  #screen-color .topbar-right{gap:6px;}
+  #screen-color .pill.icon-btn{width:44px; height:44px;}
+  #screen-color .pill.save-main{padding:12px 14px; font-size:15px;}
+}
+/* 캐릭터 고르기: 내 그림 */
+.char-thumb.add-template{display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:150px; border:3px dashed color-mix(in srgb, var(--fr-color,#999) 55%, transparent); background:transparent; box-shadow:none;}
+.char-thumb.add-template .plus{font-size:44px; line-height:1; color:var(--fr-color,#999); font-family:'Jua';}
+.thumb-del{
+  position:absolute; top:-8px; right:-8px; width:30px; height:30px; border-radius:50%; border:none; background:var(--ink); color:#fff;
+  font-size:13px; cursor:pointer; z-index:2; box-shadow:var(--shadow-sm);
+}
+
+/* ---------------- 필드: 그림자 · 소품 · 밤 · 사진 ---------------- */
+.sprite-shadow{
+  position:absolute; left:14%; right:14%; bottom:-3%; height:11%; border-radius:50%;
+  background:radial-gradient(ellipse at center, rgba(20,50,25,.38) 0%, rgba(20,50,25,0) 70%); pointer-events:none;
+}
+.sprite-inner img{filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));}
+.prop{
+  position:absolute; transform:translate(-50%,-50%); line-height:1; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none;
+  filter:drop-shadow(0 4px 4px rgba(0,0,0,.25)); z-index:2;
+}
+.prop.dragging{cursor:grabbing; z-index:45 !important; transform:translate(-50%,-50%) scale(1.15);}
+.scene.night::after{
+  content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 14%, #fff 0 1.5px, transparent 2.5px), radial-gradient(circle at 31% 8%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 47% 19%, #fff 0 1.5px, transparent 2.5px), radial-gradient(circle at 63% 7%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 22%, #fff 0 1.5px, transparent 2.5px), radial-gradient(circle at 92% 11%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 22% 28%, #ffe9a8 0 1px, transparent 2px), radial-gradient(circle at 70% 31%, #ffe9a8 0 1px, transparent 2px),
+    linear-gradient(180deg, rgba(10,16,64,.72) 0%, rgba(20,30,90,.5) 55%, rgba(14,22,60,.58) 100%);
+  transition:opacity .4s;
+}
+.scene.flash::before{content:''; position:absolute; inset:0; z-index:60; background:#fff; pointer-events:none; animation:camFlash .45s ease-out forwards;}
+@keyframes camFlash{from{opacity:.9;} to{opacity:0;}}
+#screen-field .topbar-right{gap:6px;}
+
+/* ---------------- 트랙: 코스 고르기 / 도착 ---------------- */
+.theme-chip .stars{font-size:12px; margin-left:4px; letter-spacing:-1px;}
+.finish-stars{font-size:40px; line-height:1.2; margin-top:4px;}
+.finish-stars span{opacity:.35;}
+
+/* ---------------- 공부: 화면에 맞춘 쓰기 단계 · 세어보기 · 퀴즈 · 대체 보상 ---------------- */
+.ns-trace-head{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;}
+.pill.ns-mini-btn{font-size:14px; padding:10px 14px; white-space:nowrap;}
+.ns-stage-card .action-row{width:100%;}
+/* 따라쓰기 버튼은 항상 화면 아래에 붙어 있어서(마이크 안내가 길어져도) 스크롤 없이 누를 수 있습니다. */
+.ns-trace-actions{
+  position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; margin-top:0; padding:8px;
+  background:rgba(255,255,255,.92); border-radius:999px; box-shadow:0 -2px 14px -4px rgba(46,35,80,.25);
+}
+#screen-numstudy .topbar{margin-bottom:10px;}
+@media (max-height:760px){
+  .pill.ns-big-btn{padding:14px 12px; font-size:18px;}
+  .ns-number-display{font-size:72px;}
+}
+.ns-count-row{display:grid; grid-template-columns:repeat(5, auto); gap:2px 6px; justify-content:center; font-size:24px; line-height:1.2;}
+.ns-count-row span{animation:swatchIn .35s cubic-bezier(.34,1.56,.64,1) backwards;}
+.ns-quiz-row{display:flex; gap:12px; width:100%; justify-content:center;}
+.ns-quiz-btn{
+  flex:1; max-width:120px; aspect-ratio:1/1.1; border:none; border-radius:22px; background:var(--surface-soft); cursor:pointer;
+  box-shadow:inset 0 0 0 3px var(--lagoon), var(--shadow-sm); font-family:'Jua'; font-size:clamp(40px,11vw,58px); color:var(--ink);
+}
+.ns-quiz-btn:active{transform:scale(.95);}
+.ns-quiz-btn.right{background:#dff7e2; box-shadow:inset 0 0 0 4px var(--leaf); animation:cardPop .4s ease;}
+.ns-quiz-btn.wrong{opacity:.35; animation:quizShake .35s ease;}
+@keyframes quizShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-7px);}75%{transform:translateX(7px);}}
+.ns-name-input{font-size:17px; padding:9px 12px; border-radius:12px; border:2px solid var(--line); font-family:'Jua'; width:100%; -webkit-user-select:text; user-select:text;}
+.parent-gate-input, .confirm-card select{-webkit-user-select:text; user-select:text;}
+.ns-gift{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px;
+  background:radial-gradient(circle at 50% 35%, #fff7d6 0%, #ffe1a3 55%, #ffc978 100%); color:var(--ink); text-align:center;
+}
+.ns-gift b{font-family:'Jua'; font-size:clamp(22px,5vw,32px);}
+.ns-gift small{font-size:13px; opacity:.7;}
+.ns-gift-eggs{font-size:clamp(40px,10vw,64px); letter-spacing:4px; animation:cardPop .6s ease;}
+.ns-gift-dance{display:flex; gap:10px; align-items:flex-end; justify-content:center; min-height:110px;}
+.ns-gift-dance img{width:clamp(64px,14vw,110px); height:clamp(64px,14vw,110px); object-fit:contain; animation:giftDance .7s ease-in-out infinite alternate;}
+.ns-gift-dance span{font-size:clamp(44px,10vw,72px); line-height:1; animation:giftDance .7s ease-in-out infinite alternate;}
+@keyframes giftDance{from{transform:translateY(0) rotate(-7deg);} to{transform:translateY(-16px) rotate(7deg);}}
+.ns-gift .pill.ns-big-btn{max-width:320px;}
+@media (prefers-reduced-motion: reduce){ .ns-gift-dance img, .ns-gift-dance span, .home-card .peek img{animation:none;} }

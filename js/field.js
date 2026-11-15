@@ -212,6 +212,16 @@ const FIELD_DECOR = {
   </svg>`,
 };
 
+// 필드별 배치: 친구를 끌어다 놓은 자리(pos)와 꾸미기 소품(props). 화면 크기가 달라져도 같은 자리에
+// 오도록 장면 크기에 대한 비율(0~1)로 저장합니다.
+function emptyFieldLayout(){ return { forest:{pos:{}, props:[]}, ocean:{pos:{}, props:[]}, desert:{pos:{}, props:[]} }; }
+let fieldLayout = emptyFieldLayout();
+// 땅이 시작되는 높이(배경 SVG 440 기준). 숲/사막에서는 친구 발이 이 아래(땅 위)에 오게 하고,
+// 바닷속은 헤엄치는 곳이라 어디든 갈 수 있습니다.
+const FIELD_GROUND_Y = { forest:270, desert:275 };
+const FIELD_NIGHT_KEY = 'gogodino_field_night_v1';
+let fieldNight = false;
+try{ fieldNight = localStorage.getItem(FIELD_NIGHT_KEY) === '1'; }catch(e){}
 let spriteIntervals = {}; // 친구별 자동 변신 타이머 (필드를 떠나면 전부 정리)
 
 // 같은 배경 SVG를 선택 화면 썸네일과 실제 필드에 동시에 넣으면 그라데이션/심볼 id가 겹칩니다.
@@ -244,7 +254,8 @@ function openField(field){
   currentField = field;
   document.getElementById('fieldTitle').textContent = FIELD_TITLES[field];
   const sceneEl = document.getElementById('sceneEl');
-  sceneEl.className = 'scene ' + field;
+  sceneEl.className = 'scene ' + field + (fieldNight ? ' night' : '');
+  updateNightBtn();
   sceneEl.innerHTML = `<div class="scene-deco">${fieldDecorFor(field, 'scene')}</div><button class="add-friend-btn" onclick="openCharPick({type:'field', field:currentField})">+ 친구 추가</button>`;
   // renderScene()이 화면 크기(sceneEl.clientHeight)를 재서 캐릭터 위치를 정하기 때문에,
   // 화면을 먼저 보이게(go) 한 다음에 재야 실제 크기를 정확히 잴 수 있습니다.
@@ -301,8 +312,13 @@ function renderScene(){
   // 예전엔 스프라이트가 화면 크기와 상관없이 164px 고정이라 폰에서는 친구들이 겹쳐
   // 보였습니다. 장면 높이에 비례해서(92~164px) 크기를 정합니다.
   const spriteBox = Math.round(Math.max(92, Math.min(164, sceneH * 0.34)));
-  const usableTop = 6;
-  const usableBottom = Math.max(usableTop, sceneH - spriteBox - 8);
+  // 숲/사막: 친구 발이 땅 위에 오도록 세로 범위를 땅 영역으로 제한합니다(예전엔 하늘에 떠 있었음).
+  const groundSvgY = FIELD_GROUND_Y[currentField];
+  const svgScale = Math.max(sceneW/800, sceneH/440);
+  const groundTopPx = groundSvgY ? sceneH - (440 - groundSvgY)*svgScale : 0;
+  const usableBottom = Math.max(6, sceneH - spriteBox - 8);
+  const usableTop = groundSvgY ? Math.max(6, Math.min(usableBottom, groundTopPx - spriteBox*0.82)) : 6;
+  const savedPos = fieldLayout[currentField].pos;
   const Y_LANE_FRACS = [0.04, 0.28, 0.52, 0.76, 1.0, 0.16, 0.64];
   // 생성될 때부터 가로(X)로도 골고루 흩어놓습니다.
   const X_LANE_FRACS = [0.4, 0.6, 0.5, 0.25, 0.75, 0.15, 0.85];
@@ -328,17 +344,23 @@ function renderScene(){
     const laneFrac = Y_LANE_FRACS[i % Y_LANE_FRACS.length];
     const cycleJitter = Math.floor(i / Y_LANE_FRACS.length) * 18;
     const rawTop = usableTop + (usableBottom - usableTop) * laneFrac + cycleJitter;
-    const top = Math.max(usableTop, Math.min(usableBottom, rawTop));
-    wrap.style.top = top + 'px';
-
+    let top = Math.max(usableTop, Math.min(usableBottom, rawTop));
     const xLaneFrac = X_LANE_FRACS[i % X_LANE_FRACS.length];
-    const anchorLeft = usableLeft + usableWidthTotal * xLaneFrac;
+    let anchorLeft = usableLeft + usableWidthTotal * xLaneFrac;
+    // 끌어다 놓은 자리가 저장돼 있으면 그 자리에서 시작합니다.
+    const sp0 = savedPos[snap.uid];
+    if(sp0){
+      top = Math.max(usableTop, Math.min(usableBottom, sp0.y * sceneH));
+      anchorLeft = Math.max(usableLeft, Math.min(Math.max(usableLeft, sceneW - boxW - 4), sp0.x * sceneW));
+    }
+    wrap.style.top = top + 'px';
     wrap.style.left = anchorLeft + 'px';
+    wrap.style.zIndex = 2 + Math.round(top / Math.max(1, sceneH) * 20); // 아래쪽(가까운) 친구가 앞에 보이게
 
     const name = escapeHtml(snap.name);
     // .sprite(위치 이동) > .sprite-hop(인사 점프) > .sprite-inner(좌우 반전/변신 연출)로 나눠서,
     // 각자의 transform 애니메이션이 서로를 덮어쓰지 않게 합니다.
-    wrap.innerHTML = `<div class="sprite-hop" style="width:100%;height:100%;">` + (snap.vehicleImage
+    wrap.innerHTML = (groundSvgY ? '<div class="sprite-shadow"></div>' : '') + `<div class="sprite-hop" style="width:100%;height:100%;">` + (snap.vehicleImage
       ? `<div class="sprite-inner"><img class="form-a" src="${snap.image}" alt="${name}"><img class="form-b" style="opacity:0" src="${snap.vehicleImage}" alt="${name} 변신"></div>`
       : `<div class="sprite-inner"><img src="${snap.image}" alt="${name}"></div>`) + `</div>`;
     sceneEl.appendChild(wrap);
@@ -349,7 +371,8 @@ function renderScene(){
       amplitude: wanderAmplitude, anchorLeft, top, boxW,
       usableLeft, usableRight: Math.max(usableLeft, sceneW - boxW - 4), usableTop, usableBottom,
       minX: usableLeft - anchorLeft, maxX: Math.max(usableLeft, sceneW - boxW - 4) - anchorLeft,
-      period: variant.period, phase: variant.phase + i*0.13,
+      period: variant.period, phase: sp0 ? 0.25 : variant.phase + i*0.13, // 저장된 자리가 있으면 그 자리(이동 0)에서 걷기 시작
+      sceneW, sceneH, lastGreet: 0,
       facing: 1, showingVehicle: false, stepSeed: i*1.7, held: false, lastX: 0,
       voice: voiceFor(snap.defId || snap.uid), // 친구마다 다른 목소리로 인사
       doTransform: null,
@@ -381,6 +404,7 @@ function renderScene(){
     }
     attachSpriteInteraction(spriteState, sceneEl);
   });
+  renderProps(sceneEl, sceneW, sceneH, spriteBox);
   startFieldAnim();
 }
 
@@ -424,6 +448,10 @@ function attachSpriteInteraction(sp, sceneEl){
       const t = (performance.now() - fieldAnimT0)/1000;
       sp.phase = 0.25 - t/sp.period;
       sp.lastX = 0;
+      wrap.style.zIndex = 2 + Math.round(sp.top / Math.max(1, sceneEl.clientHeight) * 20);
+      // 옮긴 자리를 기억해서 필드를 다시 열어도 그 자리에 있게 합니다.
+      fieldLayout[currentField].pos[sp.uid] = { x: visualLeft / Math.max(1, sceneEl.clientWidth), y: sp.top / Math.max(1, sceneEl.clientHeight) };
+      persistState();
     } else {
       greetSprite(sp);
     }
@@ -473,9 +501,193 @@ function startFieldAnim(){
         sp.inner.style.transform = dir < 0 ? 'scaleX(-1)' : 'scaleX(1)';
       }
     });
+    if(++frameNo % 30 === 0) checkFriendMeetings(now);
     fieldRAF = requestAnimationFrame(tick);
   }
+  let frameNo = 0;
   fieldRAF = requestAnimationFrame(tick);
+}
+
+// 돌아다니다 서로 가까이 만난 친구들은 폴짝 뛰며 "안녕!" 하고 인사합니다(소리 없이 말풍선만).
+function checkFriendMeetings(now){
+  for(let a=0; a<fieldSprites.length; a++){
+    for(let b=a+1; b<fieldSprites.length; b++){
+      const A = fieldSprites[a], B = fieldSprites[b];
+      if(A.held || B.held) continue;
+      if(now - A.lastGreet < 14000 || now - B.lastGreet < 14000) continue;
+      const ax = A.anchorLeft + A.lastX + A.boxW/2, bx = B.anchorLeft + B.lastX + B.boxW/2;
+      if(Math.abs(ax - bx) > (A.boxW + B.boxW)*0.45 || Math.abs(A.top - B.top) > 70) continue;
+      A.lastGreet = B.lastGreet = now;
+      [A, B].forEach((sp, k)=>{
+        sp.hop.classList.remove('hello'); void sp.hop.offsetWidth; sp.hop.classList.add('hello');
+        sp.hop.querySelectorAll('.sprite-bubble').forEach(x=>x.remove());
+        const bubble = document.createElement('div');
+        bubble.className = 'sprite-bubble';
+        bubble.textContent = k === 0 ? '안녕!' : '반가워!';
+        sp.hop.appendChild(bubble);
+        setTimeout(()=> bubble.remove(), 1500);
+      });
+    }
+  }
+}
+
+// ---- 낮/밤 ----
+function updateNightBtn(){
+  const b = document.getElementById('fieldNightBtn');
+  if(b) b.textContent = fieldNight ? '☀️' : '🌙';
+}
+function toggleFieldNight(){
+  fieldNight = !fieldNight;
+  try{ localStorage.setItem(FIELD_NIGHT_KEY, fieldNight ? '1' : '0'); }catch(e){}
+  const sceneEl = document.getElementById('sceneEl');
+  if(sceneEl) sceneEl.classList.toggle('night', fieldNight);
+  updateNightBtn();
+  playChime('pop');
+  speak(fieldNight ? '밤이 됐어요' : '아침이에요');
+}
+
+// ---- 꾸미기 소품 ----
+function renderProps(sceneEl, sceneW, sceneH, spriteBox){
+  sceneEl.querySelectorAll('.prop').forEach(p=>p.remove());
+  fieldLayout[currentField].props.forEach(pr=>{
+    const it = shopItem(pr.id);
+    if(!it) return;
+    const el = document.createElement('div');
+    el.className = 'prop';
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', it.label);
+    el.textContent = it.emoji;
+    el.style.fontSize = Math.round(spriteBox * 0.42) + 'px';
+    el.style.left = (pr.x * sceneW) + 'px';
+    el.style.top = (pr.y * sceneH) + 'px';
+    el.style.zIndex = 2 + Math.round(pr.y * 20);
+    sceneEl.appendChild(el);
+    let start = null;
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      start = { x:e.clientX, y:e.clientY, px:pr.x, py:pr.y, moved:false, id:e.pointerId };
+    });
+    el.addEventListener('pointermove', (e)=>{
+      if(!start || e.pointerId !== start.id) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if(!start.moved && Math.hypot(dx, dy) < 8) return;
+      start.moved = true; el.classList.add('dragging');
+      pr.x = Math.max(0.04, Math.min(0.96, start.px + dx / sceneEl.clientWidth));
+      pr.y = Math.max(0.08, Math.min(0.95, start.py + dy / sceneEl.clientHeight));
+      el.style.left = (pr.x * sceneEl.clientWidth) + 'px';
+      el.style.top = (pr.y * sceneEl.clientHeight) + 'px';
+    });
+    const end = (e)=>{
+      if(!start || e.pointerId !== start.id) return;
+      const moved = start.moved; start = null;
+      el.classList.remove('dragging');
+      if(moved){ el.style.zIndex = 2 + Math.round(pr.y * 20); persistState(); return; }
+      speak(it.label);
+      showChoiceDialog(`<div style="font-size:48px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div>`, [
+        { label:'✕ 필드에서 빼기', cls:'ghost', value:'remove' },
+        { label:'닫기', cls:'alt', value:null },
+      ], (v)=>{
+        if(v !== 'remove') return;
+        const list = fieldLayout[currentField].props;
+        const k = list.indexOf(pr);
+        if(k >= 0) list.splice(k, 1);
+        persistState();
+        renderScene();
+      }, { vertical:true });
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  });
+}
+const FIELD_PROP_LIMIT = 12;
+function openPropPicker(){
+  const items = SHOP_ITEMS.filter(i=>i.kind==='prop');
+  const el = showChoiceDialog(`
+    <div>🎀 필드 꾸미기 <span class="egg-pill">🥚 <b class="egg-count">${wallet.eggs}</b></span></div>
+    <small>누르면 필드에 놓여요. 끌어서 옮기고, 톡 누르면 뺄 수 있어요.</small>
+    <div class="shop-grid">${items.map(it=>{
+      const open = isUnlocked(it.id);
+      return `<button class="shop-cell${open?' open':''}" data-prop="${it.id}" aria-label="${it.label}${open?'':' (잠김)'}">
+        <span class="em">${it.emoji}</span><span class="nm">${it.label}</span><span class="ct">${open?'놓기':'🔒 🥚 '+it.cost}</span></button>`;
+    }).join('')}</div>`,
+    [{ label:'닫기', cls:'alt', value:true }], null, { wide:true });
+  el.querySelectorAll('[data-prop]').forEach(b=> b.addEventListener('click', ()=>{
+    const id = b.dataset.prop;
+    if(!isUnlocked(id)){ tryUnlock(id, ()=> setTimeout(openPropPicker, 250)); return; }
+    const list = fieldLayout[currentField].props;
+    if(list.length >= FIELD_PROP_LIMIT){ toast(`소품은 ${FIELD_PROP_LIMIT}개까지 놓을 수 있어요.`); return; }
+    const groundY = FIELD_GROUND_Y[currentField];
+    const y0 = groundY ? 0.66 : 0.3;
+    list.push({ id, x: 0.15 + Math.random()*0.7, y: y0 + Math.random()*0.28 });
+    persistState();
+    closeDialog();
+    renderScene();
+    playChime('pop');
+    speak(shopItem(id).label);
+  }));
+}
+
+// ---- 필드 사진 찍기: 지금 장면(배경+소품+친구들)을 한 장의 그림으로 만들어 내보냅니다 ----
+async function captureFieldPhoto(){
+  const sceneEl = document.getElementById('sceneEl');
+  const svg = sceneEl && sceneEl.querySelector('.scene-deco svg');
+  if(!svg) return;
+  playChime('pop');
+  sceneEl.classList.remove('flash'); void sceneEl.offsetWidth; sceneEl.classList.add('flash');
+  const W = sceneEl.clientWidth, H = sceneEl.clientHeight, SC = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = W*SC; canvas.height = H*SC;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SC, SC);
+  try{
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', W); clone.setAttribute('height', H);
+    const bg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone)));
+    ctx.drawImage(bg, 0, 0, W, H);
+  }catch(e){
+    ctx.fillStyle = getComputedStyle(sceneEl).backgroundColor || '#bfe9ff'; ctx.fillRect(0,0,W,H);
+  }
+  if(fieldNight){ ctx.fillStyle = 'rgba(14,22,74,.52)'; ctx.fillRect(0,0,W,H); }
+  const sceneRect = sceneEl.getBoundingClientRect();
+  const drawables = [];
+  sceneEl.querySelectorAll('.prop').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    drawables.push({ z: r.bottom, draw: ()=>{
+      ctx.font = `${parseFloat(el.style.fontSize)||40}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(el.textContent, r.left + r.width/2 - sceneRect.left, r.top + r.height/2 - sceneRect.top);
+    }});
+  });
+  fieldSprites.forEach(sp=>{
+    const r = sp.wrap.getBoundingClientRect();
+    const imgs = Array.from(sp.wrap.querySelectorAll('img'));
+    const img = imgs.find(i=> i.style.opacity !== '0') || imgs[0];
+    if(!img || !img.naturalWidth) return;
+    drawables.push({ z: r.bottom, draw: ()=>{
+      const x = sp.anchorLeft + sp.lastX, y = sp.top, bw = sp.boxW, bh = sp.wrap.offsetHeight;
+      const k = Math.min(bw/img.naturalWidth, bh/img.naturalHeight);
+      const dw = img.naturalWidth*k, dh = img.naturalHeight*k;
+      ctx.save();
+      ctx.translate(x + bw/2, y + bh/2);
+      if(sp.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(img, -dw/2, -dh/2, dw, dh);
+      ctx.restore();
+    }});
+  });
+  drawables.sort((a,b)=> a.z - b.z).forEach(d=> d.draw());
+  const blob = await new Promise(res=> canvas.toBlob(res, 'image/png'));
+  if(!blob){ toast('사진을 만들지 못했어요.'); return; }
+  await shareOrDownloadBlob(blob, `gogodino_field_${currentField}_${Date.now()}.png`, FIELD_TITLES[currentField].replace(/^\S+\s/, '') + ' 사진');
+}
+
+// 홈 화면 "필드로 가기" 카드 구석에 가장 최근에 저장한 친구를 살짝 보여줍니다.
+function renderHomePeek(){
+  const el = document.getElementById('homePeekField');
+  if(!el) return;
+  const last = savedCharacters[savedCharacters.length - 1];
+  el.innerHTML = last ? `<img src="${last.image}" alt="">` : '';
 }
 
 // 필드를 떠나면 애니메이션 루프뿐 아니라 친구들의 자동 변신 타이머도 함께 멈춥니다
@@ -544,7 +756,9 @@ function deleteCharacter(uid){
     ()=>{
       ['forest','ocean','desert'].forEach(f=>{ fieldFriends[f] = fieldFriends[f].filter(x=>x.uid!==uid); });
       savedCharacters = savedCharacters.filter(s=>s.uid!==uid);
+      ['forest','ocean','desert'].forEach(f=>{ delete fieldLayout[f].pos[uid]; });
       persistState();
+      renderHomePeek();
       renderGalleryStrip();
       renderScene();
       toast(snap.name + ' 삭제했어요.');
@@ -614,6 +828,8 @@ function idbSet(key, value){
 function buildStatePayload(){
   return {
     savedCharacters,
+    customTemplates,
+    fieldLayout,
     fieldFriendUids: {
       forest: fieldFriends.forest.map(f=>f.uid),
       ocean: fieldFriends.ocean.map(f=>f.uid),
@@ -641,6 +857,16 @@ function persistState(){
 function applyStatePayload(payload){
   if(!payload) return;
   if(Array.isArray(payload.savedCharacters)) savedCharacters = payload.savedCharacters;
+  if(Array.isArray(payload.customTemplates)) customTemplates = payload.customTemplates.filter(t=> t && t.id && t.src);
+  if(payload.fieldLayout){
+    const base = emptyFieldLayout();
+    ['forest','ocean','desert'].forEach(f=>{
+      const src = payload.fieldLayout[f] || {};
+      base[f].pos = (src.pos && typeof src.pos === 'object') ? src.pos : {};
+      base[f].props = Array.isArray(src.props) ? src.props.filter(p=> p && shopItem(p.id)) : [];
+    });
+    fieldLayout = base;
+  }
   const uidMap = new Map(savedCharacters.map(s=>[s.uid, s]));
   ['forest','ocean','desert'].forEach(f=>{
     const uids = (payload.fieldFriendUids && payload.fieldFriendUids[f]) || [];

@@ -10,6 +10,16 @@
      main.js     - 앱 시작
    ========================================================================= */
 
+// 전체화면(보상 영상) 중에는 전체화면이 된 요소 "안"에 있는 것만 보입니다. 확인창/토스트를
+// 본문(body)에만 붙이면 영상에 가려 보이지 않으므로, 전체화면 요소가 있으면 그 안으로 옮깁니다.
+function overlayParent(el){
+  const parent = document.fullscreenElement || document.body;
+  if(el.parentNode !== parent) parent.appendChild(el);
+}
+document.addEventListener('fullscreenchange', ()=>{
+  ['confirmOverlayEl','toastHost'].forEach(id=>{ const el = document.getElementById(id); if(el) overlayParent(el); });
+});
+
 // ---------------------------------------------------------------- 토스트 알림
 function toast(msg){
   let host = document.getElementById('toastHost');
@@ -18,6 +28,7 @@ function toast(msg){
     host.id = 'toastHost';
     document.body.appendChild(host);
   }
+  overlayParent(host);
   const bubble = document.createElement('div');
   bubble.className = 'toast-bubble';
   bubble.textContent = msg;
@@ -59,6 +70,7 @@ function showChoiceDialog(message, buttons, onPick, opts){
     document.body.appendChild(el);
   }
   el.className = 'confirm-overlay';
+  overlayParent(el);
   if(el._handler){ el.removeEventListener('click', el._handler); el._handler = null; }
   const vertical = opts.vertical || buttons.length > 2;
   el.innerHTML = `
@@ -68,8 +80,12 @@ function showChoiceDialog(message, buttons, onPick, opts){
         ${buttons.map((b,i)=>`<button class="pill ${b.cls||'ghost'}" style="flex:1" data-idx="${i}">${b.label}</button>`).join('')}
       </div>
     </div>`;
-  requestAnimationFrame(()=> el.classList.add('show'));
+  // 창을 띄우자마자 닫는 경우(rAF 전에 닫힘) 나중에 다시 나타나 화면을 가로막지 않도록 열림 번호를 확인합니다.
+  const openId = el._openId = (el._openId || 0) + 1;
+  el._open = true;
+  requestAnimationFrame(()=>{ if(el._open && el._openId === openId) el.classList.add('show'); });
   const close = (val)=>{
+    el._open = false;
     el.classList.remove('show');
     el.removeEventListener('click', handler);
     el._handler = null;
@@ -88,11 +104,12 @@ function showChoiceDialog(message, buttons, onPick, opts){
 }
 function isDialogOpen(){
   const el = document.getElementById('confirmOverlayEl');
-  return !!(el && el.classList.contains('show'));
+  return !!(el && el._open);
 }
 function closeDialog(){
   const el = document.getElementById('confirmOverlayEl');
-  if(!el || !el.classList.contains('show')) return;
+  if(!el || !el._open) return;
+  el._open = false;
   if(el._handler){ el.removeEventListener('click', el._handler); el._handler = null; }
   el.classList.remove('show');
 }
@@ -162,6 +179,89 @@ function celebrate(opts){
   setTimeout(()=> layer.remove(), 2600);
 }
 
+
+// ---------------------------------------------------------------- 공룡알 지갑 / 알 가게
+// 트랙에서 모은 알, 공부모드에서 글자를 끝낼 때 받는 알이 한 지갑에 쌓이고, 그 알로 특별한 붓과
+// 필드 꾸미기 소품을 엽니다(세 모드를 하나로 잇는 수집 요소). 이 기기에만 저장됩니다.
+const WALLET_KEY = 'gogodino_wallet_v1';
+let wallet = { eggs:0, unlocked:{} };
+try{
+  const w = JSON.parse(localStorage.getItem(WALLET_KEY) || 'null');
+  if(w){ wallet.eggs = Math.max(0, parseInt(w.eggs,10) || 0); wallet.unlocked = w.unlocked || {}; }
+}catch(e){}
+function saveWallet(){ try{ localStorage.setItem(WALLET_KEY, JSON.stringify(wallet)); }catch(e){} }
+function updateEggBadges(){
+  document.querySelectorAll('.egg-count').forEach(el=>{ el.textContent = wallet.eggs; });
+}
+function addEggs(n){
+  if(!n) return;
+  wallet.eggs = Math.max(0, wallet.eggs + n);
+  saveWallet();
+  updateEggBadges();
+}
+// cost가 0이면 처음부터 열려 있는 기본 아이템입니다.
+const SHOP_ITEMS = [
+  { id:'brush-glitter', kind:'brush', emoji:'✨', label:'반짝이 붓', cost:5 },
+  { id:'brush-spray',   kind:'brush', emoji:'💨', label:'스프레이', cost:5 },
+  { id:'brush-stamp',   kind:'brush', emoji:'⭐', label:'별 도장', cost:5 },
+  { id:'prop-flower',   kind:'prop', emoji:'🌸', label:'꽃', cost:0 },
+  { id:'prop-ball',     kind:'prop', emoji:'⚽', label:'공', cost:0 },
+  { id:'prop-mushroom', kind:'prop', emoji:'🍄', label:'버섯', cost:3 },
+  { id:'prop-house',    kind:'prop', emoji:'🏠', label:'집', cost:8 },
+  { id:'prop-balloon',  kind:'prop', emoji:'🎈', label:'풍선', cost:3 },
+  { id:'prop-rainbow',  kind:'prop', emoji:'🌈', label:'무지개', cost:8 },
+  { id:'prop-shell',    kind:'prop', emoji:'🐚', label:'조개', cost:3 },
+  { id:'prop-palm',     kind:'prop', emoji:'🌴', label:'야자수', cost:5 },
+  { id:'prop-star',     kind:'prop', emoji:'🌟', label:'별', cost:3 },
+  { id:'prop-tent',     kind:'prop', emoji:'⛺', label:'텐트', cost:8 },
+];
+function shopItem(id){ return SHOP_ITEMS.find(i=>i.id===id); }
+function isUnlocked(id){
+  const it = shopItem(id);
+  return !it || it.cost === 0 || !!wallet.unlocked[id];
+}
+// 잠긴 아이템을 누르면: 알이 충분하면 "열까요?" 물어보고, 모자라면 얼마나 더 필요한지 알려줍니다.
+function tryUnlock(id, onDone){
+  const it = shopItem(id);
+  if(!it || isUnlocked(id)){ if(onDone) onDone(); return; }
+  if(wallet.eggs < it.cost){
+    toast(`🥚 알이 ${it.cost - wallet.eggs}개 더 필요해요! 트랙이나 공부에서 모아봐요.`);
+    speak('알이 더 필요해요');
+    return;
+  }
+  showChoiceDialog(`<div style="font-size:44px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div><small>🥚 ${it.cost}개로 열까요? (지금 ${wallet.eggs}개)</small>`, [
+    { label:'아니요', cls:'ghost', value:false },
+    { label:`🥚 ${it.cost}개로 열기`, cls:'alt', value:true },
+  ], (v)=>{
+    if(!v) return;
+    wallet.unlocked[id] = 1;
+    addEggs(-it.cost);
+    celebrate({count:24});
+    speak(it.label + ' 열었어요!');
+    if(onDone) onDone();
+  }, { vertical:false });
+}
+function openEggShop(){
+  const cell = (it)=>{
+    const open = isUnlocked(it.id);
+    return `<button class="shop-cell${open?' open':''}" data-shop="${it.id}" aria-label="${it.label}${open?' (열림)':` 알 ${it.cost}개`}">
+      <span class="em">${it.emoji}</span><span class="nm">${it.label}</span>
+      <span class="ct">${open ? '✔ 열림' : '🥚 ' + it.cost}</span></button>`;
+  };
+  const el = showChoiceDialog(`
+    <div>🥚 알 가게 <span class="egg-pill">🥚 <b class="egg-count">${wallet.eggs}</b></span></div>
+    <small>트랙에서 알을 모으거나 공부를 하면 알이 생겨요.</small>
+    <div class="shop-head">🖍️ 특별한 붓</div>
+    <div class="shop-grid">${SHOP_ITEMS.filter(i=>i.kind==='brush').map(cell).join('')}</div>
+    <div class="shop-head">🎀 필드 꾸미기</div>
+    <div class="shop-grid">${SHOP_ITEMS.filter(i=>i.kind==='prop').map(cell).join('')}</div>`,
+    [{ label:'닫기', cls:'alt', value:true }], null, { wide:true });
+  el.querySelectorAll('[data-shop]').forEach(b=> b.addEventListener('click', ()=>{
+    if(isUnlocked(b.dataset.shop)){ speak(shopItem(b.dataset.shop).label); return; }
+    tryUnlock(b.dataset.shop, ()=> setTimeout(openEggShop, 250));
+  }));
+}
+
 // ---------------------------------------------------------------- 캐릭터 카탈로그
 // prunnnn.com / saegchil.co.kr 에서 받은 실제 고고다이노 도안(로봇 모드).
 // 변신(차량) 모드 도안이 확보되면 vehicleSrc를 추가하면 자동으로 변신 버튼이 켜집니다.
@@ -191,7 +291,14 @@ const DEFAULT_FIELD_FRIENDS = [
   { uid: 'default-kid-1', name: '율', image: 'characters/default_kid1.webp', aspectRatio: 229/495 },
   { uid: 'default-kid-2', name: '온', image: 'characters/default_kid2.webp', aspectRatio: 558/900 },
 ];
-function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
+// 내 그림 도안: 보호자가 사진/그림 파일을 불러와 등록한 색칠 도안 (기기 안에만 저장, field.js의 저장소 참고)
+let customTemplates = [];   // {id, name, src(dataURL)}
+function getDef(id){
+  const c = CHARACTERS.find(c=>c.id===id);
+  if(c) return c;
+  const t = customTemplates.find(t=>t.id===id);
+  return t ? { id:t.id, name:t.name, src:t.src, franchise:'custom', custom:true } : undefined;
+}
 
 // 캐릭터별 목소리: 같은 기기 음성이라도 높낮이(pitch)와 빠르기(rate)를 다르게 줘서 친구마다
 // 다른 목소리처럼 들리게 합니다(덩치 큰 친구는 낮고 느리게, 작은 친구는 높고 빠르게).
@@ -221,6 +328,7 @@ function voiceFor(id){ return CHARACTER_VOICES[id] || null; }
 const FRANCHISES = {
   gogodino:    { label:'고고다이노', emoji:'🦖', color:'#2f9e6f', tint:'#eafaf1' },
   robocarpoli: { label:'로보카폴리', emoji:'🚓', color:'#2f7fd1', tint:'#eaf3fc' },
+  custom:      { label:'내 그림', emoji:'📷', color:'#a855f7', tint:'#f5edff' },
 };
 
 // ---- 배경음악(BGM) / 효과음(SFX) ----
@@ -228,7 +336,7 @@ const FRANCHISES = {
 // 받아서 넣었고, field(숲/바다/사막)와 track의 엔진음·점프음은 저작권 걱정 없는
 // 자체 제작(합성) 사운드입니다. audio/ 폴더에 실제 파일이 있어야 재생됩니다.
 const BGM_SOURCES = {
-  color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3' },
+  color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3', custom: 'audio/forest_ost.mp3' },
   field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3' },
   track: { race: 'audio/track_ost.mp3' },
 };

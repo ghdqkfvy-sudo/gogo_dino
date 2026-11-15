@@ -1,0 +1,16 @@
+{
+  "name": "gogo-dino",
+  "private": true,
+  "version": "1.0.0",
+  "description": "고고 컬러링 스튜디오 (유아용 색칠·공부 웹앱)",
+  "scripts": {
+    "start": "http-server -p 8765 -c-1 .",
+    "test": "node tests/smoke.cjs",
+    "test:ci": "start-server-and-test start http://localhost:8765 test"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "playwright": "^1.48.0",
+    "start-server-and-test": "^2.0.8"
+  }
+}
