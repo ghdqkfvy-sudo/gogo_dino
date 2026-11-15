@@ -1,0 +1,36 @@
+name: apk
+# 안드로이드 APK(디버그 서명)를 만들어 Actions 결과물(artifact)로 올립니다.
+# 수동 실행(Run workflow)하거나, 앱/빌드 관련 파일이 바뀐 PR에서 자동으로 돌아갑니다.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'scripts/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - '.github/workflows/apk.yml'
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm install
+      - run: npm run android:sync
+      - run: ./gradlew assembleDebug
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gogodino-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

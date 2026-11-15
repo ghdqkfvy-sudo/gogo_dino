@@ -6,11 +6,24 @@
   "scripts": {
     "start": "http-server -p 8765 -c-1 .",
     "test": "node tests/smoke.cjs",
-    "test:ci": "start-server-and-test start http://localhost:8765 test"
+    "test:ci": "start-server-and-test start http://localhost:8765 test",
+    "build:www": "node scripts/build-www.cjs",
+    "android:sync": "npm run build:www && cap sync android",
+    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "esbuild": "^0.28.2",
     "http-server": "^14.1.1",
     "playwright": "^1.48.0",
     "start-server-and-test": "^2.0.8"
+  },
+  "dependencies": {
+    "@capacitor-community/text-to-speech": "^8.0.2",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
   }
 }

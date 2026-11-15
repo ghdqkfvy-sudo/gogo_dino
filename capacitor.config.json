@@ -1,0 +1,9 @@
+{
+  "appId": "com.gogodino.studio",
+  "appName": "고고 컬러링 스튜디오",
+  "webDir": "www",
+  "backgroundColor": "#fff3d6",
+  "android": {
+    "backgroundColor": "#fff3d6"
+  }
+}
