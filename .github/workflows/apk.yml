@@ -28,8 +28,12 @@ jobs:
       # ubuntu 러너에는 안드로이드 SDK가 이미 설치돼 있습니다. 라이선스 동의와 필요한 플랫폼만 확인합니다.
       - name: Android SDK 준비
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort | tail -1)"
+          echo "sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
       - run: npm install
       - run: npm run android:sync
       - run: ./gradlew assembleDebug
