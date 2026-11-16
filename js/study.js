@@ -587,11 +587,14 @@ function nsMatchGender(list, gender, nameOf){
   const re = gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE;
   return list.find(v => re.test(nameOf(v) || '')) || null;
 }
-function nsPickVoice(lang, gender){
+function nsPickVoice(lang, gender, variant){
   try{
     const prefix = (lang || 'ko-KR').slice(0,2);
     const voices = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
-    return nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI) || voices[0] || null;
+    const byGender = nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI);
+    if(byGender) return byGender;
+    // 성별 지정이 없으면 캐릭터마다 다른 음성(variant 번째)을 써서 목소리가 더 달라지게 합니다.
+    return voices.length ? voices[(variant || 0) % voices.length] : null;
   }catch(e){ return null; }
 }
 // 안드로이드 웹뷰는 Web Speech API(speechSynthesis)가 아예 없거나 음성 목록이 비어 소리가 안
@@ -604,7 +607,7 @@ function nsNativeTTS(){
 // 기기에 같은 언어 음성이 여러 개면 인터넷 기반(localService:false, 대개 더 자연스러운) 음성을
 // 우선 고릅니다. 목록 조회는 한 번만 하고 결과를 캐시해둡니다.
 let nsNativeVoicesPromise = null;
-function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
+function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender, variant){
   if(!nsNativeVoicesPromise){
     nsNativeVoicesPromise = nativeTTS.getSupportedVoices()
       .then(res => (res && res.voices) || [])
@@ -617,8 +620,9 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
     if(!matched.length) return undefined;
     const byGender = nsMatchGender(matched, gender, v => (v.name || '') + ' ' + (v.voiceURI || ''));
     if(byGender) return byGender.idx;
-    const network = matched.find(v => v.localService === false);
-    return (network || matched[0]).idx;
+    // 인터넷 기반(더 자연스러운) 음성을 앞에 두고, variant 번째 음성을 고릅니다.
+    const ordered = matched.filter(v => v.localService === false).concat(matched.filter(v => v.localService !== false));
+    return ordered[(variant || 0) % ordered.length].idx;
   });
 }
 // 모바일 브라우저(특히 iOS Safari, 안드로이드 크롬)에서 소리가 안 나던 원인들:
@@ -639,7 +643,7 @@ function nsVoiceParams(voice){
 }
 function nsWebSpeakNow(text, lang, charVoice){
   const u = new SpeechSynthesisUtterance(text);
-  const voice = nsPickVoice(lang, charVoice && charVoice.gender);
+  const voice = nsPickVoice(lang, charVoice && charVoice.gender, charVoice && charVoice.variant);
   if(voice) u.voice = voice;
   const vp = nsVoiceParams(charVoice);
   u.lang = lang; u.rate = vp.rate; u.pitch = vp.pitch;
@@ -689,7 +693,7 @@ function nsSpeak(text, lang, charVoice){
   if(nativeTTS){
     try{
       nativeTTS.stop().catch(()=>{});
-      nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender).then(voiceIdx=>{
+      nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender, charVoice && charVoice.variant).then(voiceIdx=>{
         const vp = nsVoiceParams(charVoice || { pitch:1.1 });
         const opts = { text, lang, rate:vp.rate, pitch:vp.pitch, volume:1.0, category:'ambient' };
         if(voiceIdx !== undefined) opts.voice = voiceIdx;

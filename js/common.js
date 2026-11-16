@@ -317,8 +317,10 @@ const CHARACTER_VOICES = {
   roy:   { pitch:0.65, rate:0.8  },                   // 로이 - 큰 소방차
   amber: { pitch:1.5,  rate:0.9,  gender:'female' },  // 엠버 - 여성 캐릭터
   helly: { pitch:1.25, rate:1.05 },
-  'default-kid-1': { pitch:1.6,  rate:0.95 },         // 율
-  'default-kid-2': { pitch:1.55, rate:0.9  },         // 온
+  // 율과 온은 한눈에(한귀에) 구분되도록 높낮이·빠르기를 크게 벌렸습니다.
+  // variant: 기기에 같은 언어 음성이 여러 개 있으면 율은 첫 번째, 온은 두 번째 음성을 씁니다.
+  'default-kid-1': { pitch:1.85, rate:1.2,  variant:0 },  // 율 - 높고 또랑또랑하고 빠르게
+  'default-kid-2': { pitch:1.2,  rate:0.8,  variant:1 },  // 온 - 낮고 차분하고 느리게
 };
 function voiceFor(id){ return CHARACTER_VOICES[id] || null; }
 

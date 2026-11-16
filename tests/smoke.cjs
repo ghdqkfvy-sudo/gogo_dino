@@ -443,6 +443,22 @@ function check(cond, msg){
   const [rexV, vickyV, amberV, ankiV, yulV] = vt.spoken;
   check(new Set(vt.spoken.map(v=>v.pitch.toFixed(2)+'/'+v.rate.toFixed(2))).size === 5, '캐릭터마다 목소리 높낮이/빠르기가 다름');
   check(vickyV.voice === 'Yuna' && amberV.voice === 'Yuna', '비키·엠버는 여성 음성이 있으면 그 음성 사용');
+  // 율과 온은 확실히 다른 목소리(높낮이 차이 0.5 이상, 빠르기도 다름), 음성이 여러 개면 서로 다른 음성
+  const kids = await page.evaluate(()=>{
+    const OrigU = window.SpeechSynthesisUtterance, origSpeak = speechSynthesis.speak.bind(speechSynthesis), origVoices = speechSynthesis.getVoices.bind(speechSynthesis);
+    const out = [];
+    window.SpeechSynthesisUtterance = function(t){ this.text = t; };
+    speechSynthesis.speak = (u)=> out.push({ pitch:u.pitch, rate:u.rate, voice:u.voice && u.voice.name });
+    speechSynthesis.getVoices = ()=> [ { name:'Ko A', voiceURI:'a', lang:'ko-KR' }, { name:'Ko B', voiceURI:'b', lang:'ko-KR' } ];
+    Object.defineProperty(speechSynthesis, 'speaking', { configurable:true, get:()=>false });
+    Object.defineProperty(speechSynthesis, 'pending', { configurable:true, get:()=>false });
+    voiceGuideOn = true;
+    ['default-kid-1','default-kid-2'].forEach(id=> speak('안녕', voiceFor(id)));
+    speechSynthesis.speak = origSpeak; speechSynthesis.getVoices = origVoices; window.SpeechSynthesisUtterance = OrigU;
+    delete speechSynthesis.speaking; delete speechSynthesis.pending;
+    return out;
+  });
+  check(Math.abs(kids[0].pitch - kids[1].pitch) >= 0.5 && kids[0].rate !== kids[1].rate && kids[0].voice !== kids[1].voice, `율/온 목소리가 확실히 다름 (높낮이 ${kids[0].pitch.toFixed(2)}/${kids[1].pitch.toFixed(2)}, 음성 ${kids[0].voice}/${kids[1].voice})`);
   check(vickyV.pitch > rexV.pitch && amberV.pitch > ankiV.pitch && yulV.pitch > rexV.pitch, '여성/아이 캐릭터는 더 높은 목소리');
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
