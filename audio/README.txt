@@ -3,6 +3,8 @@
 - gogodino_ost.mp3   -> 고고다이노 캐릭터 색칠할 때 (보호자가 소장한 공식 OST)
 - poli_ost.mp3       -> 로보카폴리 캐릭터 색칠할 때 (보호자가 소장한 공식 OST)
 - forest_ost.mp3 / ocean_ost.mp3 / desert_ost.mp3 -> 필드 배경음악 (Pixabay 무료 라이선스)
+- space_ost.mp3 / snow_ost.mp3 / island_ost.mp3 -> 우주·눈나라·공룡섬 필드 배경음악
+  (tools/make_bgm.py 로 직접 합성한 오리지널 곡이라 저작권 걱정이 없어요)
 - track_ost.mp3, engine_loop.mp3, jump.mp3        -> 트랙 모드 배경음악/엔진음/점프음
 
 ※ 공식 OST와 캐릭터 도안은 저작권이 있는 자료라 가족끼리 쓰는 용도에 맞춰져 있어요.

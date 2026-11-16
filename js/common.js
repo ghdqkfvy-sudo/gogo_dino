@@ -20,6 +20,10 @@ document.addEventListener('fullscreenchange', ()=>{
   ['confirmOverlayEl','toastHost'].forEach(id=>{ const el = document.getElementById(id); if(el) overlayParent(el); });
 });
 
+// 필드(장소) 목록 — 새 필드를 만들 때는 여기와 FIELD_TITLES/FIELD_DECOR(field.js, fields_extra.js)에 추가하면 됩니다.
+const FIELD_IDS = ['forest', 'ocean', 'desert', 'space', 'snow', 'island'];
+const newFieldMap = (make)=> FIELD_IDS.reduce((o, id)=>{ o[id] = make(); return o; }, {});
+
 // ---------------------------------------------------------------- 토스트 알림
 function toast(msg){
   let host = document.getElementById('toastHost');
@@ -213,6 +217,12 @@ const SHOP_ITEMS = [
   { id:'prop-shell',    kind:'prop', emoji:'🐚', label:'조개', cost:3 },
   { id:'prop-palm',     kind:'prop', emoji:'🌴', label:'야자수', cost:5 },
   { id:'prop-star',     kind:'prop', emoji:'🌟', label:'별', cost:3 },
+  { id:'prop-rocket',   kind:'prop', emoji:'🚀', label:'로켓', cost:8 },
+  { id:'prop-ufo',      kind:'prop', emoji:'🛸', label:'우주선', cost:8 },
+  { id:'prop-snowman',  kind:'prop', emoji:'⛄', label:'눈사람', cost:3 },
+  { id:'prop-xtree',    kind:'prop', emoji:'🎄', label:'트리', cost:5 },
+  { id:'prop-egg',      kind:'prop', emoji:'🥚', label:'공룡알', cost:3 },
+  { id:'prop-bone',     kind:'prop', emoji:'🦴', label:'뼈다귀', cost:3 },
   { id:'prop-tent',     kind:'prop', emoji:'⛺', label:'텐트', cost:8 },
 ];
 function shopItem(id){ return SHOP_ITEMS.find(i=>i.id===id); }
@@ -372,7 +382,7 @@ const FRANCHISES = {
 // 자체 제작(합성) 사운드입니다. audio/ 폴더에 실제 파일이 있어야 재생됩니다.
 const BGM_SOURCES = {
   color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3', friends: 'audio/forest_ost.mp3', custom: 'audio/forest_ost.mp3' },
-  field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3' },
+  field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3', space: 'audio/space_ost.mp3', snow: 'audio/snow_ost.mp3', island: 'audio/island_ost.mp3' },
   track: { race: 'audio/track_ost.mp3' },
 };
 const BGM_SCREENS = new Set(['screen-color','screen-field','screen-track']);

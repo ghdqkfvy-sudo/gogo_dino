@@ -187,9 +187,12 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .scene.forest{background:#bfe9ff;}
 .scene.ocean{background:#146a80;}
 .scene.desert{background:#ffe9b8;}
+.scene.space{background:#0b1040;}
+.scene.snow{background:#cfe3fb;}
+.scene.island{background:#ffd9a0;}
 .scene-deco{position:absolute; inset:0; z-index:0; pointer-events:none;}
 .scene-deco svg{width:100%; height:100%; display:block;}
-.cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed{transform-box:fill-box; transform-origin:center;}
+.cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed, .ripple, .leaf, .flutter, .jelly, .wind, .smoke, .spark, .twinkle, .snow, .lava, .egg{transform-box:fill-box; transform-origin:center;}
 .weed{transform-origin:bottom center;}
 @keyframes driftCloud{0%{transform:translateX(0)}100%{transform:translateX(90px)}}
 @keyframes riseBubble{0%{transform:translateY(0) scale(1); opacity:.65}100%{transform:translateY(-260px) scale(1.3); opacity:0}}
@@ -211,7 +214,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 @keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes rollTumbleweed{0%{transform:translateX(-60px) rotate(0deg)}100%{transform:translateX(860px) rotate(720deg)}}
 @media (prefers-reduced-motion: reduce){
-  .cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed, .sprite, .sprite-inner{animation:none !important;}
+  .cloud, .bubble, .weed, .firefly, .fish, .bird, .critter, .tumbleweed, .ripple, .leaf, .flutter, .jelly, .wind, .smoke, .spark, .twinkle, .snow, .lava, .egg, .sprite, .sprite-inner, .scene svg *{animation:none !important;}
 }
 .sprite{position:absolute; width:164px; height:164px; will-change:transform; z-index:2;}
 .sprite-inner{position:relative; width:100%; height:100%;}
@@ -734,3 +737,18 @@ button.pill:disabled{opacity:.4; cursor:default;}
 @keyframes giftDance{from{transform:translateY(0) rotate(-7deg);} to{transform:translateY(-16px) rotate(7deg);}}
 .ns-gift .pill.ns-big-btn{max-width:320px;}
 @media (prefers-reduced-motion: reduce){ .ns-gift-dance img, .ns-gift-dance span, .home-card .peek img{animation:none;} }
+
+/* ---------------- 필드 배경 새 애니메이션(숲·바다·사막 디테일, 우주·눈나라·공룡섬) ---------------- */
+@keyframes rippleOut{0%{transform:scale(.3); opacity:.9;}100%{transform:scale(1.7); opacity:0;}}
+@keyframes fallLeaf{0%{transform:translate(0,0) rotate(0deg); opacity:0;}8%{opacity:1;}50%{transform:translate(34px,250px) rotate(200deg);}100%{transform:translate(-10px,470px) rotate(420deg); opacity:.2;}}
+@keyframes flutterWings{0%,100%{transform:scaleX(1);}50%{transform:scaleX(.3);}}
+@keyframes jellyBob{0%,100%{transform:translateY(0) scale(1,1);}35%{transform:translateY(-14px) scale(.9,1.12);}70%{transform:translateY(-4px) scale(1.06,.94);}}
+@keyframes fallSnow{0%{transform:translate(0,-20px); opacity:0;}10%{opacity:.95;}50%{transform:translate(18px,230px);}100%{transform:translate(-12px,470px); opacity:.5;}}
+@keyframes shootStar{0%{transform:translate(0,0); opacity:0;}6%{opacity:1;}22%{transform:translate(-340px,190px); opacity:0;}100%{transform:translate(-340px,190px); opacity:0;}}
+@keyframes smokeRise{0%{transform:translate(0,0) scale(.5); opacity:.7;}100%{transform:translate(26px,-120px) scale(2.1); opacity:0;}}
+@keyframes sparkUp{0%{transform:translate(0,0); opacity:1;}100%{transform:translate(var(--sx,10px),-70px); opacity:0;}}
+@keyframes lavaPulse{0%,100%{opacity:.65;}50%{opacity:1;}}
+@keyframes eggWiggle{0%,70%,100%{transform:rotate(0);}76%{transform:rotate(-9deg);}84%{transform:rotate(8deg);}92%{transform:rotate(-5deg);}}
+@keyframes auroraSway{0%,100%{transform:translateX(0) scaleY(1); opacity:.35;}50%{transform:translateX(30px) scaleY(1.15); opacity:.6;}}
+@keyframes floatSpace{0%,100%{transform:translate(0,0) rotate(-6deg);}50%{transform:translate(14px,-12px) rotate(6deg);}}
+@keyframes ufoBeam{0%,100%{opacity:.25;}50%{opacity:.55;}}

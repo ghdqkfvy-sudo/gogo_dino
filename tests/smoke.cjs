@@ -91,7 +91,7 @@ function check(cond, msg){
   console.log('트랙');
   await page.click('.home-card[aria-label="트랙 모드"]');
   await page.waitForSelector('#screen-trackpick.active');
-  check(await page.locator('#trackThemeRow .theme-chip').count() === 3, '트랙 테마 3종');
+  check(await page.locator('#trackThemeRow .theme-chip').count() === await page.evaluate(()=> Object.keys(TRACK_THEMES).length) && await page.evaluate(()=> Object.keys(TRACK_THEMES).length) === 6, '트랙 테마 6종(필드와 같은 장소)');
   await page.click('.theme-chip[data-theme="desert"]');
   await page.click('#trackPickGrid .char-thumb');
   await page.waitForFunction(()=> track && track.chunks.size > 0);
@@ -307,6 +307,31 @@ function check(cond, msg){
   check(restored.same, '다시 열어도 옮긴 자리에 있음');
   check(restored.props === 1, '놓은 소품이 유지됨');
   await page.evaluate(()=> go('screen-home'));
+
+  console.log('필드 6곳 (우주 포함)');
+  const fl = await page.evaluate(async ()=>{
+    const out = { ids: FIELD_IDS.slice(), titlesOk: FIELD_IDS.every(f=> !!FIELD_TITLES[f] && !!FIELD_DECOR[f]), problems: [], cards: 0 };
+    renderFieldSelect(); out.cards = document.querySelectorAll('#fieldSelectGrid .field-card').length;
+    for(const f of FIELD_IDS){
+      openField(f); await new Promise(r=> setTimeout(r, 250));
+      const sc = document.getElementById('sceneEl');
+      if(!sc.classList.contains(f)) out.problems.push(f + ':클래스');
+      if(!sc.querySelector('.scene-deco svg')) out.problems.push(f + ':배경');
+      if(sc.querySelectorAll('.sprite').length < 2) out.problems.push(f + ':친구');
+      if(FIELD_GROUND_Y[f]){
+        const r = sc.getBoundingClientRect(), gt = r.bottom - (440 - FIELD_GROUND_Y[f]) * Math.max(r.width/800, r.height/440);
+        if(!fieldSprites.every(sp=> sp.wrap.getBoundingClientRect().bottom > gt)) out.problems.push(f + ':땅 위');
+      }
+      const r2 = await fetch(BGM_SOURCES.field[f], { method:'HEAD' }); if(!r2.ok) out.problems.push(f + ':음악');
+      out[f + 'Night'] = document.getElementById('fieldNightBtn').style.display;
+    }
+    out.persist = FIELD_IDS.every(f=> buildStatePayload().fieldFriendUids[f] && fieldLayout[f] && Array.isArray(fieldLayout[f].props));
+    go('screen-home');
+    return out;
+  });
+  check(fl.ids.length === 6 && fl.ids.includes('space') && fl.titlesOk && fl.cards === 6, `필드 ${fl.ids.length}곳(우주 포함)이 선택 화면에 모두 표시`);
+  check(fl.problems.length === 0, '모든 필드의 배경·친구·땅 위 배치·배경음악 파일이 정상' + (fl.problems.length ? ' (' + fl.problems.join(', ') + ')' : ''));
+  check(fl.spaceNight === 'none' && fl.forestNight === '' && fl.persist, '우주에서는 낮/밤 버튼이 없고, 모든 필드가 저장 구조에 포함됨');
 
   console.log('알 가게 / 특별한 붓 / 다시보기 / 내 그림');
   const shop = await page.evaluate(async ()=>{

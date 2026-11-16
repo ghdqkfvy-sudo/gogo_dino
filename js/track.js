@@ -31,6 +31,9 @@ function trackSeededRandom(seed){
 const TRACK_THEMES = {
   forest: { label:'🌲 숲길',   sky:['#bfe9ff','#eaf9ff'], sun:'#fff2c4', hills:['#bfe0c9','#9fd0ac'], ground:['#8fd48a','#4fae5f','#284f2c'], edge:'#2a6b3c', dust:'214,199,168' },
   ocean:  { label:'🌊 바닷가', sky:['#9fe3f5','#e6fbff'], sun:'#fff8de', hills:['#7fd0e6','#2fb8cf'], ground:['#f5e2b0','#e0c27f','#a8874a'], edge:'#b8975a', dust:'240,226,190' },
+  snow:   { label:'❄️ 눈길',   sky:['#8fb4e8','#eef6ff'], sun:'#fffbe6', hills:['#cfe0f4','#b3cbe8'], ground:['#ffffff','#dfecf9','#9fbad8'], edge:'#8fb0d6', dust:'240,248,255' },
+  space:  { label:'🚀 달나라', sky:['#070a36','#3a2a86'], sun:'#e8ebf8', hills:['#5a5f88','#7d82a2'], ground:['#b9bfd6','#8b90ab','#555a7a'], edge:'#6a6f8f', dust:'200,205,225' },
+  island: { label:'🌋 공룡섬', sky:['#ff9a6b','#fff0c9'], sun:'#fff3c4', hills:['#7a4a3a','#4a8a50'], ground:['#6cc063','#3f9650','#1d5a30'], edge:'#2c7a3e', dust:'120,170,100' },
   desert: { label:'🏜️ 사막',   sky:['#ffe2a8','#fff5dc'], sun:'#fff1c4', hills:['#f3cf94','#e3ab6c'], ground:['#f0c982','#e0ad63','#a9713a'], edge:'#a9713a', dust:'230,196,140' },
 };
 const TRACK_PREFS_KEY = 'gogodino_track_v1';

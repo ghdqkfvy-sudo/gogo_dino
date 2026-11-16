@@ -175,7 +175,7 @@ let currentChar = null;      // {defId, currentForm, forms, paintCanvas, editing
 let currentAnalysis = null;
 let currentTool = {type:'color', value:PALETTE[0]};
 let savedCharacters = [];    // {uid, defId, name, image(dataURL), vehicleImage, paintData}
-let fieldFriends = {forest:[], ocean:[], desert:[]};
+let fieldFriends = newFieldMap(()=> []);   // 필드별로 데려간 친구들(FIELD_IDS 참고)
 let currentField = 'forest';
 // 색칠을 어디서 시작했는지 - 필드의 "+ 친구 추가"/"편집"에서 왔다면 저장 후 그 필드로 돌아갑니다.
 let coloringOrigin = null;   // null | {type:'field', field}
