@@ -1,5 +1,6 @@
-// ---------------------------------------------------------------- 필드(숲/바다/사막)
-const FIELD_TITLES = {forest:'🌲 숲속', ocean:'🌊 바닷속', desert:'🏜️ 사막'};
+// ---------------------------------------------------------------- 필드(숲/바다/사막 + 우주/눈나라/공룡섬)
+// 숲·바다·사막 배경은 여기, 우주·눈나라·공룡섬 배경은 fields_extra.js에 있습니다.
+const FIELD_TITLES = {forest:'🌲 숲속', ocean:'🌊 바닷속', desert:'🏜️ 사막', space:'🚀 우주', snow:'❄️ 눈나라', island:'🌋 공룡섬'};
 
 const FIELD_DECOR = {
   forest: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
@@ -43,6 +44,8 @@ const FIELD_DECOR = {
          보이는 문제가 있었습니다. 그래서 땅을 하나의 완만한(물결치지 않는) 곡선으로 된
          불투명한 초록 덩어리로 먼저 그리고, 밝고 어두운 초록 띠는 그 안쪽에서만(지평선보다
          한참 아래에서 시작하도록) 겹쳐서 하늘색이 비쳐 보이지 않도록 고쳤습니다. -->
+    <!-- 비 갠 하늘의 무지개(땅이 아랫부분을 가림) -->
+    <g fill="none" stroke-width="9" opacity=".3"><path d="M14,300 A236,236 0 0 1 486,300" stroke="#ff6b81"/><path d="M23,300 A227,227 0 0 1 477,300" stroke="#ffb347"/><path d="M32,300 A218,218 0 0 1 468,300" stroke="#ffe15a"/><path d="M41,300 A209,209 0 0 1 459,300" stroke="#8be24a"/><path d="M50,300 A200,200 0 0 1 450,300" stroke="#4a7bf7"/><path d="M59,300 A191,191 0 0 1 441,300" stroke="#a855f7"/></g>
     <path d="M0,266 Q200,250 400,262 T800,258 L800,440 L0,440 Z" fill="url(#groundF)"/>
     <path d="M0,300 Q200,286 400,296 T800,292 L800,440 L0,440 Z" fill="#6bc178" opacity=".4"/>
     <path d="M0,332 Q200,320 400,328 T800,324 L800,440 L0,440 Z" fill="#2c5f37" opacity=".3"/>
@@ -103,6 +106,27 @@ const FIELD_DECOR = {
       <ellipse cx="-24" cy="-24" rx="1.6" ry="3" fill="#c9986a"/><ellipse cx="-15" cy="-25" rx="1.6" ry="3" fill="#c9986a"/>
       <circle cx="-21" cy="-19" r="1" fill="#2e2350"/>
     </g>
+
+    <!-- ===== 숲 디테일: 연못·들꽃·버섯·나비·떨어지는 낙엽 ===== -->
+    <g transform="translate(292,344)">
+      <ellipse cx="0" cy="3" rx="74" ry="17" fill="#4f8f5c" opacity=".55"/>
+      <ellipse cx="0" cy="0" rx="64" ry="12.5" fill="#6ec6e8"/>
+      <ellipse cx="-20" cy="-3" rx="22" ry="3" fill="#fff" opacity=".55"/><ellipse cx="22" cy="3" rx="14" ry="2.2" fill="#fff" opacity=".35"/>
+      <ellipse cx="22" cy="1" rx="10" ry="4.4" fill="#3f9f55"/><circle cx="25" cy="-1" r="3" fill="#ff8fb3"/>
+      <ellipse cx="-34" cy="3" rx="8" ry="3.6" fill="#4aa860"/>
+      <ellipse class="ripple" style="animation:rippleOut 3.4s ease-out infinite;" cx="-6" cy="1" rx="14" ry="3.5" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <ellipse class="ripple" style="animation:rippleOut 3.4s ease-out infinite; animation-delay:-1.7s;" cx="30" cy="4" rx="14" ry="3.5" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <g stroke="#2f8a4a" stroke-width="2.4" stroke-linecap="round"><path d="M64,2 Q62,-16 66,-26"/><path d="M69,3 Q72,-12 70,-22"/><path d="M-66,3 Q-70,-12 -66,-22"/></g>
+      <ellipse cx="66" cy="-27" rx="2.6" ry="6" fill="#7a5230"/><ellipse cx="-66" cy="-23" rx="2.6" ry="6" fill="#7a5230"/>
+    </g>
+    <g><path d="M58,366 L58,354.3" stroke="#2f8a4a" stroke-width="2.3" stroke-linecap="round"/><circle cx="63.5" cy="354.3" r="4.3" fill="#ff7a9c"/><circle cx="59.7" cy="359.5" r="4.3" fill="#ff7a9c"/><circle cx="53.6" cy="357.5" r="4.3" fill="#ff7a9c"/><circle cx="53.6" cy="351.1" r="4.3" fill="#ff7a9c"/><circle cx="59.7" cy="349.1" r="4.3" fill="#ff7a9c"/><circle cx="58" cy="354.3" r="3.0" fill="#ffe15a"/></g><g><path d="M76,372 L76,362.1" stroke="#2f8a4a" stroke-width="2.0" stroke-linecap="round"/><circle cx="80.6" cy="362.1" r="3.6" fill="#ffd54f"/><circle cx="77.4" cy="366.5" r="3.6" fill="#ffd54f"/><circle cx="72.3" cy="364.8" r="3.6" fill="#ffd54f"/><circle cx="72.3" cy="359.4" r="3.6" fill="#ffd54f"/><circle cx="77.4" cy="357.7" r="3.6" fill="#ffd54f"/><circle cx="76" cy="362.1" r="2.5" fill="#ffe15a"/></g><g><path d="M204,384 L204,372.3" stroke="#2f8a4a" stroke-width="2.3" stroke-linecap="round"/><circle cx="209.5" cy="372.3" r="4.3" fill="#c99bff"/><circle cx="205.7" cy="377.5" r="4.3" fill="#c99bff"/><circle cx="199.6" cy="375.5" r="4.3" fill="#c99bff"/><circle cx="199.6" cy="369.1" r="4.3" fill="#c99bff"/><circle cx="205.7" cy="367.1" r="4.3" fill="#c99bff"/><circle cx="204" cy="372.3" r="3.0" fill="#ffe15a"/></g><g><path d="M222,378 L222,369.0" stroke="#2f8a4a" stroke-width="1.8" stroke-linecap="round"/><circle cx="226.2" cy="369.0" r="3.3" fill="#ff7a9c"/><circle cx="223.3" cy="373.0" r="3.3" fill="#ff7a9c"/><circle cx="218.6" cy="371.5" r="3.3" fill="#ff7a9c"/><circle cx="218.6" cy="366.5" r="3.3" fill="#ff7a9c"/><circle cx="223.3" cy="365.0" r="3.3" fill="#ff7a9c"/><circle cx="222" cy="369.0" r="2.3" fill="#ffe15a"/></g>
+    <g><path d="M520,372 L520,361.2" stroke="#2f8a4a" stroke-width="2.2" stroke-linecap="round"/><circle cx="525.0" cy="361.2" r="4.0" fill="#ffffff"/><circle cx="521.6" cy="366.0" r="4.0" fill="#ffffff"/><circle cx="515.9" cy="364.2" r="4.0" fill="#ffffff"/><circle cx="515.9" cy="358.2" r="4.0" fill="#ffffff"/><circle cx="521.6" cy="356.4" r="4.0" fill="#ffffff"/><circle cx="520" cy="361.2" r="2.8" fill="#ffe15a"/></g><g><path d="M538,380 L538,370.1" stroke="#2f8a4a" stroke-width="2.0" stroke-linecap="round"/><circle cx="542.6" cy="370.1" r="3.6" fill="#ffb347"/><circle cx="539.4" cy="374.5" r="3.6" fill="#ffb347"/><circle cx="534.3" cy="372.8" r="3.6" fill="#ffb347"/><circle cx="534.3" cy="367.4" r="3.6" fill="#ffb347"/><circle cx="539.4" cy="365.7" r="3.6" fill="#ffb347"/><circle cx="538" cy="370.1" r="2.5" fill="#ffe15a"/></g><g><path d="M690,370 L690,358.3" stroke="#2f8a4a" stroke-width="2.3" stroke-linecap="round"/><circle cx="695.5" cy="358.3" r="4.3" fill="#ff7a9c"/><circle cx="691.7" cy="363.5" r="4.3" fill="#ff7a9c"/><circle cx="685.6" cy="361.5" r="4.3" fill="#ff7a9c"/><circle cx="685.6" cy="355.1" r="4.3" fill="#ff7a9c"/><circle cx="691.7" cy="353.1" r="4.3" fill="#ff7a9c"/><circle cx="690" cy="358.3" r="3.0" fill="#ffe15a"/></g><g><path d="M708,378 L708,368.1" stroke="#2f8a4a" stroke-width="2.0" stroke-linecap="round"/><circle cx="712.6" cy="368.1" r="3.6" fill="#c99bff"/><circle cx="709.4" cy="372.5" r="3.6" fill="#c99bff"/><circle cx="704.3" cy="370.8" r="3.6" fill="#c99bff"/><circle cx="704.3" cy="365.4" r="3.6" fill="#c99bff"/><circle cx="709.4" cy="363.7" r="3.6" fill="#c99bff"/><circle cx="708" cy="368.1" r="2.5" fill="#ffe15a"/></g><g><path d="M756,344 L756,333.2" stroke="#2f8a4a" stroke-width="2.2" stroke-linecap="round"/><circle cx="761.0" cy="333.2" r="4.0" fill="#ffd54f"/><circle cx="757.6" cy="338.0" r="4.0" fill="#ffd54f"/><circle cx="751.9" cy="336.2" r="4.0" fill="#ffd54f"/><circle cx="751.9" cy="330.2" r="4.0" fill="#ffd54f"/><circle cx="757.6" cy="328.4" r="4.0" fill="#ffd54f"/><circle cx="756" cy="333.2" r="2.8" fill="#ffe15a"/></g>
+    <g><path d="M392,392 L392,381.2" stroke="#2f8a4a" stroke-width="2.2" stroke-linecap="round"/><circle cx="397.0" cy="381.2" r="4.0" fill="#ff8fb3"/><circle cx="393.6" cy="386.0" r="4.0" fill="#ff8fb3"/><circle cx="387.9" cy="384.2" r="4.0" fill="#ff8fb3"/><circle cx="387.9" cy="378.2" r="4.0" fill="#ff8fb3"/><circle cx="393.6" cy="376.4" r="4.0" fill="#ff8fb3"/><circle cx="392" cy="381.2" r="2.8" fill="#ffe15a"/></g><g><path d="M150,330 L150,321.0" stroke="#2f8a4a" stroke-width="1.8" stroke-linecap="round"/><circle cx="154.2" cy="321.0" r="3.3" fill="#ffffff"/><circle cx="151.3" cy="325.0" r="3.3" fill="#ffffff"/><circle cx="146.6" cy="323.5" r="3.3" fill="#ffffff"/><circle cx="146.6" cy="318.5" r="3.3" fill="#ffffff"/><circle cx="151.3" cy="317.0" r="3.3" fill="#ffffff"/><circle cx="150" cy="321.0" r="2.3" fill="#ffe15a"/></g><g><path d="M630,338 L630,329.0" stroke="#2f8a4a" stroke-width="1.8" stroke-linecap="round"/><circle cx="634.2" cy="329.0" r="3.3" fill="#ffd54f"/><circle cx="631.3" cy="333.0" r="3.3" fill="#ffd54f"/><circle cx="626.6" cy="331.5" r="3.3" fill="#ffd54f"/><circle cx="626.6" cy="326.5" r="3.3" fill="#ffd54f"/><circle cx="631.3" cy="325.0" r="3.3" fill="#ffd54f"/><circle cx="630" cy="329.0" r="2.3" fill="#ffe15a"/></g>
+    <g transform="translate(244,352) scale(1.2)"><rect x="-3" y="-8" width="6" height="9" rx="2.5" fill="#f6ecd8"/><path d="M-11,-7 Q0,-22 11,-7 Z" fill="#e8493f"/><circle cx="-4" cy="-12" r="1.8" fill="#fff"/><circle cx="3" cy="-14" r="1.5" fill="#fff"/><circle cx="6" cy="-10" r="1.3" fill="#fff"/></g><g transform="translate(262,356) scale(0.8)"><rect x="-3" y="-8" width="6" height="9" rx="2.5" fill="#f6ecd8"/><path d="M-11,-7 Q0,-22 11,-7 Z" fill="#f0a53d"/><circle cx="-4" cy="-12" r="1.8" fill="#fff"/><circle cx="3" cy="-14" r="1.5" fill="#fff"/><circle cx="6" cy="-10" r="1.3" fill="#fff"/></g><g transform="translate(660,336) scale(1.1)"><rect x="-3" y="-8" width="6" height="9" rx="2.5" fill="#f6ecd8"/><path d="M-11,-7 Q0,-22 11,-7 Z" fill="#e8493f"/><circle cx="-4" cy="-12" r="1.8" fill="#fff"/><circle cx="3" cy="-14" r="1.5" fill="#fff"/><circle cx="6" cy="-10" r="1.3" fill="#fff"/></g><g transform="translate(742,368) scale(0.9)"><rect x="-3" y="-8" width="6" height="9" rx="2.5" fill="#f6ecd8"/><path d="M-11,-7 Q0,-22 11,-7 Z" fill="#c99bff"/><circle cx="-4" cy="-12" r="1.8" fill="#fff"/><circle cx="3" cy="-14" r="1.5" fill="#fff"/><circle cx="6" cy="-10" r="1.3" fill="#fff"/></g>
+    <!-- 오두막 느낌의 표지판 -->
+    <g transform="translate(40,328)"><rect x="-2" y="-2" width="5" height="30" rx="1.5" fill="#8a5a32"/><path d="M-22,-16 L24,-16 L30,-8 L24,0 L-22,0 Z" fill="#d6a45f"/><circle cx="-12" cy="-8" r="1.4" fill="#8a5a32"/><path d="M-4,-8 L16,-8" stroke="#8a5a32" stroke-width="2" stroke-linecap="round"/></g>
+    <g transform="translate(0,176)"><g style="animation:flyAcrossR 26s linear infinite; animation-delay:-4s;"><g class="flutter" style="animation:flutterWings .32s ease-in-out infinite;"><ellipse cx="-4" cy="-2" rx="5.5" ry="4.2" fill="#ff8fb3"/><ellipse cx="4" cy="-2" rx="5.5" ry="4.2" fill="#ff8fb3"/><ellipse cx="-3" cy="3" rx="4" ry="3" fill="#ffd54f"/><ellipse cx="3" cy="3" rx="4" ry="3" fill="#ffd54f"/><rect x="-0.9" y="-5" width="1.8" height="11" rx="0.9" fill="#4a3a2a"/></g></g></g><g transform="translate(0,214)"><g style="animation:flyAcrossL 32s linear infinite; animation-delay:-15s;"><g class="flutter" style="animation:flutterWings .32s ease-in-out infinite;"><ellipse cx="-4" cy="-2" rx="5.5" ry="4.2" fill="#7fb8ff"/><ellipse cx="4" cy="-2" rx="5.5" ry="4.2" fill="#7fb8ff"/><ellipse cx="-3" cy="3" rx="4" ry="3" fill="#ffffff"/><ellipse cx="3" cy="3" rx="4" ry="3" fill="#ffffff"/><rect x="-0.9" y="-5" width="1.8" height="11" rx="0.9" fill="#4a3a2a"/></g></g></g><g transform="translate(0,150)"><g style="animation:flyAcrossR 38s linear infinite; animation-delay:-22s;"><g class="flutter" style="animation:flutterWings .32s ease-in-out infinite;"><ellipse cx="-4" cy="-2" rx="5.5" ry="4.2" fill="#ffb347"/><ellipse cx="4" cy="-2" rx="5.5" ry="4.2" fill="#ffb347"/><ellipse cx="-3" cy="3" rx="4" ry="3" fill="#ff7a9c"/><ellipse cx="3" cy="3" rx="4" ry="3" fill="#ff7a9c"/><rect x="-0.9" y="-5" width="1.8" height="11" rx="0.9" fill="#4a3a2a"/></g></g></g>
+    <g transform="translate(120,-20)"><g class="leaf" style="animation:fallLeaf 11s linear infinite; animation-delay:-3s;"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0 z" fill="#e0a53d"/><path d="M0,0 L12,0" stroke="#fff" stroke-width=".8" opacity=".5"/></g></g><g transform="translate(330,-20)"><g class="leaf" style="animation:fallLeaf 14s linear infinite; animation-delay:-8s;"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0 z" fill="#d9633f"/><path d="M0,0 L12,0" stroke="#fff" stroke-width=".8" opacity=".5"/></g></g><g transform="translate(560,-20)"><g class="leaf" style="animation:fallLeaf 12s linear infinite; animation-delay:-1s;"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0 z" fill="#e0a53d"/><path d="M0,0 L12,0" stroke="#fff" stroke-width=".8" opacity=".5"/></g></g><g transform="translate(700,-20)"><g class="leaf" style="animation:fallLeaf 16s linear infinite; animation-delay:-11s;"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0 z" fill="#c8452e"/><path d="M0,0 L12,0" stroke="#fff" stroke-width=".8" opacity=".5"/></g></g><g transform="translate(440,-20)"><g class="leaf" style="animation:fallLeaf 13s linear infinite; animation-delay:-6s;"><path d="M0,0 q6,-8 12,0 q-6,8 -12,0 z" fill="#f0c24a"/><path d="M0,0 L12,0" stroke="#fff" stroke-width=".8" opacity=".5"/></g></g>
   </svg>`,
   ocean: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
     <defs>
@@ -161,6 +185,42 @@ const FIELD_DECOR = {
       <path class="weed" style="animation:swayWeed 4.2s ease-in-out infinite; animation-delay:-1.6s;" d="M240,300 Q250,262 238,222"/>
       <path class="weed" style="animation:swayWeed 3.9s ease-in-out infinite; animation-delay:-.8s;" d="M582,300 Q592,260 580,220"/>
     </g>
+
+    <!-- ===== 바다 디테일: 난파선·보물상자·바다거북·해파리·해마·불가사리·먼 곳의 고래 ===== -->
+    <g transform="translate(0,84)"><g style="animation:swimAcrossR 70s linear infinite; animation-delay:-18s;" opacity=".28">
+      <ellipse cx="0" cy="0" rx="62" ry="22" fill="#0f4f63"/><path d="M-58,-4 Q-92,-26 -86,-34 Q-70,-18 -52,-12 Z" fill="#0f4f63"/><circle cx="40" cy="-6" r="2.4" fill="#cfeeff"/>
+      <path d="M10,-20 q2,-14 8,-18 M10,-20 q-6,-12 -4,-20" stroke="#9fe3f5" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g></g>
+    <g transform="translate(26,318) rotate(-9)">
+      <path d="M0,28 L128,26 L108,74 L22,76 Z" fill="#7a4a2e"/><path d="M0,28 L128,26" stroke="#5e3920" stroke-width="5"/><path d="M26,44 L112,42 M30,58 L106,56" stroke="#5e3920" stroke-width="2.4" opacity=".7"/>
+      <circle cx="40" cy="52" r="7" fill="#2fb8cf" stroke="#5e3920" stroke-width="2.5"/><circle cx="68" cy="52" r="7" fill="#2fb8cf" stroke="#5e3920" stroke-width="2.5"/><circle cx="96" cy="50" r="7" fill="#2fb8cf" stroke="#5e3920" stroke-width="2.5"/>
+      <rect x="58" y="-52" width="7" height="82" rx="2" fill="#6b4226"/><path d="M65,-48 L104,-20 L65,-6 Z" fill="#e8dcc2" opacity=".85"/><path d="M58,-40 L26,-14 L58,-4 Z" fill="#e8dcc2" opacity=".75"/>
+      <path d="M20,76 q-6,-14 2,-22 M118,70 q8,-12 0,-22" stroke="#2f8a5a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(664,392)">
+      <ellipse cx="0" cy="14" rx="40" ry="8" fill="#a98a52" opacity=".6"/>
+      <rect x="-30" y="-6" width="60" height="22" rx="4" fill="#8a5a32" stroke="#5e3920" stroke-width="2"/><path d="M-30,-6 Q0,-34 30,-6 Z" fill="#a8703c" stroke="#5e3920" stroke-width="2" transform="translate(0,-6) rotate(-14 -30 0)"/>
+      <rect x="-5" y="2" width="10" height="9" rx="2" fill="#ffd54f" stroke="#5e3920" stroke-width="1.5"/>
+      <circle cx="-14" cy="-8" r="5" fill="#ffd54f"/><circle cx="-4" cy="-11" r="5" fill="#ffe15a"/><circle cx="8" cy="-9" r="5" fill="#ffd54f"/><circle cx="18" cy="-6" r="4.4" fill="#ffe15a"/>
+      <g class="firefly" style="animation:twinkleFly 2.2s ease-in-out infinite;"><path d="M-2,-24 l2,-7 l2,7 l7,2 l-7,2 l-2,7 l-2,-7 l-7,-2 z" fill="#fff6b0"/></g>
+    </g>
+    <g transform="translate(332,398) rotate(-14)"><polygon points="0,-16 4.5,-5 16,-5 7,2 10.5,14 0,7 -10.5,14 -7,2 -16,-5 -4.5,-5" fill="#ff9a4d" stroke="#e0713a" stroke-width="1.5" stroke-linejoin="round"/><circle cx="0" cy="-4" r="1.4" fill="#fff3c9"/><circle cx="-5" cy="2" r="1.1" fill="#fff3c9"/><circle cx="5" cy="2" r="1.1" fill="#fff3c9"/></g>
+    <g transform="translate(236,404)"><circle r="9" fill="#7a4a8c"/><g stroke="#7a4a8c" stroke-width="2" stroke-linecap="round"><path d="M0,-9 L0,-16 M7,-6 L12,-12 M-7,-6 L-12,-12 M9,0 L16,0 M-9,0 L-16,0"/></g></g>
+    <g transform="translate(404,408)"><path d="M-12,4 Q-12,-10 0,-12 Q12,-10 12,4 Z" fill="#ffd8b8" stroke="#e0a07a" stroke-width="1.6"/><path d="M0,-12 L0,4 M-6,-10 L-6,4 M6,-10 L6,4" stroke="#e0a07a" stroke-width="1.2"/></g>
+    <g transform="translate(528,330)"><g class="critter" style="animation:idleBob 2.4s ease-in-out infinite;">
+      <path d="M0,30 Q-14,22 -8,10 Q2,2 -2,-10 Q-4,-20 6,-24" stroke="#ff9a4d" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="10" cy="-26" rx="8" ry="6" fill="#ff9a4d"/><path d="M16,-26 L28,-24" stroke="#ff9a4d" stroke-width="4" stroke-linecap="round"/><circle cx="11" cy="-28" r="1.6" fill="#2e2350"/>
+      <path d="M-4,-8 q-10,-2 -8,6" stroke="#ffd0a0" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </g></g>
+    <g transform="translate(0,232)"><g style="animation:swimAcrossL 36s linear infinite; animation-delay:-9s;"><g class="fish" style="animation:swimFish 2.2s ease-in-out infinite;">
+      <ellipse cx="0" cy="0" rx="22" ry="15" fill="#4aa860"/><ellipse cx="-2" cy="1" rx="13" ry="9" fill="#7fd08a" opacity=".7"/>
+      <path d="M-8,-12 l6,-6 l4,8 M-6,12 l-6,8 l8,2" fill="#3a8a4e"/><ellipse cx="-24" cy="2" rx="9" ry="6" fill="#4aa860"/><circle cx="-29" cy="0" r="1.5" fill="#2e2350"/>
+      <path d="M-12,-3 l7,-1 M-12,3 l7,1 M-2,-7 l5,3 M0,7 l5,-3" stroke="#2f7040" stroke-width="1.4" stroke-linecap="round"/>
+    </g></g></g>
+    <g transform="translate(150,150) scale(1.0)"><g class="jelly" style="animation:jellyBob 5.5s ease-in-out infinite; animation-delay:-1s;"><path d="M-20,8 Q-20,-20 0,-20 Q20,-20 20,8 Q10,4 0,8 Q-10,4 -20,8 Z" fill="#ff9ac8" opacity=".8"/><ellipse cx="-6" cy="-10" rx="7" ry="3.5" fill="#fff" opacity=".45"/><path d="M-14,8 q-4,10 0,18 q4,8 0,16" stroke="#ff9ac8" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M-7,8 q-4,10 0,18 q4,8 0,16" stroke="#ff9ac8" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M0,8 q-4,10 0,18 q4,8 0,16" stroke="#ff9ac8" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M7,8 q-4,10 0,18 q4,8 0,16" stroke="#ff9ac8" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M14,8 q-4,10 0,18 q4,8 0,16" stroke="#ff9ac8" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/></g></g><g transform="translate(610,120) scale(1.2)"><g class="jelly" style="animation:jellyBob 6.8s ease-in-out infinite; animation-delay:-3s;"><path d="M-20,8 Q-20,-20 0,-20 Q20,-20 20,8 Q10,4 0,8 Q-10,4 -20,8 Z" fill="#c99bff" opacity=".8"/><ellipse cx="-6" cy="-10" rx="7" ry="3.5" fill="#fff" opacity=".45"/><path d="M-14,8 q-4,10 0,18 q4,8 0,16" stroke="#c99bff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M-7,8 q-4,10 0,18 q4,8 0,16" stroke="#c99bff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M0,8 q-4,10 0,18 q4,8 0,16" stroke="#c99bff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M7,8 q-4,10 0,18 q4,8 0,16" stroke="#c99bff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M14,8 q-4,10 0,18 q4,8 0,16" stroke="#c99bff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/></g></g><g transform="translate(430,205) scale(0.8)"><g class="jelly" style="animation:jellyBob 5.9s ease-in-out infinite; animation-delay:-2s;"><path d="M-20,8 Q-20,-20 0,-20 Q20,-20 20,8 Q10,4 0,8 Q-10,4 -20,8 Z" fill="#9fe8ff" opacity=".8"/><ellipse cx="-6" cy="-10" rx="7" ry="3.5" fill="#fff" opacity=".45"/><path d="M-14,8 q-4,10 0,18 q4,8 0,16" stroke="#9fe8ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M-7,8 q-4,10 0,18 q4,8 0,16" stroke="#9fe8ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M0,8 q-4,10 0,18 q4,8 0,16" stroke="#9fe8ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M7,8 q-4,10 0,18 q4,8 0,16" stroke="#9fe8ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/><path d="M14,8 q-4,10 0,18 q4,8 0,16" stroke="#9fe8ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".85"/></g></g>
+    <g class="firefly" style="animation:twinkleFly 3s ease-in-out infinite;"><circle cx="60" cy="236" r="2.4" fill="#fff"/></g>
+    <g class="firefly" style="animation:twinkleFly 2.6s ease-in-out infinite; animation-delay:-1.2s;"><circle cx="730" cy="266" r="2.4" fill="#fff"/></g>
+    <g fill="#ff7a9c"><ellipse cx="716" cy="338" rx="10" ry="16" transform="rotate(10 716 338)" opacity=".95"/><ellipse cx="736" cy="336" rx="9" ry="17" transform="rotate(-8 736 336)" fill="#ffa2b8"/></g>
   </svg>`,
   desert: `<svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMax slice">
     <defs>
@@ -209,9 +269,46 @@ const FIELD_DECOR = {
       <circle cx="0" cy="0" r="11" fill="none" stroke="#8a6a3a" stroke-width="2.4"/>
       <path d="M-9,-5 L9,5 M-9,5 L9,-5 M-11,0 L11,0" stroke="#8a6a3a" stroke-width="1.8"/>
     </g></g>
+
+    <!-- ===== 사막 디테일: 피라미드·오아시스·낙타·열기구·꽃 핀 선인장·모래바람 ===== -->
+    <g opacity=".95">
+      <polygon points="496,272 584,196 672,272" fill="#e9c27e"/><polygon points="584,196 672,272 584,272" fill="#c99a52"/>
+      <polygon points="652,272 700,228 748,272" fill="#e3b86e"/><polygon points="700,228 748,272 700,272" fill="#bf8f48"/>
+      <path d="M560,236 L610,236 M540,252 L640,252" stroke="#b98a46" stroke-width="1.6" opacity=".55"/>
+    </g>
+    <g transform="translate(0,96)"><g style="animation:flyAcrossR 70s linear infinite; animation-delay:-30s;"><g class="critter" style="animation:idleBob 3.4s ease-in-out infinite;">
+      <path d="M-14,16 L-12,30 L12,30 L14,16 Z" fill="#8a5a32" opacity=".9"/>
+      <ellipse cx="0" cy="0" rx="16" ry="19" fill="#ff7a9c"/><path d="M-16,0 q16,-6 32,0" stroke="#fff" stroke-width="3" fill="none"/><path d="M-15,8 q15,-6 30,0" stroke="#ffd54f" stroke-width="3" fill="none"/><path d="M-12,-8 q12,-6 24,0" stroke="#4a7bf7" stroke-width="3" fill="none"/>
+      <rect x="-9" y="18" width="18" height="9" rx="2" fill="#a8703c"/><path d="M-9,18 L-6,16 M9,18 L6,16" stroke="#6b4226" stroke-width="1.4"/>
+    </g></g></g>
+    <g>
+      <ellipse cx="400" cy="320" rx="82" ry="17" fill="#a9843f" opacity=".5"/><ellipse cx="400" cy="318" rx="72" ry="13" fill="#3fc6d2"/>
+      <ellipse cx="380" cy="315" rx="22" ry="3" fill="#fff" opacity=".5"/><ellipse class="ripple" style="animation:rippleOut 3.6s ease-out infinite;" cx="420" cy="320" rx="14" ry="3.5" fill="none" stroke="#fff" stroke-width="1.6"/>
+    </g>
+    <g transform="translate(334,314) scale(1.0,1.0)"><path d="M0,0 Q-8,-32 3,-62" stroke="#8a5a32" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M-3,-14 l6,-1 M-5,-28 l7,-1 M-3,-42 l6,-1" stroke="#6b4226" stroke-width="1.6"/><g transform="translate(3,0)"><ellipse cx="-16.4" cy="-64.3" rx="22" ry="5.6" transform="rotate(-165 -16.4 -64.3)" fill="#3f9f55"/><ellipse cx="-10.9" cy="-68.9" rx="22" ry="5.6" transform="rotate(-130 -10.9 -68.9)" fill="#4aa860"/><ellipse cx="10.9" cy="-68.9" rx="22" ry="5.6" transform="rotate(-50 10.9 -68.9)" fill="#4aa860"/><ellipse cx="16.4" cy="-64.3" rx="22" ry="5.6" transform="rotate(-15 16.4 -64.3)" fill="#3f9f55"/><ellipse cx="16.0" cy="-58.9" rx="22" ry="5.6" transform="rotate(20 16.0 -58.9)" fill="#3a8a4e"/><ellipse cx="-16.0" cy="-58.9" rx="22" ry="5.6" transform="rotate(160 -16.0 -58.9)" fill="#3a8a4e"/><ellipse cx="0.0" cy="-71.0" rx="22" ry="5.6" transform="rotate(-90 0.0 -71.0)" fill="#5fbf76"/><circle cx="-3" cy="-58" r="3.3" fill="#7a4a2e"/><circle cx="4" cy="-57" r="3.3" fill="#7a4a2e"/></g></g><g transform="translate(470,312) scale(-0.9,0.9)"><path d="M0,0 Q-8,-32 3,-62" stroke="#8a5a32" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M-3,-14 l6,-1 M-5,-28 l7,-1 M-3,-42 l6,-1" stroke="#6b4226" stroke-width="1.6"/><g transform="translate(3,0)"><ellipse cx="-16.4" cy="-64.3" rx="22" ry="5.6" transform="rotate(-165 -16.4 -64.3)" fill="#3f9f55"/><ellipse cx="-10.9" cy="-68.9" rx="22" ry="5.6" transform="rotate(-130 -10.9 -68.9)" fill="#4aa860"/><ellipse cx="10.9" cy="-68.9" rx="22" ry="5.6" transform="rotate(-50 10.9 -68.9)" fill="#4aa860"/><ellipse cx="16.4" cy="-64.3" rx="22" ry="5.6" transform="rotate(-15 16.4 -64.3)" fill="#3f9f55"/><ellipse cx="16.0" cy="-58.9" rx="22" ry="5.6" transform="rotate(20 16.0 -58.9)" fill="#3a8a4e"/><ellipse cx="-16.0" cy="-58.9" rx="22" ry="5.6" transform="rotate(160 -16.0 -58.9)" fill="#3a8a4e"/><ellipse cx="0.0" cy="-71.0" rx="22" ry="5.6" transform="rotate(-90 0.0 -71.0)" fill="#5fbf76"/><circle cx="-3" cy="-58" r="3.3" fill="#7a4a2e"/><circle cx="4" cy="-57" r="3.3" fill="#7a4a2e"/></g></g>
+    <g stroke="#3a8a4e" stroke-width="3" stroke-linecap="round" fill="none"><path d="M352,326 q-3,-12 -1,-18 M358,328 q2,-10 5,-14"/><path d="M448,326 q3,-12 1,-18"/></g>
+    <g transform="translate(205,338) scale(1.0)"><ellipse cx="0" cy="6" rx="16" ry="4.5" fill="#7a4a26" opacity=".3"/><ellipse cx="0" cy="-8" rx="15" ry="16" fill="#4aa860"/><path d="M-6,-22 q-2,14 -1,28 M6,-22 q2,14 1,28 M0,-23 L0,7" stroke="#2c7440" stroke-width="1.6" opacity=".6" fill="none"/><circle cx="0" cy="-25" r="4.2" fill="#ff7a9c"/><circle cx="0" cy="-25" r="1.6" fill="#ffe15a"/><path d="M-10,-12 l-3,-2 M10,-12 l3,-2 M-8,-1 l-3,1 M8,-1 l3,1" stroke="#fff" stroke-width="1.2" opacity=".8"/></g><g transform="translate(562,350) scale(1.15)"><ellipse cx="0" cy="6" rx="16" ry="4.5" fill="#7a4a26" opacity=".3"/><ellipse cx="0" cy="-8" rx="15" ry="16" fill="#4aa860"/><path d="M-6,-22 q-2,14 -1,28 M6,-22 q2,14 1,28 M0,-23 L0,7" stroke="#2c7440" stroke-width="1.6" opacity=".6" fill="none"/><circle cx="0" cy="-25" r="4.2" fill="#ff7a9c"/><circle cx="0" cy="-25" r="1.6" fill="#ffe15a"/><path d="M-10,-12 l-3,-2 M10,-12 l3,-2 M-8,-1 l-3,1 M8,-1 l3,1" stroke="#fff" stroke-width="1.2" opacity=".8"/></g><g transform="translate(742,336) scale(0.8)"><ellipse cx="0" cy="6" rx="16" ry="4.5" fill="#7a4a26" opacity=".3"/><ellipse cx="0" cy="-8" rx="15" ry="16" fill="#4aa860"/><path d="M-6,-22 q-2,14 -1,28 M6,-22 q2,14 1,28 M0,-23 L0,7" stroke="#2c7440" stroke-width="1.6" opacity=".6" fill="none"/><circle cx="0" cy="-25" r="4.2" fill="#ff7a9c"/><circle cx="0" cy="-25" r="1.6" fill="#ffe15a"/><path d="M-10,-12 l-3,-2 M10,-12 l3,-2 M-8,-1 l-3,1 M8,-1 l3,1" stroke="#fff" stroke-width="1.2" opacity=".8"/></g>
+    <circle cx="120" cy="199" r="4.4" fill="#ff7a9c"/><circle cx="120" cy="199" r="1.7" fill="#ffe15a"/><circle cx="660" cy="207" r="4.4" fill="#ff7a9c"/><circle cx="660" cy="207" r="1.7" fill="#ffe15a"/>
+    <g fill="#b98a46" opacity=".75"><ellipse cx="288" cy="350" rx="13" ry="7"/><ellipse cx="302" cy="354" rx="8" ry="5"/><ellipse cx="650" cy="388" rx="16" ry="8"/><ellipse cx="40" cy="372" rx="14" ry="7"/></g>
+    <g stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55">
+      <path class="wind" style="animation:swimAcrossR 9s linear infinite;" d="M0,330 h46"/>
+      <path class="wind" style="animation:swimAcrossR 12s linear infinite; animation-delay:-5s;" d="M0,372 h60"/>
+      <path class="wind" style="animation:swimAcrossR 10s linear infinite; animation-delay:-2s;" d="M0,410 h38"/>
+    </g>
+    <path d="M30,415 q22,-8 44,0 M60,425 q24,-8 50,0" stroke="#c9924f" stroke-width="2.4" fill="none" opacity=".5" stroke-linecap="round"/>
   </svg>`,
 };
 
+// 필드별 배치: 친구를 끌어다 놓은 자리(pos)와 꾸미기 소품(props). 화면 크기가 달라져도 같은 자리에
+// 오도록 장면 크기에 대한 비율(0~1)로 저장합니다.
+function emptyFieldLayout(){ return newFieldMap(()=> ({ pos:{}, props:[] })); }
+let fieldLayout = emptyFieldLayout();
+// 땅이 시작되는 높이(배경 SVG 440 기준). 숲/사막에서는 친구 발이 이 아래(땅 위)에 오게 하고,
+// 바닷속은 헤엄치는 곳이라 어디든 갈 수 있습니다.
+const FIELD_GROUND_Y = { forest:270, desert:275, space:305, snow:285, island:275 };   // 바닷속은 헤엄치는 곳이라 없음
+const FIELD_NIGHT_KEY = 'gogodino_field_night_v1';
+let fieldNight = false;
+try{ fieldNight = localStorage.getItem(FIELD_NIGHT_KEY) === '1'; }catch(e){}
 let spriteIntervals = {}; // 친구별 자동 변신 타이머 (필드를 떠나면 전부 정리)
 
 // 같은 배경 SVG를 선택 화면 썸네일과 실제 필드에 동시에 넣으면 그라데이션/심볼 id가 겹칩니다.
@@ -244,7 +341,9 @@ function openField(field){
   currentField = field;
   document.getElementById('fieldTitle').textContent = FIELD_TITLES[field];
   const sceneEl = document.getElementById('sceneEl');
-  sceneEl.className = 'scene ' + field;
+  // 우주는 이미 밤하늘이라 낮/밤 전환이 없습니다.
+  sceneEl.className = 'scene ' + field + (fieldNight && field !== 'space' ? ' night' : '');
+  updateNightBtn();
   sceneEl.innerHTML = `<div class="scene-deco">${fieldDecorFor(field, 'scene')}</div><button class="add-friend-btn" onclick="openCharPick({type:'field', field:currentField})">+ 친구 추가</button>`;
   // renderScene()이 화면 크기(sceneEl.clientHeight)를 재서 캐릭터 위치를 정하기 때문에,
   // 화면을 먼저 보이게(go) 한 다음에 재야 실제 크기를 정확히 잴 수 있습니다.
@@ -301,8 +400,13 @@ function renderScene(){
   // 예전엔 스프라이트가 화면 크기와 상관없이 164px 고정이라 폰에서는 친구들이 겹쳐
   // 보였습니다. 장면 높이에 비례해서(92~164px) 크기를 정합니다.
   const spriteBox = Math.round(Math.max(92, Math.min(164, sceneH * 0.34)));
-  const usableTop = 6;
-  const usableBottom = Math.max(usableTop, sceneH - spriteBox - 8);
+  // 숲/사막: 친구 발이 땅 위에 오도록 세로 범위를 땅 영역으로 제한합니다(예전엔 하늘에 떠 있었음).
+  const groundSvgY = FIELD_GROUND_Y[currentField];
+  const svgScale = Math.max(sceneW/800, sceneH/440);
+  const groundTopPx = groundSvgY ? sceneH - (440 - groundSvgY)*svgScale : 0;
+  const usableBottom = Math.max(6, sceneH - spriteBox - 8);
+  const usableTop = groundSvgY ? Math.max(6, Math.min(usableBottom, groundTopPx - spriteBox*0.82)) : 6;
+  const savedPos = fieldLayout[currentField].pos;
   const Y_LANE_FRACS = [0.04, 0.28, 0.52, 0.76, 1.0, 0.16, 0.64];
   // 생성될 때부터 가로(X)로도 골고루 흩어놓습니다.
   const X_LANE_FRACS = [0.4, 0.6, 0.5, 0.25, 0.75, 0.15, 0.85];
@@ -328,17 +432,23 @@ function renderScene(){
     const laneFrac = Y_LANE_FRACS[i % Y_LANE_FRACS.length];
     const cycleJitter = Math.floor(i / Y_LANE_FRACS.length) * 18;
     const rawTop = usableTop + (usableBottom - usableTop) * laneFrac + cycleJitter;
-    const top = Math.max(usableTop, Math.min(usableBottom, rawTop));
-    wrap.style.top = top + 'px';
-
+    let top = Math.max(usableTop, Math.min(usableBottom, rawTop));
     const xLaneFrac = X_LANE_FRACS[i % X_LANE_FRACS.length];
-    const anchorLeft = usableLeft + usableWidthTotal * xLaneFrac;
+    let anchorLeft = usableLeft + usableWidthTotal * xLaneFrac;
+    // 끌어다 놓은 자리가 저장돼 있으면 그 자리에서 시작합니다.
+    const sp0 = savedPos[snap.uid];
+    if(sp0){
+      top = Math.max(usableTop, Math.min(usableBottom, sp0.y * sceneH));
+      anchorLeft = Math.max(usableLeft, Math.min(Math.max(usableLeft, sceneW - boxW - 4), sp0.x * sceneW));
+    }
+    wrap.style.top = top + 'px';
     wrap.style.left = anchorLeft + 'px';
+    wrap.style.zIndex = 2 + Math.round(top / Math.max(1, sceneH) * 20); // 아래쪽(가까운) 친구가 앞에 보이게
 
     const name = escapeHtml(snap.name);
     // .sprite(위치 이동) > .sprite-hop(인사 점프) > .sprite-inner(좌우 반전/변신 연출)로 나눠서,
     // 각자의 transform 애니메이션이 서로를 덮어쓰지 않게 합니다.
-    wrap.innerHTML = `<div class="sprite-hop" style="width:100%;height:100%;">` + (snap.vehicleImage
+    wrap.innerHTML = (groundSvgY ? '<div class="sprite-shadow"></div>' : '') + `<div class="sprite-hop" style="width:100%;height:100%;">` + (snap.vehicleImage
       ? `<div class="sprite-inner"><img class="form-a" src="${snap.image}" alt="${name}"><img class="form-b" style="opacity:0" src="${snap.vehicleImage}" alt="${name} 변신"></div>`
       : `<div class="sprite-inner"><img src="${snap.image}" alt="${name}"></div>`) + `</div>`;
     sceneEl.appendChild(wrap);
@@ -349,9 +459,11 @@ function renderScene(){
       amplitude: wanderAmplitude, anchorLeft, top, boxW,
       usableLeft, usableRight: Math.max(usableLeft, sceneW - boxW - 4), usableTop, usableBottom,
       minX: usableLeft - anchorLeft, maxX: Math.max(usableLeft, sceneW - boxW - 4) - anchorLeft,
-      period: variant.period, phase: variant.phase + i*0.13,
+      period: variant.period, phase: sp0 ? 0.25 : variant.phase + i*0.13, // 저장된 자리가 있으면 그 자리(이동 0)에서 걷기 시작
+      sceneW, sceneH, lastGreet: 0,
       facing: 1, showingVehicle: false, stepSeed: i*1.7, held: false, lastX: 0,
       voice: voiceFor(snap.defId || snap.uid), // 친구마다 다른 목소리로 인사
+      lines: linesFor(snap.defId || snap.uid, snap.name), greeted: false, lastLine: -1,
       doTransform: null,
     };
     fieldSprites.push(spriteState);
@@ -381,6 +493,7 @@ function renderScene(){
     }
     attachSpriteInteraction(spriteState, sceneEl);
   });
+  renderProps(sceneEl, sceneW, sceneH, spriteBox);
   startFieldAnim();
 }
 
@@ -424,6 +537,10 @@ function attachSpriteInteraction(sp, sceneEl){
       const t = (performance.now() - fieldAnimT0)/1000;
       sp.phase = 0.25 - t/sp.period;
       sp.lastX = 0;
+      wrap.style.zIndex = 2 + Math.round(sp.top / Math.max(1, sceneEl.clientHeight) * 20);
+      // 옮긴 자리를 기억해서 필드를 다시 열어도 그 자리에 있게 합니다.
+      fieldLayout[currentField].pos[sp.uid] = { x: visualLeft / Math.max(1, sceneEl.clientWidth), y: sp.top / Math.max(1, sceneEl.clientHeight) };
+      persistState();
     } else {
       greetSprite(sp);
     }
@@ -439,11 +556,18 @@ function greetSprite(sp){
   hop.querySelectorAll('.sprite-bubble').forEach(b=>b.remove());
   const bubble = document.createElement('div');
   bubble.className = 'sprite-bubble';
-  bubble.textContent = `안녕! 나는 ${sp.name}${koYa(sp.name)}`;
+  // 처음 누르면 자기소개, 그다음부터는 대사를 돌아가며(같은 대사가 연속으로 나오지 않게) 말합니다.
+  let idx = 0;
+  if(sp.greeted && sp.lines.length > 1){
+    do{ idx = 1 + Math.floor(Math.random() * (sp.lines.length - 1)); }while(idx === sp.lastLine && sp.lines.length > 2);
+  }
+  sp.greeted = true; sp.lastLine = idx;
+  const line = sp.lines[idx];
+  bubble.textContent = line;
   hop.appendChild(bubble);
-  setTimeout(()=> bubble.remove(), 1800);
+  setTimeout(()=> bubble.remove(), 2600);
   playChime('pop');
-  speak(`안녕! 나는 ${sp.name}${koYa(sp.name)}`, sp.voice);
+  speak(line, sp.voice);
   if(sp.doTransform) setTimeout(sp.doTransform, 450);
 }
 
@@ -473,9 +597,193 @@ function startFieldAnim(){
         sp.inner.style.transform = dir < 0 ? 'scaleX(-1)' : 'scaleX(1)';
       }
     });
+    if(++frameNo % 30 === 0) checkFriendMeetings(now);
     fieldRAF = requestAnimationFrame(tick);
   }
+  let frameNo = 0;
   fieldRAF = requestAnimationFrame(tick);
+}
+
+// 돌아다니다 서로 가까이 만난 친구들은 폴짝 뛰며 "안녕!" 하고 인사합니다(소리 없이 말풍선만).
+function checkFriendMeetings(now){
+  for(let a=0; a<fieldSprites.length; a++){
+    for(let b=a+1; b<fieldSprites.length; b++){
+      const A = fieldSprites[a], B = fieldSprites[b];
+      if(A.held || B.held) continue;
+      if(now - A.lastGreet < 14000 || now - B.lastGreet < 14000) continue;
+      const ax = A.anchorLeft + A.lastX + A.boxW/2, bx = B.anchorLeft + B.lastX + B.boxW/2;
+      if(Math.abs(ax - bx) > (A.boxW + B.boxW)*0.45 || Math.abs(A.top - B.top) > 70) continue;
+      A.lastGreet = B.lastGreet = now;
+      [A, B].forEach((sp, k)=>{
+        sp.hop.classList.remove('hello'); void sp.hop.offsetWidth; sp.hop.classList.add('hello');
+        sp.hop.querySelectorAll('.sprite-bubble').forEach(x=>x.remove());
+        const bubble = document.createElement('div');
+        bubble.className = 'sprite-bubble';
+        bubble.textContent = k === 0 ? ['안녕!', '어, 만났다!', '같이 놀자!'][Math.floor(Math.random()*3)] : ['반가워!', '안녕, 안녕!', '좋아, 놀자!'][Math.floor(Math.random()*3)];
+        sp.hop.appendChild(bubble);
+        setTimeout(()=> bubble.remove(), 1500);
+      });
+    }
+  }
+}
+
+// ---- 낮/밤 ----
+function updateNightBtn(){
+  const b = document.getElementById('fieldNightBtn');
+  if(b){ b.textContent = fieldNight ? '☀️' : '🌙'; b.style.display = currentField === 'space' ? 'none' : ''; }
+}
+function toggleFieldNight(){
+  fieldNight = !fieldNight;
+  try{ localStorage.setItem(FIELD_NIGHT_KEY, fieldNight ? '1' : '0'); }catch(e){}
+  const sceneEl = document.getElementById('sceneEl');
+  if(sceneEl) sceneEl.classList.toggle('night', fieldNight);
+  updateNightBtn();
+  playChime('pop');
+  speak(fieldNight ? '밤이 됐어요' : '아침이에요');
+}
+
+// ---- 꾸미기 소품 ----
+function renderProps(sceneEl, sceneW, sceneH, spriteBox){
+  sceneEl.querySelectorAll('.prop').forEach(p=>p.remove());
+  fieldLayout[currentField].props.forEach(pr=>{
+    const it = shopItem(pr.id);
+    if(!it) return;
+    const el = document.createElement('div');
+    el.className = 'prop';
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', it.label);
+    el.textContent = it.emoji;
+    el.style.fontSize = Math.round(spriteBox * 0.42) + 'px';
+    el.style.left = (pr.x * sceneW) + 'px';
+    el.style.top = (pr.y * sceneH) + 'px';
+    el.style.zIndex = 2 + Math.round(pr.y * 20);
+    sceneEl.appendChild(el);
+    let start = null;
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      start = { x:e.clientX, y:e.clientY, px:pr.x, py:pr.y, moved:false, id:e.pointerId };
+    });
+    el.addEventListener('pointermove', (e)=>{
+      if(!start || e.pointerId !== start.id) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if(!start.moved && Math.hypot(dx, dy) < 8) return;
+      start.moved = true; el.classList.add('dragging');
+      pr.x = Math.max(0.04, Math.min(0.96, start.px + dx / sceneEl.clientWidth));
+      pr.y = Math.max(0.08, Math.min(0.95, start.py + dy / sceneEl.clientHeight));
+      el.style.left = (pr.x * sceneEl.clientWidth) + 'px';
+      el.style.top = (pr.y * sceneEl.clientHeight) + 'px';
+    });
+    const end = (e)=>{
+      if(!start || e.pointerId !== start.id) return;
+      const moved = start.moved; start = null;
+      el.classList.remove('dragging');
+      if(moved){ el.style.zIndex = 2 + Math.round(pr.y * 20); persistState(); return; }
+      speak(it.label);
+      showChoiceDialog(`<div style="font-size:48px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div>`, [
+        { label:'✕ 필드에서 빼기', cls:'ghost', value:'remove' },
+        { label:'닫기', cls:'alt', value:null },
+      ], (v)=>{
+        if(v !== 'remove') return;
+        const list = fieldLayout[currentField].props;
+        const k = list.indexOf(pr);
+        if(k >= 0) list.splice(k, 1);
+        persistState();
+        renderScene();
+      }, { vertical:true });
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  });
+}
+const FIELD_PROP_LIMIT = 12;
+function openPropPicker(){
+  const items = SHOP_ITEMS.filter(i=>i.kind==='prop');
+  const el = showChoiceDialog(`
+    <div>🎀 필드 꾸미기 <span class="egg-pill">🥚 <b class="egg-count">${wallet.eggs}</b></span></div>
+    <small>누르면 필드에 놓여요. 끌어서 옮기고, 톡 누르면 뺄 수 있어요.</small>
+    <div class="shop-grid">${items.map(it=>{
+      const open = isUnlocked(it.id);
+      return `<button class="shop-cell${open?' open':''}" data-prop="${it.id}" aria-label="${it.label}${open?'':' (잠김)'}">
+        <span class="em">${it.emoji}</span><span class="nm">${it.label}</span><span class="ct">${open?'놓기':'🔒 🥚 '+it.cost}</span></button>`;
+    }).join('')}</div>`,
+    [{ label:'닫기', cls:'alt', value:true }], null, { wide:true });
+  el.querySelectorAll('[data-prop]').forEach(b=> b.addEventListener('click', ()=>{
+    const id = b.dataset.prop;
+    if(!isUnlocked(id)){ tryUnlock(id, ()=> setTimeout(openPropPicker, 250)); return; }
+    const list = fieldLayout[currentField].props;
+    if(list.length >= FIELD_PROP_LIMIT){ toast(`소품은 ${FIELD_PROP_LIMIT}개까지 놓을 수 있어요.`); return; }
+    const groundY = FIELD_GROUND_Y[currentField];
+    const y0 = groundY ? 0.66 : 0.3;
+    list.push({ id, x: 0.15 + Math.random()*0.7, y: y0 + Math.random()*0.28 });
+    persistState();
+    closeDialog();
+    renderScene();
+    playChime('pop');
+    speak(shopItem(id).label);
+  }));
+}
+
+// ---- 필드 사진 찍기: 지금 장면(배경+소품+친구들)을 한 장의 그림으로 만들어 내보냅니다 ----
+async function captureFieldPhoto(){
+  const sceneEl = document.getElementById('sceneEl');
+  const svg = sceneEl && sceneEl.querySelector('.scene-deco svg');
+  if(!svg) return;
+  playChime('pop');
+  sceneEl.classList.remove('flash'); void sceneEl.offsetWidth; sceneEl.classList.add('flash');
+  const W = sceneEl.clientWidth, H = sceneEl.clientHeight, SC = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = W*SC; canvas.height = H*SC;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SC, SC);
+  try{
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', W); clone.setAttribute('height', H);
+    const bg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone)));
+    ctx.drawImage(bg, 0, 0, W, H);
+  }catch(e){
+    ctx.fillStyle = getComputedStyle(sceneEl).backgroundColor || '#bfe9ff'; ctx.fillRect(0,0,W,H);
+  }
+  if(fieldNight && currentField !== 'space'){ ctx.fillStyle = 'rgba(14,22,74,.52)'; ctx.fillRect(0,0,W,H); }
+  const sceneRect = sceneEl.getBoundingClientRect();
+  const drawables = [];
+  sceneEl.querySelectorAll('.prop').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    drawables.push({ z: r.bottom, draw: ()=>{
+      ctx.font = `${parseFloat(el.style.fontSize)||40}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(el.textContent, r.left + r.width/2 - sceneRect.left, r.top + r.height/2 - sceneRect.top);
+    }});
+  });
+  fieldSprites.forEach(sp=>{
+    const r = sp.wrap.getBoundingClientRect();
+    const imgs = Array.from(sp.wrap.querySelectorAll('img'));
+    const img = imgs.find(i=> i.style.opacity !== '0') || imgs[0];
+    if(!img || !img.naturalWidth) return;
+    drawables.push({ z: r.bottom, draw: ()=>{
+      const x = sp.anchorLeft + sp.lastX, y = sp.top, bw = sp.boxW, bh = sp.wrap.offsetHeight;
+      const k = Math.min(bw/img.naturalWidth, bh/img.naturalHeight);
+      const dw = img.naturalWidth*k, dh = img.naturalHeight*k;
+      ctx.save();
+      ctx.translate(x + bw/2, y + bh/2);
+      if(sp.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(img, -dw/2, -dh/2, dw, dh);
+      ctx.restore();
+    }});
+  });
+  drawables.sort((a,b)=> a.z - b.z).forEach(d=> d.draw());
+  const blob = await new Promise(res=> canvas.toBlob(res, 'image/png'));
+  if(!blob){ toast('사진을 만들지 못했어요.'); return; }
+  await shareOrDownloadBlob(blob, `gogodino_field_${currentField}_${Date.now()}.png`, FIELD_TITLES[currentField].replace(/^\S+\s/, '') + ' 사진');
+}
+
+// 홈 화면 "필드로 가기" 카드 구석에 가장 최근에 저장한 친구를 살짝 보여줍니다.
+function renderHomePeek(){
+  const el = document.getElementById('homePeekField');
+  if(!el) return;
+  const last = savedCharacters[savedCharacters.length - 1];
+  el.innerHTML = last ? `<img src="${last.image}" alt="">` : '';
 }
 
 // 필드를 떠나면 애니메이션 루프뿐 아니라 친구들의 자동 변신 타이머도 함께 멈춥니다
@@ -542,9 +850,11 @@ function deleteCharacter(uid){
   showConfirmDialog(
     `<div>${escapeHtml(snap.name)} 그림을<br>정말 삭제할까요?</div><small>삭제하면 되돌릴 수 없어요.</small>`,
     ()=>{
-      ['forest','ocean','desert'].forEach(f=>{ fieldFriends[f] = fieldFriends[f].filter(x=>x.uid!==uid); });
+      FIELD_IDS.forEach(f=>{ fieldFriends[f] = fieldFriends[f].filter(x=>x.uid!==uid); });
       savedCharacters = savedCharacters.filter(s=>s.uid!==uid);
+      FIELD_IDS.forEach(f=>{ delete fieldLayout[f].pos[uid]; });
       persistState();
+      renderHomePeek();
       renderGalleryStrip();
       renderScene();
       toast(snap.name + ' 삭제했어요.');
@@ -612,13 +922,13 @@ function idbSet(key, value){
   }));
 }
 function buildStatePayload(){
+  const fieldFriendUids = newFieldMap(()=> null);
+  FIELD_IDS.forEach(f=>{ fieldFriendUids[f] = fieldFriends[f].map(x=>x.uid); });
   return {
     savedCharacters,
-    fieldFriendUids: {
-      forest: fieldFriends.forest.map(f=>f.uid),
-      ocean: fieldFriends.ocean.map(f=>f.uid),
-      desert: fieldFriends.desert.map(f=>f.uid),
-    }
+    customTemplates,
+    fieldLayout,
+    fieldFriendUids
   };
 }
 // 저장 요청이 겹쳐도 순서대로 하나씩 씁니다(나중 요청이 항상 마지막 상태를 씀).
@@ -641,8 +951,18 @@ function persistState(){
 function applyStatePayload(payload){
   if(!payload) return;
   if(Array.isArray(payload.savedCharacters)) savedCharacters = payload.savedCharacters;
+  if(Array.isArray(payload.customTemplates)) customTemplates = payload.customTemplates.filter(t=> t && t.id && t.src);
+  if(payload.fieldLayout){
+    const base = emptyFieldLayout();
+    FIELD_IDS.forEach(f=>{
+      const src = payload.fieldLayout[f] || {};
+      base[f].pos = (src.pos && typeof src.pos === 'object') ? src.pos : {};
+      base[f].props = Array.isArray(src.props) ? src.props.filter(p=> p && shopItem(p.id)) : [];
+    });
+    fieldLayout = base;
+  }
   const uidMap = new Map(savedCharacters.map(s=>[s.uid, s]));
-  ['forest','ocean','desert'].forEach(f=>{
+  FIELD_IDS.forEach(f=>{
     const uids = (payload.fieldFriendUids && payload.fieldFriendUids[f]) || [];
     fieldFriends[f] = uids.map(u=>uidMap.get(u)).filter(Boolean);
   });

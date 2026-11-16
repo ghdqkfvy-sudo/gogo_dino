@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">고고 컬러링 스튜디오</string>
+    <string name="title_activity_main">고고 컬러링 스튜디오</string>
+    <string name="package_name">com.gogodino.studio</string>
+    <string name="custom_url_scheme">com.gogodino.studio</string>
+</resources>

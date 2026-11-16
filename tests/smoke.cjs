@@ -91,7 +91,7 @@ function check(cond, msg){
   console.log('트랙');
   await page.click('.home-card[aria-label="트랙 모드"]');
   await page.waitForSelector('#screen-trackpick.active');
-  check(await page.locator('.theme-chip').count() === 3, '트랙 테마 3종');
+  check(await page.locator('#trackThemeRow .theme-chip').count() === await page.evaluate(()=> Object.keys(TRACK_THEMES).length) && await page.evaluate(()=> Object.keys(TRACK_THEMES).length) === 6, '트랙 테마 6종(필드와 같은 장소)');
   await page.click('.theme-chip[data-theme="desert"]');
   await page.click('#trackPickGrid .char-thumb');
   await page.waitForFunction(()=> track && track.chunks.size > 0);
@@ -183,7 +183,14 @@ function check(cond, msg){
     page.click('button:has-text("스티커로 내보내기")'),
   ]);
   check(!!download && /sticker.*\.png$/.test(download.suggestedFilename()), '스티커 PNG 내보내기(파일 다운로드)');
-  await page.evaluate(()=>{ currentChar.dirty = false; go('screen-home'); ns.subject='number'; showNumberReward(); });
+  // 실제 YouTube 대신 가짜 플레이어를 써서(네트워크와 무관하게) 영상 보상 화면을 확인
+  await page.evaluate(()=>{
+    window.YT = { PlayerState:{ ENDED:0, PLAYING:1, PAUSED:2, BUFFERING:3 }, Player: function(el, opts){
+      this.opts = opts; this.loadPlaylist = ()=>{}; this.playVideo = ()=>{}; this.pauseVideo = ()=>{}; this.destroy = ()=>{}; this.getPlayerState = ()=>1;
+      setTimeout(()=> opts.events.onReady({ target:this }), 0);
+    }};
+    currentChar.dirty = false; go('screen-home'); ns.subject='number'; showNumberReward();
+  });
   await page.click('.ns-reward-close');
   await page.waitForSelector('#parentGateInput');
   const q = await page.textContent('.parent-gate-q');
@@ -243,6 +250,237 @@ function check(cond, msg){
   check(pl.list === 'PLweHyEHJTEBUMqlsD48NWJNGeAurKX5y-' && pl.index === 7, '재생목록의 고른 편(8번째)을 재생');
   check(pl.stillOpen && pl.closedAfterNext, '한 편이 끝나 다음 편으로 넘어가면 보상 종료(한 번에 한 편)');
 
+  console.log('대체 보상 (영상을 볼 수 없을 때)');
+  const fb = await page.evaluate(async ()=>{
+    go('screen-home');
+    const before = wallet.eggs;
+    showNumberReward();
+    await new Promise(r=> setTimeout(r, 30));
+    nsYTPlayer.opts.events.onError({ data:150 });   // 퍼가기 금지/삭제된 영상
+    const r = { shown: !!document.querySelector('.ns-gift'), eggs: wallet.eggs - before, screen: currentScreenId() };
+    document.querySelector('.ns-reward-close').click();   // 보호자 확인 없이 바로 닫혀야 함
+    r.closed = currentScreenId() === 'screen-home' && !document.getElementById('parentGateInput');
+    // 오프라인이면 기다리지 않고 바로 대체 보상
+    Object.defineProperty(navigator, 'onLine', { configurable:true, get:()=>false });
+    showNumberReward();
+    r.offline = !!document.querySelector('.ns-gift');
+    document.getElementById('nsGiftHome').click();
+    delete navigator.onLine;
+    r.home = currentScreenId() === 'screen-home';
+    return r;
+  });
+  check(fb.shown && fb.screen === 'screen-numreward' && fb.eggs === 5, '영상 오류 시 알 선물 화면으로 대체 (알 +' + fb.eggs + ')');
+  check(fb.closed, '대체 보상은 보호자 확인 없이 닫힘');
+  check(fb.offline && fb.home, '오프라인이면 바로 대체 보상, 홈으로 버튼 동작');
+
+  console.log('필드 위치 저장 / 꾸미기');
+  // 앞 단계에서 켜졌던 전체화면이 완전히 꺼진 다음에 조작합니다(전환 중에는 마우스 입력이 버려짐)
+  await page.waitForFunction(()=> !document.fullscreenElement);
+  await page.waitForTimeout(400);
+  await page.evaluate(()=> openField('forest'));
+  await page.waitForSelector('#sceneEl .sprite');
+  const grounded = await page.evaluate(()=>{
+    const sc = document.getElementById('sceneEl').getBoundingClientRect();
+    const groundTop = sc.bottom - (440-270) * Math.max(sc.width/800, sc.height/440);
+    return fieldSprites.every(sp=> sp.wrap.getBoundingClientRect().bottom > groundTop);
+  });
+  check(grounded, '숲에서는 모든 친구 발이 땅 위에 있음');
+  // 친구들은 계속 걸어 다녀서, 좌표를 재는 사이 지나가 버리지 않게 잠깐 세워두고 잡습니다
+  await page.evaluate(()=> fieldSprites.forEach(sp=>{ sp.held = true; }));
+  const sp1 = page.locator('#sceneEl .sprite').last();
+  const bb = await sp1.boundingBox();
+  await page.mouse.move(bb.x + bb.width/2, bb.y + bb.height/2); await page.mouse.down();
+  await page.mouse.move(bb.x + bb.width/2 + 150, bb.y + bb.height/2 + 30, { steps:6 }); await page.mouse.up();
+  await page.evaluate(()=> fieldSprites.forEach(sp=>{ sp.held = false; }));
+  // 친구들이 걸어 다니며 겹칠 수 있어서, 실제로 잡힌 친구가 누구든 그 친구의 자리가 저장됐는지 확인
+  const savedPos = await page.evaluate(async ()=>{ await persistChain; const st = await idbGet('state'); const e = Object.entries(st.fieldLayout.forest.pos)[0]; return e ? { uid:e[0], x:e[1].x, y:e[1].y } : null; });
+  check(!!savedPos && savedPos.x > 0 && savedPos.x < 1, '끌어 옮긴 자리가 저장됨');
+  await page.evaluate(()=>{ openPropPicker(); document.querySelector('[data-prop="prop-flower"]').click(); });
+  await page.evaluate(()=> persistChain);
+  await page.reload();
+  await page.waitForFunction(()=> document.querySelectorAll('.char-thumb').length > 0 && fieldLayout.forest.props.length === 1, null, { timeout: 5000 }).catch(()=>{});
+  await page.evaluate(()=> openField('forest'));
+  const restored = await page.evaluate((p)=>{
+    const sp = fieldSprites.find(s=>s.uid===p.uid);
+    return { same: !!sp && Math.abs(sp.anchorLeft / sp.sceneW - p.x) < 0.02, props: document.querySelectorAll('#sceneEl .prop').length };
+  }, savedPos || { uid:'', x:0 });
+  check(restored.same, '다시 열어도 옮긴 자리에 있음');
+  check(restored.props === 1, '놓은 소품이 유지됨');
+  await page.evaluate(()=> go('screen-home'));
+
+  console.log('필드 6곳 (우주 포함)');
+  const fl = await page.evaluate(async ()=>{
+    const out = { ids: FIELD_IDS.slice(), titlesOk: FIELD_IDS.every(f=> !!FIELD_TITLES[f] && !!FIELD_DECOR[f]), problems: [], cards: 0 };
+    renderFieldSelect(); out.cards = document.querySelectorAll('#fieldSelectGrid .field-card').length;
+    for(const f of FIELD_IDS){
+      openField(f); await new Promise(r=> setTimeout(r, 250));
+      const sc = document.getElementById('sceneEl');
+      if(!sc.classList.contains(f)) out.problems.push(f + ':클래스');
+      if(!sc.querySelector('.scene-deco svg')) out.problems.push(f + ':배경');
+      if(sc.querySelectorAll('.sprite').length < 2) out.problems.push(f + ':친구');
+      if(FIELD_GROUND_Y[f]){
+        const r = sc.getBoundingClientRect(), gt = r.bottom - (440 - FIELD_GROUND_Y[f]) * Math.max(r.width/800, r.height/440);
+        if(!fieldSprites.every(sp=> sp.wrap.getBoundingClientRect().bottom > gt)) out.problems.push(f + ':땅 위');
+      }
+      const r2 = await fetch(BGM_SOURCES.field[f], { method:'HEAD' }); if(!r2.ok) out.problems.push(f + ':음악');
+      out[f + 'Night'] = document.getElementById('fieldNightBtn').style.display;
+    }
+    out.persist = FIELD_IDS.every(f=> buildStatePayload().fieldFriendUids[f] && fieldLayout[f] && Array.isArray(fieldLayout[f].props));
+    go('screen-home');
+    return out;
+  });
+  check(fl.ids.length === 6 && fl.ids.includes('space') && fl.titlesOk && fl.cards === 6, `필드 ${fl.ids.length}곳(우주 포함)이 선택 화면에 모두 표시`);
+  check(fl.problems.length === 0, '모든 필드의 배경·친구·땅 위 배치·배경음악 파일이 정상' + (fl.problems.length ? ' (' + fl.problems.join(', ') + ')' : ''));
+  check(fl.spaceNight === 'none' && fl.forestNight === '' && fl.persist, '우주에서는 낮/밤 버튼이 없고, 모든 필드가 저장 구조에 포함됨');
+
+  console.log('알 가게 / 특별한 붓 / 다시보기 / 내 그림');
+  const shop = await page.evaluate(async ()=>{
+    wallet.eggs = 0; wallet.unlocked = {}; saveWallet();
+    const r = { lockedFirst: !isUnlocked('brush-glitter') };
+    pickBrushStyle('glitter'); r.blocked = brushStyle === 'crayon';
+    addEggs(5); tryUnlock('brush-glitter');
+    document.querySelector('#confirmOverlayEl button.alt').click();
+    r.unlocked = isUnlocked('brush-glitter') && wallet.eggs === 0;
+    return r;
+  });
+  check(shop.lockedFirst && shop.blocked && shop.unlocked, '알이 없으면 잠겨 있고, 알 5개로 반짝이 붓을 엶');
+  await page.evaluate(()=> startColoring(getDef('rex')));
+  await page.waitForSelector('#colorCanvasEl', { timeout: 15000 });
+  const pt2 = await page.evaluate(()=>{
+    const a = currentAnalysis, c = document.getElementById('colorCanvasEl').getBoundingClientRect();
+    for(let y=Math.floor(a.h*0.3); y<a.h*0.7; y+=3) for(let x=Math.floor(a.w*0.3); x<a.w*0.7; x+=3){
+      const l = a.labelMap[y*a.w+x];
+      if(l>=0 && l!==a.bgLabel && getRegionMask(a,l).w > 30) return { x: c.left + (x+0.5)/a.w*c.width, y: c.top + (y+0.5)/a.h*c.height };
+    }
+  });
+  for(const st of ['glitter','spray','stamp']){
+    await page.evaluate((st)=>{ wallet.unlocked['brush-'+st] = 1; pickBrushStyle(st); }, st);
+    await page.mouse.move(pt2.x, pt2.y); await page.mouse.down(); await page.mouse.move(pt2.x+10, pt2.y+5, { steps:4 }); await page.mouse.up();
+  }
+  const rp = await page.evaluate(async ()=>{
+    const f = currentForm(); const before = grabPaint(f).data.slice();
+    const n = f.ops.length;
+    replayPainting();
+    const during = !!replayState;
+    await new Promise(r=> setTimeout(r, 1500));
+    const after = grabPaint(f).data;
+    let same = !replayState; for(let i=0;i<before.length;i+=97) if(before[i]!==after[i]){ same = false; break; }
+    return { n, during, same, recent: recentTools.length };
+  });
+  check(rp.n >= 3 && rp.during && rp.same, `특별한 붓 3종으로 칠하고, 다시보기 뒤 그림이 그대로 (기록 ${rp.n}개)`);
+  check(rp.recent >= 1, '최근에 쓴 색이 기억됨');
+  const tpl = await page.evaluate(async ()=>{
+    currentChar.dirty = false; go('screen-home');
+    const c = document.createElement('canvas'); c.width = 300; c.height = 300;
+    const x = c.getContext('2d'); x.fillStyle = '#ccc'; x.fillRect(0,0,300,300);   // 회색빛 종이
+    x.strokeStyle = '#222'; x.lineWidth = 8; x.strokeRect(60,60,180,180); x.beginPath(); x.moveTo(150,60); x.lineTo(150,240); x.stroke();
+    const blob = await new Promise(r=> c.toBlob(r, 'image/png'));
+    await importTemplate(new File([blob], 'mine.png', { type:'image/png' }));
+    const t = customTemplates[0];
+    if(!t) return { ok:false };
+    const an = await loadAndAnalyze(t.id + '_base', t.src);
+    const st = await idbGet('state');
+    return { ok:true, regions: an.regionCount, stored: st.customTemplates.length, shown: !!document.querySelector(`.char-thumb[data-char="${t.id}"]`) };
+  });
+  check(tpl.ok && tpl.regions === 3 && tpl.stored === 1 && tpl.shown, `내 그림을 도안으로 등록 (회색 종이 사진도 영역 ${tpl.regions}개로 분리)`);
+
+  console.log('새 도안: 폴리·로이·엠버·헬리 / 헬리 변신 / 페리');
+  const nd = await page.evaluate(async ()=>{
+    const out = {};
+    for(const [id, form] of [['poli','src'],['roy','src'],['amber','src'],['helly','src'],['helly','vehicleSrc'],['peri','src'],['peri','vehicleSrc']]){
+      const def = getDef(id); const a = await loadAndAnalyze(id + '_' + form + '_t', def[form]);
+      let n = 0; for(let l=0;l<a.regionCount;l++){ if(l===a.bgLabel) continue; const m = getRegionMask(a,l); if(m && m.w > 12 && m.h > 12) n++; }
+      out[id + (form === 'src' ? '' : '_v')] = n;
+    }
+    const peri = getDef('peri');
+    out.periOk = !!peri && peri.franchise === 'gogodino' && voiceFor('peri').gender === 'female' && !!getDef('helly').vehicleSrc;
+    // 예전 도안(ver 1)으로 저장한 폴리를 이어서 칠하면, 어긋난 붓칠 대신 새 종이에서 시작
+    const c = document.createElement('canvas'); c.width = c.height = 50; c.getContext('2d').fillStyle = '#f00'; c.getContext('2d').fillRect(0,0,50,50);
+    await startColoring(getDef('poli'), { uid:'oldpoli', defId:'poli', paintData:{ base: c.toDataURL() } });
+    const d = currentChar.paintCanvas.getContext('2d').getImageData(0,0,50,50).data; let painted = 0; for(let i=3;i<d.length;i+=4) if(d[i]) painted++;
+    out.staleFresh = painted === 0 && currentChar.editingUid === 'oldpoli';
+    currentChar.dirty = false; go('screen-home');
+    return out;
+  });
+  check(['poli','roy','amber','helly','helly_v','peri','peri_v'].every(k=> nd[k] >= 10), '새 도안 7장 모두 칠할 칸이 충분함 (' + Object.entries(nd).filter(([k])=>!/Ok|Fresh/.test(k)).map(([k,v])=>k+':'+v).join(' ') + ')');
+  check(nd.periOk, '페리는 고고다이노 친구 + 여성 목소리, 헬리는 변신 도안 있음');
+  check(nd.staleFresh, '예전 도안으로 칠하던 그림은 어긋나지 않게 새로 칠하기(같은 친구에 덮어쓰기)');
+
+  console.log('새 색칠 친구들');
+  const fr = await page.evaluate(async ()=>{
+    const ids = CHARACTERS.filter(c=>c.franchise==='friends').map(c=>c.id);
+    const out = [];
+    for(const id of ids){
+      const def = getDef(id); const a = await loadAndAnalyze(id + '_base', def.src);
+      let paintable = 0; for(let l=0;l<a.regionCount;l++){ if(l===a.bgLabel) continue; const m = getRegionMask(a,l); if(m && m.w > 12 && m.h > 12) paintable++; }
+      out.push({ id, paintable, bgShare: (()=>{ let n=0; for(let i=0;i<a.labelMap.length;i++) if(a.labelMap[i]===a.bgLabel) n++; return n/a.labelMap.length; })() });
+    }
+    return { ids, out, voices: ids.every(i=> !!voiceFor(i)), thumbs: document.querySelectorAll('.char-thumb[data-char="bear"]').length };
+  });
+  check(fr.ids.length === 10, `새 친구 도안 ${fr.ids.length}종 등록`);
+  check(fr.out.every(o=> o.paintable >= 6 && o.bgShare < 0.9), '새 친구들 모두 칠할 수 있는 칸이 6개 이상 (' + fr.out.map(o=>o.id+':'+o.paintable).join(' ') + ')');
+  check(fr.voices && fr.thumbs === 1, '새 친구들 목소리와 선택 화면 표시');
+
+  console.log('트랙 코스 / 일시정지');
+  const tk = await page.evaluate(async ()=>{
+    trackPrefs.course = '300'; trackPrefs.stars = {};
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const snap = { name:'렉스', vehicleImage: cv.toDataURL('image/png'), uid:'t' };
+    await startTrack(snap);
+    const r = { goal: track.goal };
+    toggleTrackPause(); r.paused = track.paused;
+    const x0 = track.car.chassis.position.x; trackTick(performance.now()+500); cancelAnimationFrame(trackRAF);
+    r.frozen = track.car.chassis.position.x === x0;
+    toggleTrackPause();
+    const eggsBefore = wallet.eggs;
+    track.eggCount = 9; track.maxDist = 300; trackFixedStep();
+    r.finished = track.finished; r.stars = trackPrefs.stars['300']; r.bonus = wallet.eggs - eggsBefore;
+    r.dialog = isDialogOpen();
+    closeDialog(); stopTrack(); go('screen-home');
+    return r;
+  });
+  check(tk.goal === 300 && tk.paused && tk.frozen, '코스 300m, 일시정지 중에는 차가 멈춤');
+  check(tk.finished && tk.stars === 3 && tk.bonus === 6 && tk.dialog, `깃발 도착 시 별 ${tk.stars}개와 보너스 알 ${tk.bonus}개`);
+
+  console.log('공부 확장: 11~20 / 소문자 / 거·고·구 / 이름 / 퀴즈');
+  const ext = await page.evaluate(()=>{
+    const out = []; const inside = (st)=> st.length && st.every(p=> p.length>=2 && p.every(q=> isFinite(q[0]) && isFinite(q[1]) && q[0]>=0 && q[0]<=300 && q[1]>=0 && q[1]<=420));
+    ns.subject = 'number'; ns.settings.rangeMin = 0; ns.settings.rangeMax = 20;
+    STUDY_SUBJECTS.number.keys().forEach(k=>{ ns.current = k; if(!inside(nsGetStrokes())) out.push('n'+k); });
+    const n15 = STUDY_SUBJECTS.number.item(15);
+    ns.settings.rangeMax = 10;
+    ns.subject = 'english'; ns.settings.englishSet = 'lower';
+    STUDY_SUBJECTS.english.keys().forEach(k=>{ ns.current = k; if(!inside(nsGetStrokes())) out.push('e'+k); });
+    const lowerA = STUDY_SUBJECTS.english.item(0).glyph;
+    ns.settings.englishSet = 'upper';
+    ns.subject = 'hangul'; let syl = '';
+    ['syl_eo','syl_o','syl_u'].forEach(set=>{ ns.settings.hangulSet = set; syl += STUDY_SUBJECTS.hangul.item(0).glyph + STUDY_SUBJECTS.hangul.item(13).glyph;
+      STUDY_SUBJECTS.hangul.keys().forEach(k=>{ ns.current = k; if(!inside(nsGetStrokes())) out.push(set+k); }); });
+    ns.settings.hangulSet = 'name'; ns.settings.childName = '';
+    const noName = nsHangulSet();
+    ns.settings.childName = '김율a';
+    const name = STUDY_SUBJECTS.hangul.keys().map(k=> STUDY_SUBJECTS.hangul.item(k).glyph).join('') + ':' + nsRecordKey();
+    ns.settings.hangulSet = 'syllable'; ns.settings.childName = '';
+    return { out, n15: n15.chips.join('').replace(/<[^>]+>/g,' ').trim().replace(/\s+/g,'/'), cnt: n15.count, lowerA, syl, noName, name };
+  });
+  check(ext.out.length === 0, '새 획 데이터(11~20, 소문자, 거·고·구)가 모두 캔버스 안에 있음' + (ext.out.length ? ' ('+ext.out.join(',')+')' : ''));
+  check(ext.n15 === '열다섯/십오' && ext.cnt === 15 && ext.lowerA === 'a', `15는 ${ext.n15}, 소문자 첫 글자 ${ext.lowerA}`);
+  check(ext.syl === '거허고호구후' && ext.noName === 'syllable' && ext.name === '김율:hangul_name', `글자 묶음 ${ext.syl}, 이름 쓰기 ${ext.name}`);
+  await page.evaluate(()=>{ ns.settings.micMode = 'off'; ns.settings.quiz = true; openStudy('hangul'); ns.traceRound = 2; nsGoStage('trace'); });
+  await page.waitForFunction(()=> ns._traceMask && ns._traceMask.length > 0);
+  await page.evaluate(()=>{ const c=document.getElementById('nsDrawCanvas'); const x=c.getContext('2d'); x.lineWidth=22; x.lineCap='round'; x.strokeStyle='#f00'; nsGetStrokes().forEach(p=>{ x.beginPath(); x.moveTo(p[0][0],p[0][1]); p.forEach(q=>x.lineTo(q[0],q[1])); x.stroke(); }); });
+  const fits = await page.evaluate(()=>{ const r = document.getElementById('nsCheckTrace').getBoundingClientRect(); return r.bottom <= window.innerHeight && r.top >= 0; });
+  check(fits, '"다 썼어요" 버튼이 스크롤 없이 화면 안에 보임');
+  await page.click('#nsCheckTrace');
+  check(await page.evaluate(()=> ns.stage) === 'quiz' && await page.locator('.ns-quiz-btn').count() === 3, '세 번 쓰면 듣고 고르기 퀴즈(보기 3개)');
+  const eggsQ = await page.evaluate(()=> wallet.eggs);
+  await page.evaluate(()=>{ const w = Array.from(document.querySelectorAll('.ns-quiz-btn')).find(b=> b.dataset.key !== String(ns.current)); w.click(); });
+  check(await page.evaluate(()=> ns.stage) === 'quiz', '틀린 보기를 누르면 그대로 다시 고르기');
+  await page.evaluate(()=> document.querySelector(`.ns-quiz-btn[data-key="${ns.current}"]`).click());
+  await page.waitForFunction(()=> ns.stage === 'celebrate', null, { timeout: 3000 }).catch(()=>{});
+  check(await page.evaluate(()=> ns.stage) === 'celebrate' && await page.evaluate(()=> wallet.eggs) === eggsQ + 1, '맞히면 칭찬 단계로 가고 알 1개를 받음');
+  await page.evaluate(()=> exitNumberStudy());
+
   console.log('기본 친구 이름 / 캐릭터별 목소리');
   const vt = await page.evaluate(()=>{
     const names = DEFAULT_FIELD_FRIENDS.map(f=>f.name).join(',');
@@ -267,6 +505,25 @@ function check(cond, msg){
   const [rexV, vickyV, amberV, ankiV, yulV] = vt.spoken;
   check(new Set(vt.spoken.map(v=>v.pitch.toFixed(2)+'/'+v.rate.toFixed(2))).size === 5, '캐릭터마다 목소리 높낮이/빠르기가 다름');
   check(vickyV.voice === 'Yuna' && amberV.voice === 'Yuna', '비키·엠버는 여성 음성이 있으면 그 음성 사용');
+  // 율과 온은 확실히 다른 목소리(높낮이 차이 0.5 이상, 빠르기도 다름), 음성이 여러 개면 서로 다른 음성
+  const kids = await page.evaluate(()=>{
+    const OrigU = window.SpeechSynthesisUtterance, origSpeak = speechSynthesis.speak.bind(speechSynthesis), origVoices = speechSynthesis.getVoices.bind(speechSynthesis);
+    const out = [];
+    window.SpeechSynthesisUtterance = function(t){ this.text = t; };
+    speechSynthesis.speak = (u)=> out.push({ pitch:u.pitch, rate:u.rate, voice:u.voice && u.voice.name });
+    speechSynthesis.getVoices = ()=> [ { name:'Ko A', voiceURI:'a', lang:'ko-KR' }, { name:'Ko B', voiceURI:'b', lang:'ko-KR' } ];
+    Object.defineProperty(speechSynthesis, 'speaking', { configurable:true, get:()=>false });
+    Object.defineProperty(speechSynthesis, 'pending', { configurable:true, get:()=>false });
+    voiceGuideOn = true;
+    ['default-kid-1','default-kid-2'].forEach(id=> speak('안녕', voiceFor(id)));
+    speechSynthesis.speak = origSpeak; speechSynthesis.getVoices = origVoices; window.SpeechSynthesisUtterance = OrigU;
+    delete speechSynthesis.speaking; delete speechSynthesis.pending;
+    return out;
+  });
+  check(Math.abs(kids[0].pitch - kids[1].pitch) >= 0.15 && Math.abs(kids[0].rate - kids[1].rate) >= 0.15 && kids[0].voice !== kids[1].voice, `율/온 목소리가 확실히 다름 (높낮이 ${kids[0].pitch.toFixed(2)}/${kids[1].pitch.toFixed(2)}, 속도 ${kids[0].rate.toFixed(2)}/${kids[1].rate.toFixed(2)}, 음성 ${kids[0].voice}/${kids[1].voice})`);
+  check(kids.every(k=> k.pitch >= 0.85 && k.pitch <= 1.25 && k.rate <= 1.15), '목소리 높낮이가 기계음이 되지 않는 자연스러운 범위(0.85~1.25)'); 
+  const lines = await page.evaluate(()=>{ const a = linesFor('default-kid-1','율'), b = linesFor('default-kid-2','온'), g = linesFor('rex','렉스'); return { a:a.length, b:b.length, intro:a[0]+'|'+b[0]+'|'+g[0], uniq: new Set(a.concat(b)).size === a.length + b.length }; });
+  check(lines.a >= 5 && lines.b >= 5 && lines.uniq && lines.intro === '안녕! 나는 율이야|안녕, 나는 온이야|안녕! 나는 렉스야', '율·온 대사가 각각 5개 이상, 첫 줄은 자기소개 (' + lines.intro + ')');
   check(vickyV.pitch > rexV.pitch && amberV.pitch > ankiV.pitch && yulV.pitch > rexV.pitch, '여성/아이 캐릭터는 더 높은 목소리');
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));

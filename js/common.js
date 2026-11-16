@@ -10,6 +10,20 @@
      main.js     - 앱 시작
    ========================================================================= */
 
+// 전체화면(보상 영상) 중에는 전체화면이 된 요소 "안"에 있는 것만 보입니다. 확인창/토스트를
+// 본문(body)에만 붙이면 영상에 가려 보이지 않으므로, 전체화면 요소가 있으면 그 안으로 옮깁니다.
+function overlayParent(el){
+  const parent = document.fullscreenElement || document.body;
+  if(el.parentNode !== parent) parent.appendChild(el);
+}
+document.addEventListener('fullscreenchange', ()=>{
+  ['confirmOverlayEl','toastHost'].forEach(id=>{ const el = document.getElementById(id); if(el) overlayParent(el); });
+});
+
+// 필드(장소) 목록 — 새 필드를 만들 때는 여기와 FIELD_TITLES/FIELD_DECOR(field.js, fields_extra.js)에 추가하면 됩니다.
+const FIELD_IDS = ['forest', 'ocean', 'desert', 'space', 'snow', 'island'];
+const newFieldMap = (make)=> FIELD_IDS.reduce((o, id)=>{ o[id] = make(); return o; }, {});
+
 // ---------------------------------------------------------------- 토스트 알림
 function toast(msg){
   let host = document.getElementById('toastHost');
@@ -18,6 +32,7 @@ function toast(msg){
     host.id = 'toastHost';
     document.body.appendChild(host);
   }
+  overlayParent(host);
   const bubble = document.createElement('div');
   bubble.className = 'toast-bubble';
   bubble.textContent = msg;
@@ -59,6 +74,7 @@ function showChoiceDialog(message, buttons, onPick, opts){
     document.body.appendChild(el);
   }
   el.className = 'confirm-overlay';
+  overlayParent(el);
   if(el._handler){ el.removeEventListener('click', el._handler); el._handler = null; }
   const vertical = opts.vertical || buttons.length > 2;
   el.innerHTML = `
@@ -68,8 +84,12 @@ function showChoiceDialog(message, buttons, onPick, opts){
         ${buttons.map((b,i)=>`<button class="pill ${b.cls||'ghost'}" style="flex:1" data-idx="${i}">${b.label}</button>`).join('')}
       </div>
     </div>`;
-  requestAnimationFrame(()=> el.classList.add('show'));
+  // 창을 띄우자마자 닫는 경우(rAF 전에 닫힘) 나중에 다시 나타나 화면을 가로막지 않도록 열림 번호를 확인합니다.
+  const openId = el._openId = (el._openId || 0) + 1;
+  el._open = true;
+  requestAnimationFrame(()=>{ if(el._open && el._openId === openId) el.classList.add('show'); });
   const close = (val)=>{
+    el._open = false;
     el.classList.remove('show');
     el.removeEventListener('click', handler);
     el._handler = null;
@@ -88,11 +108,12 @@ function showChoiceDialog(message, buttons, onPick, opts){
 }
 function isDialogOpen(){
   const el = document.getElementById('confirmOverlayEl');
-  return !!(el && el.classList.contains('show'));
+  return !!(el && el._open);
 }
 function closeDialog(){
   const el = document.getElementById('confirmOverlayEl');
-  if(!el || !el.classList.contains('show')) return;
+  if(!el || !el._open) return;
+  el._open = false;
   if(el._handler){ el.removeEventListener('click', el._handler); el._handler = null; }
   el.classList.remove('show');
 }
@@ -162,6 +183,95 @@ function celebrate(opts){
   setTimeout(()=> layer.remove(), 2600);
 }
 
+
+// ---------------------------------------------------------------- 공룡알 지갑 / 알 가게
+// 트랙에서 모은 알, 공부모드에서 글자를 끝낼 때 받는 알이 한 지갑에 쌓이고, 그 알로 특별한 붓과
+// 필드 꾸미기 소품을 엽니다(세 모드를 하나로 잇는 수집 요소). 이 기기에만 저장됩니다.
+const WALLET_KEY = 'gogodino_wallet_v1';
+let wallet = { eggs:0, unlocked:{} };
+try{
+  const w = JSON.parse(localStorage.getItem(WALLET_KEY) || 'null');
+  if(w){ wallet.eggs = Math.max(0, parseInt(w.eggs,10) || 0); wallet.unlocked = w.unlocked || {}; }
+}catch(e){}
+function saveWallet(){ try{ localStorage.setItem(WALLET_KEY, JSON.stringify(wallet)); }catch(e){} }
+function updateEggBadges(){
+  document.querySelectorAll('.egg-count').forEach(el=>{ el.textContent = wallet.eggs; });
+}
+function addEggs(n){
+  if(!n) return;
+  wallet.eggs = Math.max(0, wallet.eggs + n);
+  saveWallet();
+  updateEggBadges();
+}
+// cost가 0이면 처음부터 열려 있는 기본 아이템입니다.
+const SHOP_ITEMS = [
+  { id:'brush-glitter', kind:'brush', emoji:'✨', label:'반짝이 붓', cost:5 },
+  { id:'brush-spray',   kind:'brush', emoji:'💨', label:'스프레이', cost:5 },
+  { id:'brush-stamp',   kind:'brush', emoji:'⭐', label:'별 도장', cost:5 },
+  { id:'prop-flower',   kind:'prop', emoji:'🌸', label:'꽃', cost:0 },
+  { id:'prop-ball',     kind:'prop', emoji:'⚽', label:'공', cost:0 },
+  { id:'prop-mushroom', kind:'prop', emoji:'🍄', label:'버섯', cost:3 },
+  { id:'prop-house',    kind:'prop', emoji:'🏠', label:'집', cost:8 },
+  { id:'prop-balloon',  kind:'prop', emoji:'🎈', label:'풍선', cost:3 },
+  { id:'prop-rainbow',  kind:'prop', emoji:'🌈', label:'무지개', cost:8 },
+  { id:'prop-shell',    kind:'prop', emoji:'🐚', label:'조개', cost:3 },
+  { id:'prop-palm',     kind:'prop', emoji:'🌴', label:'야자수', cost:5 },
+  { id:'prop-star',     kind:'prop', emoji:'🌟', label:'별', cost:3 },
+  { id:'prop-rocket',   kind:'prop', emoji:'🚀', label:'로켓', cost:8 },
+  { id:'prop-ufo',      kind:'prop', emoji:'🛸', label:'우주선', cost:8 },
+  { id:'prop-snowman',  kind:'prop', emoji:'⛄', label:'눈사람', cost:3 },
+  { id:'prop-xtree',    kind:'prop', emoji:'🎄', label:'트리', cost:5 },
+  { id:'prop-egg',      kind:'prop', emoji:'🥚', label:'공룡알', cost:3 },
+  { id:'prop-bone',     kind:'prop', emoji:'🦴', label:'뼈다귀', cost:3 },
+  { id:'prop-tent',     kind:'prop', emoji:'⛺', label:'텐트', cost:8 },
+];
+function shopItem(id){ return SHOP_ITEMS.find(i=>i.id===id); }
+function isUnlocked(id){
+  const it = shopItem(id);
+  return !it || it.cost === 0 || !!wallet.unlocked[id];
+}
+// 잠긴 아이템을 누르면: 알이 충분하면 "열까요?" 물어보고, 모자라면 얼마나 더 필요한지 알려줍니다.
+function tryUnlock(id, onDone){
+  const it = shopItem(id);
+  if(!it || isUnlocked(id)){ if(onDone) onDone(); return; }
+  if(wallet.eggs < it.cost){
+    toast(`🥚 알이 ${it.cost - wallet.eggs}개 더 필요해요! 트랙이나 공부에서 모아봐요.`);
+    speak('알이 더 필요해요');
+    return;
+  }
+  showChoiceDialog(`<div style="font-size:44px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div><small>🥚 ${it.cost}개로 열까요? (지금 ${wallet.eggs}개)</small>`, [
+    { label:'아니요', cls:'ghost', value:false },
+    { label:`🥚 ${it.cost}개로 열기`, cls:'alt', value:true },
+  ], (v)=>{
+    if(!v) return;
+    wallet.unlocked[id] = 1;
+    addEggs(-it.cost);
+    celebrate({count:24});
+    speak(it.label + ' 열었어요!');
+    if(onDone) onDone();
+  }, { vertical:false });
+}
+function openEggShop(){
+  const cell = (it)=>{
+    const open = isUnlocked(it.id);
+    return `<button class="shop-cell${open?' open':''}" data-shop="${it.id}" aria-label="${it.label}${open?' (열림)':` 알 ${it.cost}개`}">
+      <span class="em">${it.emoji}</span><span class="nm">${it.label}</span>
+      <span class="ct">${open ? '✔ 열림' : '🥚 ' + it.cost}</span></button>`;
+  };
+  const el = showChoiceDialog(`
+    <div>🥚 알 가게 <span class="egg-pill">🥚 <b class="egg-count">${wallet.eggs}</b></span></div>
+    <small>트랙에서 알을 모으거나 공부를 하면 알이 생겨요.</small>
+    <div class="shop-head">🖍️ 특별한 붓</div>
+    <div class="shop-grid">${SHOP_ITEMS.filter(i=>i.kind==='brush').map(cell).join('')}</div>
+    <div class="shop-head">🎀 필드 꾸미기</div>
+    <div class="shop-grid">${SHOP_ITEMS.filter(i=>i.kind==='prop').map(cell).join('')}</div>`,
+    [{ label:'닫기', cls:'alt', value:true }], null, { wide:true });
+  el.querySelectorAll('[data-shop]').forEach(b=> b.addEventListener('click', ()=>{
+    if(isUnlocked(b.dataset.shop)){ speak(shopItem(b.dataset.shop).label); return; }
+    tryUnlock(b.dataset.shop, ()=> setTimeout(openEggShop, 250));
+  }));
+}
+
 // ---------------------------------------------------------------- 캐릭터 카탈로그
 // prunnnn.com / saegchil.co.kr 에서 받은 실제 고고다이노 도안(로봇 모드).
 // 변신(차량) 모드 도안이 확보되면 vehicleSrc를 추가하면 자동으로 변신 버튼이 켜집니다.
@@ -174,11 +284,25 @@ const CHARACTERS = [
   {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg', franchise:'gogodino'},
   {id:'anki',  name:'안키',  src:'characters/anki.jpg',  vehicleSrc:'characters/anki_v.jpg', franchise:'gogodino'},
   {id:'storm', name:'스톰',  src:'characters/storm.jpg', vehicleSrc:'characters/storm_v.jpg', franchise:'gogodino'},
-  // 로보카폴리 4종 (2026-09-12 추가) - 헬리는 변신(차량) 모드 도안이 따로 없어 vehicleSrc 없음
-  {id:'poli',  name:'폴리',  src:'characters/poli.jpg',  vehicleSrc:'characters/poli_v.jpg', franchise:'robocarpoli'},
-  {id:'roy',   name:'로이',  src:'characters/roy.jpg',   vehicleSrc:'characters/roy_v.jpg',  franchise:'robocarpoli'},
-  {id:'amber', name:'엠버',  src:'characters/amber.jpg', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli'},
-  {id:'helly', name:'헬리',  src:'characters/helly.jpg', franchise:'robocarpoli'},
+  {id:'peri',  name:'페리',  src:'characters/peri.jpg',  vehicleSrc:'characters/peri_v.jpg',  franchise:'gogodino'},
+  // 로보카폴리 4종 - 2026-11-16 보호자가 준 새 기본 모습 도안으로 교체(ver:2), 헬리 변신 도안 추가.
+  // ver: 기본 모습 도안을 바꾸면 숫자를 올립니다. 예전 도안으로 칠하던 그림은 선이 어긋나므로 "이어서 칠하기" 대신 새로 칠합니다.
+  // src 뒤의 ?v= 는 기기/브라우저에 남은 예전 그림 파일 대신 새 파일을 받게 하려는 표시입니다.
+  {id:'poli',  name:'폴리',  src:'characters/poli.jpg?v=2',  vehicleSrc:'characters/poli_v.jpg',  franchise:'robocarpoli', ver:2},
+  {id:'roy',   name:'로이',  src:'characters/roy.jpg?v=2',   vehicleSrc:'characters/roy_v.jpg',   franchise:'robocarpoli', ver:2},
+  {id:'amber', name:'엠버',  src:'characters/amber.jpg?v=2', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli', ver:2},
+  {id:'helly', name:'헬리',  src:'characters/helly.jpg?v=2', vehicleSrc:'characters/helly_v.jpg', franchise:'robocarpoli', ver:2},
+  // 새 친구들 - 이 앱을 위해 직접 그린 오리지널 도안(공룡·탈것·동물). 변신 도안은 없습니다.
+  {id:'titi',      name:'티티',    src:'characters/friend_titi.png',      franchise:'friends'},
+  {id:'ppul',      name:'뿔뿔이',  src:'characters/friend_ppul.png',      franchise:'friends'},
+  {id:'deung',     name:'등등이',  src:'characters/friend_deung.png',     franchise:'friends'},
+  {id:'fire',      name:'부릉이',  src:'characters/friend_fire.png',      franchise:'friends'},
+  {id:'police',    name:'삐뽀',    src:'characters/friend_police.png',    franchise:'friends'},
+  {id:'plane',     name:'슝슝이',  src:'characters/friend_plane.png',     franchise:'friends'},
+  {id:'rocket',    name:'로케',    src:'characters/friend_rocket.png',    franchise:'friends'},
+  {id:'butterfly', name:'나풀이',  src:'characters/friend_butterfly.png', franchise:'friends'},
+  {id:'fish',      name:'퐁퐁이',  src:'characters/friend_fish.png',      franchise:'friends'},
+  {id:'bear',      name:'곰곰이',  src:'characters/friend_bear.png',      franchise:'friends'},
 ];
 
 // 2026-09-12: 사용자가 직접 준 사진 두 장을 "항상 모든 필드(숲/바다/사막)에 기본으로 있는
@@ -191,7 +315,14 @@ const DEFAULT_FIELD_FRIENDS = [
   { uid: 'default-kid-1', name: '율', image: 'characters/default_kid1.webp', aspectRatio: 229/495 },
   { uid: 'default-kid-2', name: '온', image: 'characters/default_kid2.webp', aspectRatio: 558/900 },
 ];
-function getDef(id){ return CHARACTERS.find(c=>c.id===id); }
+// 내 그림 도안: 보호자가 사진/그림 파일을 불러와 등록한 색칠 도안 (기기 안에만 저장, field.js의 저장소 참고)
+let customTemplates = [];   // {id, name, src(dataURL)}
+function getDef(id){
+  const c = CHARACTERS.find(c=>c.id===id);
+  if(c) return c;
+  const t = customTemplates.find(t=>t.id===id);
+  return t ? { id:t.id, name:t.name, src:t.src, franchise:'custom', custom:true } : undefined;
+}
 
 // 캐릭터별 목소리: 같은 기기 음성이라도 높낮이(pitch)와 빠르기(rate)를 다르게 줘서 친구마다
 // 다른 목소리처럼 들리게 합니다(덩치 큰 친구는 낮고 느리게, 작은 친구는 높고 빠르게).
@@ -206,14 +337,39 @@ const CHARACTER_VOICES = {
   poki:  { pitch:1.2,  rate:1.0  },
   anki:  { pitch:0.7,  rate:0.8  },                   // 안키 - 덩치 큰 안킬로사우루스
   storm: { pitch:0.85, rate:1.05 },
+  peri:  { pitch:1.45, rate:0.95, gender:'female' },  // 페리 - 여성 캐릭터
   poli:  { pitch:1.0,  rate:0.9  },
   roy:   { pitch:0.65, rate:0.8  },                   // 로이 - 큰 소방차
   amber: { pitch:1.5,  rate:0.9,  gender:'female' },  // 엠버 - 여성 캐릭터
   helly: { pitch:1.25, rate:1.05 },
-  'default-kid-1': { pitch:1.6,  rate:0.95 },         // 율
-  'default-kid-2': { pitch:1.55, rate:0.9  },         // 온
+  titi:  { pitch:1.1,  rate:1.0  }, ppul:  { pitch:0.9,  rate:0.9  }, deung: { pitch:0.8,  rate:0.85 },
+  fire:  { pitch:0.85, rate:0.95 }, police:{ pitch:1.0,  rate:1.1  }, plane: { pitch:1.15, rate:1.1  },
+  rocket:{ pitch:1.2,  rate:1.15 }, butterfly:{ pitch:1.5, rate:1.0, gender:'female' },
+  fish:  { pitch:1.4,  rate:1.05 }, bear:  { pitch:0.75, rate:0.85 },
+  // 율과 온은 한눈에(한귀에) 구분되도록 높낮이·빠르기를 크게 벌렸습니다.
+  // variant: 기기에 같은 언어 음성이 여러 개 있으면 율은 첫 번째, 온은 두 번째 음성을 씁니다.
+  'default-kid-1': { pitch:1.5,  rate:1.15, variant:0 },  // 율 - 또랑또랑하고 조금 빠르게
+  'default-kid-2': { pitch:1.0,  rate:0.9,  variant:1 },  // 온 - 차분하고 조금 천천히(다른 음성)
 };
 function voiceFor(id){ return CHARACTER_VOICES[id] || null; }
+
+// 캐릭터별 대사: 필드에서 친구를 톡 누를 때마다 돌아가며 말합니다. 첫 번째 줄은 항상 자기소개입니다.
+// (koYa: 필드 스크립트의 받침에 따라 "야/이야"를 고르는 함수 — 실제로 말할 때 불러서 씁니다)
+const CHARACTER_LINES = {
+  'default-kid-1': ['안녕! 나는 율이야', '같이 놀자!', '나 달리기 엄청 빨라!', '우와, 신난다!', '친구야, 나 좀 봐! 폴짝!', '오늘은 뭐 하고 놀까?'],
+  'default-kid-2': ['안녕, 나는 온이야', '나랑 같이 구경할래?', '천천히 같이 걸어가자', '오늘은 기분이 아주 좋아', '여기 꽃이 정말 예쁘다', '같이 놀면 더 재미있어'],
+  poli:  ['안녕! 나는 폴리야', '출동! 안전이 제일 중요해', '도움이 필요하면 불러줘', '우리 모두 안전하게 놀자', '순찰 중이야, 이상 없음!'],
+  roy:   ['안녕! 나는 로이야', '불이 나면 내가 출동할게', '삐뽀삐뽀! 소방차 출동!', '걱정 마, 내가 있잖아', '불조심, 꼭 해야 해!'],
+  amber: ['안녕! 나는 엠버야', '다친 친구는 없니?', '구급차가 달려갑니다', '모두 건강하게 지내자', '아프면 꼭 말해줘'],
+  peri:  ['안녕! 나는 페리야', '다친 친구는 내가 도와줄게', '같이 놀자!', '삐뽀삐뽀, 페리 출동!', '모두 건강하게 지내자'],
+  helly: ['안녕! 나는 헬리야', '프로펠러가 빙글빙글!', '하늘에서 내려다볼까?', '높이높이 날아가자', '위에서 보면 다 보여!'],
+};
+// 대사가 따로 없는 친구(고고다이노 친구들, 새 친구들, 내 그림)는 이름을 넣은 공통 대사를 씁니다.
+function genericLines(name){
+  const ya = (typeof koYa === 'function') ? koYa(name) : '야';
+  return [`안녕! 나는 ${name}${ya}`, '같이 놀자!', `${name}${ya}, 오늘도 힘내자!`, '신나게 달려 볼까?', '우리 다 같이 친구야!', '와, 오늘 날씨가 참 좋다'];
+}
+function linesFor(id, name){ return CHARACTER_LINES[id] || genericLines(name); }
 
 // 만화(프랜차이즈)별 구분용 메타데이터 - 실제 방송사 로고를 그대로 쓰는 대신, 저작권 문제 없이
 // 한눈에 구분되는 색상 배지+이모지 조합을 씁니다. 나중에 진짜 엠블럼 이미지를 갖고 계시면
@@ -221,6 +377,8 @@ function voiceFor(id){ return CHARACTER_VOICES[id] || null; }
 const FRANCHISES = {
   gogodino:    { label:'고고다이노', emoji:'🦖', color:'#2f9e6f', tint:'#eafaf1' },
   robocarpoli: { label:'로보카폴리', emoji:'🚓', color:'#2f7fd1', tint:'#eaf3fc' },
+  friends:     { label:'새 친구들', emoji:'🌈', color:'#e8750c', tint:'#fff1e0' },
+  custom:      { label:'내 그림', emoji:'📷', color:'#a855f7', tint:'#f5edff' },
 };
 
 // ---- 배경음악(BGM) / 효과음(SFX) ----
@@ -228,8 +386,8 @@ const FRANCHISES = {
 // 받아서 넣었고, field(숲/바다/사막)와 track의 엔진음·점프음은 저작권 걱정 없는
 // 자체 제작(합성) 사운드입니다. audio/ 폴더에 실제 파일이 있어야 재생됩니다.
 const BGM_SOURCES = {
-  color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3' },
-  field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3' },
+  color: { gogodino: 'audio/gogodino_ost.mp3', robocarpoli: 'audio/poli_ost.mp3', friends: 'audio/forest_ost.mp3', custom: 'audio/forest_ost.mp3' },
+  field: { forest: 'audio/forest_ost.mp3', ocean: 'audio/ocean_ost.mp3', desert: 'audio/desert_ost.mp3', space: 'audio/space_ost.mp3', snow: 'audio/snow_ost.mp3', island: 'audio/island_ost.mp3' },
   track: { race: 'audio/track_ost.mp3' },
 };
 const BGM_SCREENS = new Set(['screen-color','screen-field','screen-track']);

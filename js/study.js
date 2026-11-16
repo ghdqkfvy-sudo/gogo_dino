@@ -7,8 +7,9 @@
 const NS_STORAGE_KEY = 'gogodino_numstudy_v1';
 const NS_RECORDS_KEY = 'gogodino_study_records_v1';
 // 0은 전통적인 순우리말 수사가 없어서(하나/둘/셋...은 1부터) 비워둡니다 - 화면에는 한자어(영)만 나옵니다.
-const NS_NATIVE_NAMES = ['', '하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉','열'];
-const NS_SINO_NAMES   = ['영','일','이','삼','사','오','육','칠','팔','구','십'];
+const NS_NATIVE_NAMES = ['', '하나','둘','셋','넷','다섯','여섯','일곱','여덟','아홉','열','열하나','열둘','열셋','열넷','열다섯','열여섯','열일곱','열여덟','열아홉','스물'];
+const NS_SINO_NAMES   = ['영','일','이','삼','사','오','육','칠','팔','구','십','십일','십이','십삼','십사','십오','십육','십칠','십팔','십구','이십'];
+const NS_NUMBER_MAX = 20;
 const NS_TRACE_REPEATS = 3;          // 글자 하나당 따라쓰기 반복 횟수
 const NS_TRACE_COVERAGE_PASS = 0.5;  // 안내선의 이 비율 이상을 덧그려야 통과
 const NS_TRACE_PRECISION_PASS = 0.55; // 그린 선 중 이 비율 이상이 안내선 근처여야 통과(마구 문지르기 방지)
@@ -96,6 +97,13 @@ const NS_DIGIT_STROKES = {
   ],
 };
 
+// 11~20: 한 자리 숫자 획 두 개를 작게 줄여 나란히 놓아 만듭니다. 이 숫자들은 글꼴 대신 이 획을
+// 굵게 그려 안내선으로 쓰므로(한글/영어와 같은 방식) 안내선과 쓰는 법이 항상 정확히 겹칩니다.
+function nsTwoDigitStrokes(n){
+  const place = (digit, dx)=> NS_DIGIT_STROKES[digit].map(st=> st.map(([x,y])=>[150 + (x-150)*0.62 + dx, 200 + (y-200)*0.62]));
+  return place(Math.floor(n/10), -58).concat(place(n%10, 58));
+}
+
 // ---------------- 한글/영어 획순 데이터 (같은 300x420 캔버스 좌표계) ----------------
 // 숫자는 실제 글꼴(Jua) 모양을 따라 쓰지만, 한글 자음/영어 대문자는 아이들이 처음 배우는
 // "또박또박 블록체" 모양을 직접 획으로 정의하고, 안내선도 이 획을 굵게 그려서 만듭니다.
@@ -158,21 +166,76 @@ const ENGLISH_ITEMS = [
   { glyph:'Z', ko:'지', word:'Zebra', emoji:'🦓', strokes:[ L([80,95],[220,95],[80,325],[220,325]) ] },
 ];
 
+// 영어 소문자: 기준선 y=325, 작은 글자 윗선 y=185, 긴 글자 윗선 y=95, 아래로 내려가는 꼬리는 y=400까지.
+const ENGLISH_LOWER_STROKES = {
+  a:[ ARC(142,255,58,70,-20,-380), L([200,185],[200,325]) ],
+  b:[ L([95,95],[95,325]), ARC(153,255,58,70,180,540) ],
+  c:[ ARC(155,255,62,70,-40,-320) ],
+  d:[ ARC(142,255,58,70,-20,-380), L([200,95],[200,325]) ],
+  e:[ L([92,255],[208,255]), ARC(150,255,58,70,0,-320) ],
+  f:[ S([205,115],[180,95],[155,105],[145,140],[145,325]), L([105,185],[190,185]) ],
+  g:[ ARC(142,255,58,70,-20,-380), S([200,185],[200,360],[180,395],[145,402],[105,385]) ],
+  h:[ L([95,95],[95,325]), S([95,235],[120,195],[160,185],[195,205],[200,245],[200,325]) ],
+  i:[ L([150,185],[150,325]), L([150,128],[150,136]) ],
+  j:[ S([165,185],[165,360],[150,395],[120,400],[95,385]), L([165,128],[165,136]) ],
+  k:[ L([100,95],[100,325]), L([195,185],[100,265]), L([135,238],[200,325]) ],
+  l:[ L([150,95],[150,325]) ],
+  m:[ L([70,185],[70,325]), S([70,225],[90,192],[125,188],[148,215],[150,325]), S([150,225],[170,192],[205,188],[228,215],[230,325]) ],
+  n:[ L([95,185],[95,325]), S([95,235],[120,195],[160,185],[195,205],[200,245],[200,325]) ],
+  o:[ ARC(150,255,60,70,-90,-450) ],
+  p:[ L([95,185],[95,400]), ARC(153,255,58,70,180,540) ],
+  q:[ ARC(142,255,58,70,-20,-380), L([200,185],[200,400]) ],
+  r:[ L([105,185],[105,325]), S([105,235],[125,200],[160,185],[195,195]) ],
+  s:[ S([190,210],[170,188],[140,185],[112,200],[115,235],[150,255],[185,275],[190,308],[160,326],[125,322],[105,300]) ],
+  t:[ S([145,115],[145,290],[160,322],[195,318]), L([105,185],[190,185]) ],
+  u:[ S([95,185],[95,280],[115,320],[150,325],[185,305],[200,270]), L([200,185],[200,325]) ],
+  v:[ L([90,185],[150,325],[210,185]) ],
+  w:[ L([65,185],[108,325],[150,215],[192,325],[235,185]) ],
+  x:[ L([95,185],[205,325]), L([205,185],[95,325]) ],
+  y:[ L([95,185],[150,315]), L([210,185],[150,315],[115,400]) ],
+  z:[ L([95,185],[205,185],[95,325],[205,325]) ],
+};
+function nsEnglishLower(){ return ns.settings.englishSet === 'lower'; }
+
 // 한글 "가나다라" 버전: 자음 획을 왼쪽에 조금 작게 옮겨 그린 뒤 ㅏ(세로획 → 오른쪽 짧은 가로획)를
 // 붙여서 만듭니다. 자음 획 순서는 위의 자음 데이터를 그대로 따릅니다.
-function nsSyllableStrokes(consonantStrokes){
-  const tf = (st)=>({ kind: st.kind, pts: st.pts.map(([x,y])=>[40 + (x-70)*0.78, 110 + (y-90)*0.8]) });
-  return consonantStrokes.map(tf).concat([ L([215,90],[215,335]), L([215,212],[262,212]) ]);
+function nsSyllableStrokes(consonantStrokes, vowel){
+  vowel = vowel || 'a';
+  // ㅏ/ㅓ: 자음을 왼쪽에 작게, ㅗ/ㅜ: 자음을 위쪽에 납작하게 옮긴 뒤 모음 획을 붙입니다.
+  const side = (st)=>({ kind: st.kind, pts: st.pts.map(([x,y])=>[40 + (x-70)*0.78, 110 + (y-90)*0.8]) });
+  const top = (st)=>({ kind: st.kind, pts: st.pts.map(([x,y])=>[150 + (x-150)*0.8, 60 + (y-72)*0.5]) });
+  if(vowel === 'eo') return consonantStrokes.map(side).concat([ L([174,212],[224,212]), L([224,90],[224,335]) ]);   // ㅓ: 짧은 가로획 → 세로획
+  if(vowel === 'o')  return consonantStrokes.map(top).concat([ L([150,208],[150,268]), L([55,268],[245,268]) ]);     // ㅗ: 짧은 세로획 → 긴 가로획
+  if(vowel === 'u')  return consonantStrokes.map(top).concat([ L([55,228],[245,228]), L([150,228],[150,335]) ]);     // ㅜ: 긴 가로획 → 세로획
+  return consonantStrokes.map(side).concat([ L([215,90],[215,335]), L([215,212],[262,212]) ]);                       // ㅏ: 세로획 → 짧은 가로획
 }
 const HANGUL_SYLLABLE_WORDS = [
   ['가방','🎒'], ['나비','🦋'], ['다람쥐','🐿️'], ['라면','🍜'], ['마늘','🧄'], ['바나나','🍌'], ['사과','🍎'],
   ['아기','👶'], ['자동차','🚗'], ['차','🚙'], ['카메라','📷'], ['타요 버스','🚌'], ['파인애플','🍍'], ['하마','🦛'],
 ];
+const HANGUL_INITIAL_INDEX = [0,2,3,5,6,7,9,11,12,14,15,16,17,18];
 const HANGUL_SYLLABLE_ITEMS = HANGUL_ITEMS.map((c, i)=>({
-  glyph: String.fromCharCode(0xAC00 + [0,2,3,5,6,7,9,11,12,14,15,16,17,18][i] * 588),
+  glyph: String.fromCharCode(0xAC00 + HANGUL_INITIAL_INDEX[i] * 588),
   word: HANGUL_SYLLABLE_WORDS[i][0], emoji: HANGUL_SYLLABLE_WORDS[i][1],
   strokes: nsSyllableStrokes(c.strokes),
 }));
+// 거너더 / 고노도 / 구누두: 같은 자음 14개에 모음만 바꾼 묶음(유니코드 중성 번호 ㅓ=4, ㅗ=8, ㅜ=13).
+const HANGUL_VOWEL_SETS = {
+  syl_eo: { vowel:'eo', medial:4,  label:'거 너 더 러' },
+  syl_o:  { vowel:'o',  medial:8,  label:'고 노 도 로' },
+  syl_u:  { vowel:'u',  medial:13, label:'구 누 두 루' },
+};
+const HANGUL_VARIANT_ITEMS = {};
+Object.entries(HANGUL_VOWEL_SETS).forEach(([key, v])=>{
+  HANGUL_VARIANT_ITEMS[key] = HANGUL_ITEMS.map((c, i)=>({
+    glyph: String.fromCharCode(0xAC00 + HANGUL_INITIAL_INDEX[i] * 588 + v.medial * 28),
+    strokes: nsSyllableStrokes(c.strokes, v.vowel),
+  }));
+});
+// 내 이름 쓰기: 보호자가 설정에 적어둔 이름의 한글 글자들(받침 있는 글자도 가능).
+function nsNameChars(){
+  return Array.from(String(ns.settings.childName || '')).filter(ch=>{ const c = ch.charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3; }).slice(0, 5);
+}
 // 한글 모음 10개(ㅏ~ㅣ). 획순은 국어 교과서 순서: 세로획 모음(ㅏ ㅑ ㅣ)은 세로획 먼저,
 // ㅓ ㅕ는 짧은 가로획 먼저, ㅗ ㅛ는 짧은 세로획 먼저 긋고 긴 가로획, ㅜ ㅠ는 긴 가로획 먼저.
 const HANGUL_VOWEL_ITEMS = [
@@ -191,14 +254,20 @@ const HANGUL_VOWEL_ITEMS = [
 // 한글공부에서 배울 글자 묶음: syllable(가나다라, 기본) / consonant(ㄱㄴㄷ) / vowel(ㅏㅑㅓ)
 function nsHangulSet(){
   const v = ns.settings.hangulSet;
-  return (v === 'consonant' || v === 'vowel') ? v : 'syllable';
+  if(v === 'consonant' || v === 'vowel' || HANGUL_VOWEL_SETS[v]) return v;
+  if(v === 'name' && nsNameChars().length) return 'name';
+  return 'syllable';
 }
 function nsHangulJamoItems(){ return nsHangulSet() === 'vowel' ? HANGUL_VOWEL_ITEMS : HANGUL_ITEMS; }
-// 학습 기록/획 캐시 키 - 한글은 묶음마다 따로 기록합니다(예전 ㄱㄴㄷ 기록은 'hangul' 그대로 유지).
+// 학습 기록/획 캐시 키 - 묶음마다 따로 기록합니다(예전 ㄱㄴㄷ 기록은 'hangul' 그대로 유지).
 function nsRecordKey(){
+  if(ns.subject === 'english') return nsEnglishLower() ? 'english_lower' : 'english';
   if(ns.subject !== 'hangul') return ns.subject;
   const set = nsHangulSet();
-  return set === 'consonant' ? 'hangul' : set === 'vowel' ? 'hangul_vowel' : 'hangul_syllable';
+  if(set === 'consonant') return 'hangul';
+  if(set === 'vowel') return 'hangul_vowel';
+  if(set === 'name') return 'hangul_name';
+  return set === 'syllable' ? 'hangul_syllable' : 'hangul_' + set;
 }
 
 // 공부모드 보상은 과목과 상관없이 같은 화면·같은 영상을 씁니다.
@@ -213,8 +282,17 @@ const STUDY_SUBJECTS = {
     target(){ return Math.max(5, this.keys().length); },
     item(n){
       const native = NS_NATIVE_NAMES[n], sino = NS_SINO_NAMES[n];
+      if(n > 10){
+        return {
+          glyph: String(n), count: n,
+          chips: [`<span class="ns-name-chip">${native}</span>`, `<span class="ns-name-chip alt">${sino}</span>`],
+          speakText: `숫자 ${native}, 또는 ${sino}${nsCopula(sino)}.`, speakLang:'ko-KR',
+          promptWord: nsPickPromptWord(n), quizSay: native,
+          strokes: nsTwoDigitStrokes(n), demoWidth: 8, guideWidth: 24,
+        };
+      }
       return {
-        glyph: String(n), useFontGuide: true,
+        glyph: String(n), useFontGuide: true, count: n, quizSay: native || sino,
         chips: [native ? `<span class="ns-name-chip">${native}</span>` : '', `<span class="ns-name-chip alt">${sino}</span>`],
         // 숫자 자체는 읽지 않고(기기 TTS가 "2."를 제멋대로 읽는 문제) 이름만 읽어줍니다.
         speakText: native ? `숫자 ${native}, 또는 ${sino}${nsCopula(sino)}.` : `숫자 ${sino}${nsCopula(sino)}.`, speakLang:'ko-KR',
@@ -225,12 +303,37 @@ const STUDY_SUBJECTS = {
     },
   },
   hangul: {
-    title:'🇰🇷 한글공부',
-    keys(){ return (nsHangulSet() === 'syllable' ? HANGUL_ITEMS : nsHangulJamoItems()).map((_,i)=>i); },
+    title:'가나다 한글공부',
+    keys(){
+      const set = nsHangulSet();
+      if(set === 'name') return nsNameChars().map((_,i)=>i);
+      return (set === 'vowel' ? HANGUL_VOWEL_ITEMS : HANGUL_ITEMS).map((_,i)=>i);
+    },
     // 묶음을 두 번에 나눠 배움(가나다/자음 14개 → 7개씩, 모음 10개 → 5개씩. 순서 모드는 다음에 이어서)
-    target(){ return Math.ceil(this.keys().length / 2); },
+    target(){ return nsHangulSet() === 'name' ? this.keys().length : Math.ceil(this.keys().length / 2); },
     item(i){
-      if(nsHangulSet() === 'syllable'){
+      const set = nsHangulSet();
+      if(set === 'name'){
+        // 이름 글자는 획순 데이터가 없어서 글꼴 모양을 안내선으로 쓰고, 쓰는 법 애니메이션은 건너뜁니다.
+        const ch = nsNameChars()[i] || nsNameChars()[0];
+        return {
+          glyph: ch, useFontGuide: true, noDemo: true,
+          chips: [`<span class="ns-name-chip">${escapeHtml(ch)}</span>`, `<span class="ns-name-chip alt">✍️ ${escapeHtml(nsNameChars().join(''))}</span>`],
+          speakText: `${ch}. 내 이름 ${nsNameChars().join('')}의 ${ch}${nsCopula(ch)}.`, speakLang:'ko-KR',
+          promptWord: ch, strokes: [],
+        };
+      }
+      if(HANGUL_VOWEL_SETS[set]){
+        const sy = HANGUL_VARIANT_ITEMS[set][i];
+        return {
+          glyph: sy.glyph,
+          chips: [`<span class="ns-name-chip">${sy.glyph}</span>`],
+          speakText: `${sy.glyph}.`, speakLang:'ko-KR',
+          promptWord: sy.glyph,
+          strokes: sy.strokes, demoWidth: 12,
+        };
+      }
+      if(set === 'syllable'){
         const sy = HANGUL_SYLLABLE_ITEMS[i];
         return {
           glyph: sy.glyph,
@@ -256,8 +359,18 @@ const STUDY_SUBJECTS = {
     target(){ return 7; },
     item(i){
       const it = ENGLISH_ITEMS[i];
+      if(nsEnglishLower()){
+        const lo = it.glyph.toLowerCase();
+        return {
+          glyph: lo,
+          chips: [`<span class="ns-name-chip">${it.glyph} ${lo} · ${it.ko}</span>`, `<span class="ns-name-chip alt">${it.emoji} ${it.word}</span>`],
+          speakText: `${it.glyph}. ${it.glyph} is for ${it.word}.`, speakLang:'en-US',
+          promptWord: it.ko, quizSay: it.glyph, quizLang:'en-US',
+          strokes: ENGLISH_LOWER_STROKES[lo], demoWidth: 12,
+        };
+      }
       return {
-        glyph: it.glyph,
+        glyph: it.glyph, quizSay: it.glyph, quizLang:'en-US',
         chips: [`<span class="ns-name-chip">${it.glyph} ${it.glyph.toLowerCase()} · ${it.ko}</span>`, `<span class="ns-name-chip alt">${it.emoji} ${it.word}</span>`],
         speakText: `${it.glyph}. ${it.glyph} is for ${it.word}.`, speakLang:'en-US',
         promptWord: it.ko,
@@ -320,7 +433,7 @@ function nsGetStrokes(){
 
 let ns = {
   subject: 'number',
-  settings: { rangeMin:0, rangeMax:10, micMode:'every', mode:'sequential', hangulSet:'syllable' },
+  settings: { rangeMin:0, rangeMax:10, micMode:'every', mode:'sequential', hangulSet:'syllable', englishSet:'upper', childName:'', quiz:true },
   session: { completed:0 },
   current: null,
   stage: 'reveal',
@@ -353,7 +466,7 @@ function nsSaveSettings(){
 }
 
 // ---- 학습 기록: 과목별로 글자마다 몇 번 끝냈는지 + 마지막으로 배운 글자(순서 모드 이어하기) ----
-let nsRecords = { number:{}, hangul:{}, hangul_syllable:{}, hangul_vowel:{}, english:{}, last:{} };
+let nsRecords = { number:{}, hangul:{}, hangul_syllable:{}, hangul_vowel:{}, english:{}, last:{} };  // 다른 묶음(hangul_syl_eo, english_lower 등)은 처음 배울 때 만들어집니다
 function nsLoadRecords(){
   try{
     const p = JSON.parse(localStorage.getItem(NS_RECORDS_KEY) || 'null');
@@ -446,9 +559,11 @@ function nsGoStage(stage){
   nsStopMic();
   const card = document.getElementById('nsStageCard');
   if(!card) return;
+  card.dataset.stage = stage;
   if(stage==='reveal') card.innerHTML = nsRenderRevealStage();
   else if(stage==='demo') card.innerHTML = nsRenderDemoStage();
   else if(stage==='trace') card.innerHTML = nsRenderTraceStage();
+  else if(stage==='quiz') card.innerHTML = nsRenderQuizStage();
   else if(stage==='celebrate') card.innerHTML = nsRenderCelebrateStage();
   nsWireStage(stage);
 }
@@ -459,8 +574,9 @@ function nsRenderRevealStage(){
   return `
     <div class="ns-number-display">${it.glyph}</div>
     <div class="ns-number-names">${it.chips.join('')}</div>
+    ${it.count ? `<div class="ns-count-row" aria-label="${it.count}개">${Array.from({length:it.count}, (_,k)=>`<span style="animation-delay:${k*70}ms">🥚</span>`).join('')}</div>` : ''}
     <button class="pill alt ns-big-btn" id="nsPlaySound">🔊 소리 듣기 (다시 듣기)</button>
-    <button class="pill ns-big-btn" id="nsToDemo">다음: 쓰는 법 보기 ✏️</button>
+    <button class="pill ns-big-btn" id="nsToDemo">${it.noDemo ? '다음: 써보기 ✍️' : '다음: 쓰는 법 보기 ✏️'}</button>
   `;
 }
 // 음성 이름으로 성별을 짐작합니다(기기마다 이름 규칙이 달라서, 알아볼 수 있는 이름만 맞춤).
@@ -471,11 +587,14 @@ function nsMatchGender(list, gender, nameOf){
   const re = gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE;
   return list.find(v => re.test(nameOf(v) || '')) || null;
 }
-function nsPickVoice(lang, gender){
+function nsPickVoice(lang, gender, variant){
   try{
     const prefix = (lang || 'ko-KR').slice(0,2);
     const voices = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
-    return nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI) || voices[0] || null;
+    const byGender = nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI);
+    if(byGender) return byGender;
+    // 성별 지정이 없으면 캐릭터마다 다른 음성(variant 번째)을 써서 목소리가 더 달라지게 합니다.
+    return voices.length ? voices[(variant || 0) % voices.length] : null;
   }catch(e){ return null; }
 }
 // 안드로이드 웹뷰는 Web Speech API(speechSynthesis)가 아예 없거나 음성 목록이 비어 소리가 안
@@ -488,7 +607,7 @@ function nsNativeTTS(){
 // 기기에 같은 언어 음성이 여러 개면 인터넷 기반(localService:false, 대개 더 자연스러운) 음성을
 // 우선 고릅니다. 목록 조회는 한 번만 하고 결과를 캐시해둡니다.
 let nsNativeVoicesPromise = null;
-function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
+function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender, variant){
   if(!nsNativeVoicesPromise){
     nsNativeVoicesPromise = nativeTTS.getSupportedVoices()
       .then(res => (res && res.voices) || [])
@@ -501,8 +620,9 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
     if(!matched.length) return undefined;
     const byGender = nsMatchGender(matched, gender, v => (v.name || '') + ' ' + (v.voiceURI || ''));
     if(byGender) return byGender.idx;
-    const network = matched.find(v => v.localService === false);
-    return (network || matched[0]).idx;
+    // 인터넷 기반(더 자연스러운) 음성을 앞에 두고, variant 번째 음성을 고릅니다.
+    const ordered = matched.filter(v => v.localService === false).concat(matched.filter(v => v.localService !== false));
+    return ordered[(variant || 0) % ordered.length].idx;
   });
 }
 // 모바일 브라우저(특히 iOS Safari, 안드로이드 크롬)에서 소리가 안 나던 원인들:
@@ -513,16 +633,22 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender){
 //  ③ 문장(utterance) 객체가 말하는 도중 메모리에서 정리되면 소리가 끊김 → 끝날 때까지 붙잡아 둡니다.
 //  ④ iOS는 첫 소리를 반드시 터치 안에서 내야 이후에도 소리가 남 → 첫 터치 때 무음 문장으로 "잠금 해제".
 let nsActiveUtterance = null;
+let nsNoVoiceWarned = false;
 // voice: 캐릭터별 목소리 {pitch, rate, gender} (없으면 기본 안내 목소리)
+// 기기 음성의 높낮이(pitch)를 크게 바꾸면 사람 목소리가 아니라 떨리는 기계음처럼 들립니다.
+// 그래서 캐릭터 설정값(CHARACTER_VOICES)이 극단적이어도 1.0 쪽으로 당겨서 자연스러운 범위
+// (0.85~1.25)에 두고, 친구마다의 차이는 음성 종류(variant)와 말하는 속도(rate)로 더 크게 줍니다.
 function nsVoiceParams(voice){
+  const rate = 0.85 * ((voice && voice.rate) || 1);
+  const pitch = 1 + (((voice && voice.pitch) || 1.05) - 1) * 0.4;
   return {
-    rate: Math.max(0.5, Math.min(1.6, 0.85 * ((voice && voice.rate) || 1))),
-    pitch: Math.max(0.3, Math.min(2, (voice && voice.pitch) || 1.05)),
+    rate: Math.max(0.65, Math.min(1.15, rate)),
+    pitch: Math.max(0.85, Math.min(1.25, pitch)),
   };
 }
 function nsWebSpeakNow(text, lang, charVoice){
   const u = new SpeechSynthesisUtterance(text);
-  const voice = nsPickVoice(lang, charVoice && charVoice.gender);
+  const voice = nsPickVoice(lang, charVoice && charVoice.gender, charVoice && charVoice.variant);
   if(voice) u.voice = voice;
   const vp = nsVoiceParams(charVoice);
   u.lang = lang; u.rate = vp.rate; u.pitch = vp.pitch;
@@ -532,7 +658,7 @@ function nsWebSpeakNow(text, lang, charVoice){
     const reason = e && e.error;
     if(reason === 'interrupted' || reason === 'canceled') return; // 다음 문장으로 넘어가며 끊긴 것은 정상
     if(reason === 'not-allowed') toast('화면을 한 번 누른 뒤 🔊 버튼을 눌러주세요');
-    else if(!voice) toast('이 기기에 해당 언어 음성이 설치되어 있지 않은 것 같아요 🔇');
+    else if(!voice && !nsNoVoiceWarned){ nsNoVoiceWarned = true; toast('이 기기에 해당 언어 음성이 설치되어 있지 않은 것 같아요 🔇'); } // 화면마다 반복하지 않고 한 번만 안내
   };
   nsActiveUtterance = u;
   speechSynthesis.speak(u);
@@ -572,7 +698,7 @@ function nsSpeak(text, lang, charVoice){
   if(nativeTTS){
     try{
       nativeTTS.stop().catch(()=>{});
-      nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender).then(voiceIdx=>{
+      nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender, charVoice && charVoice.variant).then(voiceIdx=>{
         const vp = nsVoiceParams(charVoice || { pitch:1.1 });
         const opts = { text, lang, rate:vp.rate, pitch:vp.pitch, volume:1.0, category:'ambient' };
         if(voiceIdx !== undefined) opts.voice = voiceIdx;
@@ -765,7 +891,10 @@ function nsRenderTraceStage(){
   // 이번 회차에 화면/음성에서 쓸 낱말을 한 번만 뽑아둡니다(둘이 서로 다른 낱말을 말하면 안 되므로).
   ns._promptWord = nsItem().promptWord;
   return `
-    <div class="ns-trace-round">✍️ 따라쓰기 ${ns.traceRound+1} / ${NS_TRACE_REPEATS}</div>
+    <div class="ns-trace-head">
+      <div class="ns-trace-round">✍️ 따라쓰기 ${ns.traceRound+1} / ${NS_TRACE_REPEATS}</div>
+      ${nsItem().noDemo ? '' : '<button class="pill ghost ns-mini-btn" id="nsTraceReplayDemo">🔁 쓰는법 보기</button>'}
+    </div>
     ${gateOn ? `
     <div class="ns-mic-gate" id="nsMicGate">
       <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
@@ -775,14 +904,13 @@ function nsRenderTraceStage(){
       <button class="pill alt ns-big-btn" id="nsMicBtn">🎙️ 말하기 시작</button>
       <div class="ns-mic-hint" id="nsMicHint"></div>
     </div>` : ''}
-    <button class="pill ghost ns-big-btn" id="nsTraceReplayDemo">🔁 쓰는법 다시보기</button>
     <div class="ns-trace-wrap" id="nsTraceWrap" style="${gateOn?'opacity:.35; pointer-events:none;':''}">
       <canvas id="nsGuideCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <canvas id="nsDrawCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}"></canvas>
       <canvas id="nsTraceDemoCanvas" width="${NS_DEMO_CANVAS_W}" height="${NS_DEMO_CANVAS_H}" style="position:absolute; top:0; left:0; opacity:0; pointer-events:none; transition:opacity .2s;"></canvas>
       <div class="ns-pencil" id="nsTracePencil">${NS_PENCIL_SVG}</div>
     </div>
-    <div class="action-row">
+    <div class="action-row ns-trace-actions">
       <button class="pill ghost ns-action-btn" id="nsClearTrace">↩️ 지우고 다시</button>
       <button class="pill alt ns-action-btn" id="nsCheckTrace">✅ 다 썼어요!</button>
     </div>
@@ -817,7 +945,7 @@ function nsRenderStrokeGuide(ctx){
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.strokeStyle = 'rgba(46,35,80,.2)';
-  ctx.lineWidth = 34;
+  ctx.lineWidth = nsItem().guideWidth || 34;
   nsGetStrokes().forEach(pts=>{
     ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
     for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0], pts[i][1]);
@@ -951,7 +1079,7 @@ function nsWireTraceStage(){
         nsMarkLearned();
         updateNsProgress();
         renderNsStickers();
-        nsGoStage('celebrate');
+        nsGoStage(nsQuizAvailable() ? 'quiz' : 'celebrate');
       } else {
         toast(`좋아요! (${Math.round(coverage*100)}%) 한 번 더 써볼까요!`);
         nsGoStage('trace');
@@ -1061,6 +1189,46 @@ function nsStopMic(){
   if(ns._micCtx){ try{ ns._micCtx.close(); }catch(e){} ns._micCtx = null; }
 }
 
+// ---------------- 듣고 고르기 퀴즈: 방금 배운 글자를 소리로 듣고 셋 중에서 고릅니다 ----------------
+function nsQuizAvailable(){
+  return ns.settings.quiz !== false && nsSubject().keys().length >= 3;
+}
+function nsQuizSpeak(){
+  const it = nsItem();
+  if(it.quizLang === 'en-US'){ nsSpeak(it.quizSay, 'en-US'); return; }
+  const word = it.quizSay || it.promptWord || it.glyph;
+  nsSpeak(`${word}! 어느 것일까요?`, 'ko-KR');
+}
+function nsRenderQuizStage(){
+  const subj = nsSubject();
+  const others = subj.keys().filter(k=> k !== ns.current && subj.item(k).glyph !== nsItem().glyph);
+  const picks = [];
+  while(picks.length < 2 && others.length) picks.push(others.splice(Math.floor(Math.random()*others.length), 1)[0]);
+  const choices = picks.concat([ns.current]).sort(()=> Math.random() - 0.5);
+  return `
+    <div class="ns-trace-round">👂 잘 듣고 골라봐요</div>
+    <button class="pill alt ns-big-btn" id="nsQuizListen">🔊 다시 듣기</button>
+    <div class="ns-quiz-row">
+      ${choices.map(k=>`<button class="ns-quiz-btn" data-key="${k}">${escapeHtml(subj.item(k).glyph)}</button>`).join('')}
+    </div>`;
+}
+function nsWireQuizStage(){
+  document.getElementById('nsQuizListen').addEventListener('click', nsQuizSpeak);
+  document.querySelectorAll('.ns-quiz-btn').forEach(b=> b.addEventListener('click', ()=>{
+    if(String(ns.current) === b.dataset.key){
+      b.classList.add('right');
+      playChime('coin');
+      document.querySelectorAll('.ns-quiz-btn').forEach(x=>{ x.disabled = true; });
+      setTimeout(()=>{ if(nsIsActive() && ns.stage === 'quiz') nsGoStage('celebrate'); }, 650);
+    } else {
+      b.classList.add('wrong'); b.disabled = true;
+      playChime('pop');
+      nsQuizSpeak();
+    }
+  }));
+  nsQuizSpeak();
+}
+
 // ---------------- 4단계: 칭찬 → 다음 글자 ----------------
 const NS_PRAISES = ['참 잘했어요!', '최고예요!', '멋져요!', '대단해요!'];
 let nsCelebrateTimer = null;
@@ -1069,14 +1237,14 @@ function nsRenderCelebrateStage(){
   return `
     <div class="ns-celebrate-emoji">🎉</div>
     <b style="font-family:'Jua'; font-size:24px;">${ns._praise}</b>
-    <div class="sub" style="margin:0;">${nsItem().glyph} 완성! ⭐ 스티커를 받았어요</div>
+    <div class="sub" style="margin:0;">${escapeHtml(nsItem().glyph)} 완성! ⭐ 스티커와 🥚 알 하나를 받았어요</div>
   `;
 }
 
 function nsWireStage(stage){
   if(stage==='reveal'){
     document.getElementById('nsPlaySound').addEventListener('click', nsSpeakNumber);
-    document.getElementById('nsToDemo').addEventListener('click', ()=> nsGoStage('demo'));
+    document.getElementById('nsToDemo').addEventListener('click', ()=>{ if(nsItem().noDemo){ ns.traceRound = 0; nsGoStage('trace'); } else nsGoStage('demo'); });
     nsSpeakNumber();
   } else if(stage==='demo'){
     document.getElementById('nsReplayDemo').addEventListener('click', nsPlayDemo);
@@ -1084,8 +1252,11 @@ function nsWireStage(stage){
     nsPlayDemo();
   } else if(stage==='trace'){
     nsWireTraceStage();
+  } else if(stage==='quiz'){
+    nsWireQuizStage();
   } else if(stage==='celebrate'){
     celebrate();
+    addEggs(1);
     nsSpeak(ns._praise, 'ko-KR');
     clearTimeout(nsCelebrateTimer);
     nsCelebrateTimer = setTimeout(()=> nsNextNumber(), 1900);
@@ -1094,11 +1265,13 @@ function nsWireStage(stage){
 
 // ---------------- 설정(범위 · 순서 · 마이크 확인) ----------------
 function openNumStudySettings(){
-  const rangeOptions = (selected)=> Array.from({length:11},(_,i)=>`<option value="${i}" ${i===selected?'selected':''}>${i}</option>`).join('');
+  const rangeOptions = (selected)=> Array.from({length:NS_NUMBER_MAX+1},(_,i)=>`<option value="${i}" ${i===selected?'selected':''}>${i}</option>`).join('');
   const mode = ns.settings.mode === 'random' ? 'random' : 'sequential';
   const mic = ['every','once','off'].includes(ns.settings.micMode) ? ns.settings.micMode : 'every';
   const isNumber = ns.subject === 'number';
   const isHangul = ns.subject === 'hangul';
+  const isEnglish = ns.subject === 'english';
+  const prevKey = nsRecordKey();
   const hset = nsHangulSet();
   showChoiceDialog(`
       <div>⚙️ ${nsSubject().title.replace(/^\S+\s/,'')} 설정</div>
@@ -1109,13 +1282,22 @@ function openNumStudySettings(){
         <span>~</span>
         <select id="nsMax">${rangeOptions(ns.settings.rangeMax)}</select>
       </div>
-      <div class="ns-settings-note">※ 지금은 0~10까지 배울 수 있어요.</div>` : ''}
+      <div class="ns-settings-note">※ 0~20까지 배울 수 있어요. 11부터는 두 자리 숫자예요.</div>` : ''}
       ${isHangul ? `
       <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
         <label style="font-weight:700;">배울 글자</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="syllable" ${hset==='syllable'?'checked':''}> 가 나 다 라 (글자)</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="consonant" ${hset==='consonant'?'checked':''}> ㄱ ㄴ ㄷ ㄹ (자음)</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="vowel" ${hset==='vowel'?'checked':''}> ㅏ ㅑ ㅓ ㅕ (모음)</label>
+        ${Object.entries(HANGUL_VOWEL_SETS).map(([k,v])=>`<label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="${k}" ${hset===k?'checked':''}> ${v.label} (글자)</label>`).join('')}
+        <label class="ns-settings-toggle"><input type="radio" name="nsHangulSet" value="name" ${hset==='name'?'checked':''}> 내 이름 쓰기</label>
+        <input type="text" id="nsChildName" class="ns-name-input" maxlength="5" placeholder="아이 이름 (한글)" value="${escapeHtml(ns.settings.childName || '')}" aria-label="아이 이름">
+      </div>` : ''}
+      ${isEnglish ? `
+      <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
+        <label style="font-weight:700;">배울 글자</label>
+        <label class="ns-settings-toggle"><input type="radio" name="nsEnglishSet" value="upper" ${!nsEnglishLower()?'checked':''}> A B C (대문자)</label>
+        <label class="ns-settings-toggle"><input type="radio" name="nsEnglishSet" value="lower" ${nsEnglishLower()?'checked':''}> a b c (소문자)</label>
       </div>` : ''}
       <div class="ns-settings-row" style="flex-direction:column; align-items:flex-start; gap:8px; margin-top:12px;">
         <label style="font-weight:700;">순서</label>
@@ -1127,6 +1309,9 @@ function openNumStudySettings(){
         <label class="ns-settings-toggle"><input type="radio" name="nsMic" value="every" ${mic==='every'?'checked':''}> 매번</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsMic" value="once" ${mic==='once'?'checked':''}> 글자마다 한 번만</label>
         <label class="ns-settings-toggle"><input type="radio" name="nsMic" value="off" ${mic==='off'?'checked':''}> 끄기</label>
+      </div>
+      <div class="ns-settings-row" style="justify-content:flex-start; margin-top:12px;">
+        <label class="ns-settings-toggle"><input type="checkbox" id="nsQuizToggle" ${ns.settings.quiz!==false?'checked':''}> 👂 듣고 고르기 퀴즈</label>
       </div>`,
     [{ label:'닫기', cls:'ghost', value:false }, { label:'저장', cls:'alt', value:true }],
     (v)=>{
@@ -1141,18 +1326,29 @@ function openNumStudySettings(){
       ns.settings.mode = modeInput ? modeInput.value : 'sequential';
       const micInput = document.querySelector('input[name="nsMic"]:checked');
       ns.settings.micMode = micInput ? micInput.value : 'every';
-      let hangulSetChanged = false;
       if(isHangul){
+        const nameInput = document.getElementById('nsChildName');
+        if(nameInput) ns.settings.childName = nameInput.value.trim().slice(0, 5);
         const setInput = document.querySelector('input[name="nsHangulSet"]:checked');
-        const next = setInput ? setInput.value : 'syllable';
-        hangulSetChanged = next !== hset;
-        ns.settings.hangulSet = next;
+        ns.settings.hangulSet = setInput ? setInput.value : 'syllable';
+        if(ns.settings.hangulSet === 'name' && !nsNameChars().length){
+          ns.settings.hangulSet = 'syllable';
+          toast('이름을 한글로 적어주세요.');
+        }
       }
+      if(isEnglish){
+        const eInput = document.querySelector('input[name="nsEnglishSet"]:checked');
+        ns.settings.englishSet = eInput && eInput.value === 'lower' ? 'lower' : 'upper';
+      }
+      const quizInput = document.getElementById('nsQuizToggle');
+      ns.settings.quiz = quizInput ? quizInput.checked : true;
       nsSaveSettings();
-      if(hangulSetChanged){
+      const nameEdited = isHangul && nsHangulSet() === 'name';
+      if(nsRecordKey() !== prevKey || nameEdited){
         // 글자 묶음을 바꾸면 그 묶음에서 지난번에 배운 다음 글자부터 새로 시작합니다.
+        nsStrokePathCache.clear();
         const last = nsRecords.last[nsRecordKey()];
-        ns.current = (last === undefined) ? null : last;
+        ns.current = (last === undefined || nameEdited) ? null : last;
         ns.session = { completed:0 };
         nsNextNumber();
       }
@@ -1183,7 +1379,7 @@ function nsLoadYouTubeAPI(cb){
     const tag = document.createElement('script');
     tag.id = 'nsYtApiScript';
     tag.src = 'https://www.youtube.com/iframe_api';
-    tag.onerror = ()=>{ nsYTApiLoading = false; toast('영상을 불러오지 못했어요. 인터넷 연결을 확인해주세요.'); };
+    tag.onerror = ()=>{ nsYTApiLoading = false; tag.remove(); if(nsIsRewardActive()) showRewardFallback(); };
     document.head.appendChild(tag);
   }
 }
@@ -1194,14 +1390,58 @@ function nsTryFullscreen(el){
     if(req) Promise.resolve(req.call(el)).catch(()=>{}); // 실패해도 조용히 무시(영상은 이미 화면을 꽉 채움)
   }catch(e){}
 }
+// 전체화면 전환은 조금 뒤에 끝나므로, 그 사이 보상 화면을 이미 닫았거나 대체 보상으로 바뀌었다면
+// (숨겨진 화면이 전체화면을 차지해 터치가 먹지 않는 일이 없도록) 곧바로 전체화면을 끕니다.
+document.addEventListener('fullscreenchange', ()=>{
+  if(document.fullscreenElement && (!nsIsRewardActive() || nsRewardFallback)){
+    try{ Promise.resolve(document.exitFullscreen()).catch(()=>{}); }catch(e){}
+  }
+});
 function nsSetRewardPaused(paused){
   const tap = document.getElementById('nsRewardTap');
   if(tap) tap.classList.toggle('paused', !!paused);
+}
+// ---- 대체 보상: 영상을 틀 수 없을 때(오프라인, 영상 삭제/차단, 응답 없음) ----
+// 예전엔 토스트만 뜨고 검은 화면에 갇혀서, 보호자 덧셈 문제를 풀어야만 나갈 수 있었습니다.
+// 이제는 영상 대신 공룡알 선물 + 친구들의 축하 춤을 보여주고, 버튼 하나로(또는 잠시 뒤 자동으로)
+// 홈으로 돌아갑니다.
+const NS_FALLBACK_EGGS = 5;
+let nsRewardFallback = false;
+let nsRewardWatchdog = null, nsRewardAutoClose = null;
+function showRewardFallback(){
+  if(nsRewardFallback || !nsIsRewardActive()) return;
+  nsRewardFallback = true;
+  clearTimeout(nsRewardWatchdog);
+  if(nsYTPlayer){ try{ nsYTPlayer.destroy(); }catch(e){} nsYTPlayer = null; }
+  if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
+  closeDialog();
+  const host = document.getElementById('nsRewardVideoHost');
+  if(!host) return;
+  const friends = savedCharacters.slice(-5).map(s=>s.image);
+  const dancers = friends.length
+    ? friends.map((src,i)=>`<img src="${src}" alt="" style="animation-delay:${i*0.15}s">`).join('')
+    : ['🦖','🦕','🚓','🚒','🚁'].map((e,i)=>`<span style="animation-delay:${i*0.15}s">${e}</span>`).join('');
+  document.getElementById('nsRewardTitle').textContent = '🎁 선물이 도착했어요!';
+  host.innerHTML = `
+    <div class="ns-gift">
+      <div class="ns-gift-eggs">${'🥚'.repeat(NS_FALLBACK_EGGS)}</div>
+      <b>공룡알 ${NS_FALLBACK_EGGS}개를 받았어요!</b>
+      <div class="ns-gift-dance">${dancers}</div>
+      <small>지금은 영상을 볼 수 없어서 선물을 대신 준비했어요.</small>
+      <button class="pill alt ns-big-btn" id="nsGiftHome">🏠 홈으로</button>
+    </div>`;
+  document.getElementById('nsGiftHome').addEventListener('click', closeNumberReward);
+  addEggs(NS_FALLBACK_EGGS);
+  celebrate({count:70});
+  nsSpeak('참 잘했어요! 공룡알 선물을 받았어요!', 'ko-KR');
+  nsRewardAutoClose = setTimeout(()=>{ if(nsIsRewardActive() && nsRewardFallback) closeNumberReward(); }, 15000);
 }
 function showNumberReward(){
   const pick = nsPickReward();
   const host = document.getElementById('nsRewardVideoHost');
   if(!host) return;
+  nsRewardFallback = false;
+  clearTimeout(nsRewardWatchdog); clearTimeout(nsRewardAutoClose);
   document.getElementById('nsRewardTitle').textContent = NS_REWARD_TITLE;
   host.innerHTML = '<div id="nsYtPlayerEl"></div><button class="ns-reward-tap paused" id="nsRewardTap" aria-label="재생/일시정지"></button>';
   document.getElementById('nsRewardTap').addEventListener('click', ()=>{
@@ -1211,6 +1451,9 @@ function showNumberReward(){
   });
   go('screen-numreward');
   celebrate({count:60});
+  // 인터넷이 끊겨 있으면 기다리지 않고 바로, 연결돼 있어도 12초 안에 플레이어가 준비되지 않으면 대체 보상.
+  if(navigator.onLine === false){ showRewardFallback(); return; }
+  nsRewardWatchdog = setTimeout(showRewardFallback, 12000);
   nsLoadYouTubeAPI(()=>{
     if(!nsIsRewardActive()) return; // API 로딩 중에 이미 닫았으면 재생하지 않음
     try{
@@ -1222,10 +1465,14 @@ function showNumberReward(){
         playerVars: { autoplay:1, rel:0, playsinline:1, modestbranding:1, controls:0, disablekb:1, fs:0, iv_load_policy:3 },
         events: {
           onReady: (e)=>{
+            clearTimeout(nsRewardWatchdog);
             if(pick.list) e.target.loadPlaylist({ list: pick.list, listType:'playlist', index: pick.index });
             else e.target.playVideo();
-            nsTryFullscreen(host);
+            // 영상 칸만 전체화면으로 만들면 ✕ 버튼이 가려져서, ✕ 버튼까지 포함한 바깥 상자를 전체화면으로 만듭니다.
+            nsTryFullscreen(host.closest('.ns-reward-wrap') || host);
           },
+          // 영상이 삭제됐거나 퍼가기가 막혀 재생할 수 없는 경우
+          onError: ()=> showRewardFallback(),
           onStateChange: (e)=>{
             if(e.data === YT.PlayerState.ENDED){ closeNumberReward(); return; }
             if(pick.list && e.data === YT.PlayerState.PLAYING && e.target.getPlaylistIndex){
@@ -1240,11 +1487,7 @@ function showNumberReward(){
       if(pick.videoId) playerOpts.videoId = pick.videoId;
       nsYTPlayer = new YT.Player('nsYtPlayerEl', playerOpts);
     }catch(e){
-      // API 생성이 실패해도 최소한 영상은 보이도록 예전 방식의 iframe으로 대체합니다.
-      const src = pick.list
-        ? `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(pick.list)}&index=${pick.index}&autoplay=1&rel=0&playsinline=1`
-        : `https://www.youtube.com/embed/${pick.videoId}?autoplay=1&rel=0&playsinline=1`;
-      host.innerHTML = `<iframe src="${src}" title="고고다이노 공룡탐험대" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+      showRewardFallback();
     }
   });
 }
@@ -1270,10 +1513,13 @@ function parentGate(onPass, reason){
   setTimeout(()=>{ const i = el.querySelector('#parentGateInput'); if(i) i.focus(); }, 80);
 }
 function requestCloseReward(){
+  if(nsRewardFallback){ closeNumberReward(); return; }   // 대체 보상 화면은 보호자 확인 없이 바로 닫힘
   if(isDialogOpen()) return;
   parentGate(closeNumberReward, '영상을 끝까지 보면 자동으로 홈으로 돌아가요. 지금 나가려면 답을 입력해주세요.');
 }
 function closeNumberReward(){
+  clearTimeout(nsRewardWatchdog); clearTimeout(nsRewardAutoClose);
+  nsRewardFallback = false;
   if(nsYTPlayer){ try{ nsYTPlayer.destroy(); }catch(e){} nsYTPlayer = null; }
   if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
   closeDialog();
@@ -1293,9 +1539,13 @@ function openParentHelp(){
       <div class="help-list">
         <div>🖍️ <b>크레용</b>은 문지른 자리만, <b>채우기</b>는 누른 부위 전체를 칠해요. 어느 쪽이든 선 밖으로는 번지지 않아요. ↶/↷로 되돌릴 수 있어요.</div>
         <div>🎨 <b>문양</b>도 색과 똑같이 칠해지고, 작은 무늬가 반복돼 원단처럼 보여요.</div>
-        <div>🔄 헬리를 뺀 모든 친구는 <b>변신</b> 도안이 있어요. 변신 도안을 칠해서 저장한 친구는 트랙 모드에서 달릴 수 있어요.</div>
-        <div>🌲 필드의 친구를 톡 누르면 인사하고, 끌면 자리를 옮겨요.</div>
-        <div>📚 공부모드는 정해진 개수를 끝내면 고고다이노 영상이 나와요. 영상 중간에 나가려면 보호자 확인이 필요해요.</div>
+        <div>🔄 고고다이노·로보카폴리 친구들은 모두 <b>변신</b> 도안이 있어요. 변신 도안을 칠해서 저장한 친구는 트랙 모드에서 달릴 수 있어요. 🌈 새 친구들은 변신 없이 색칠만 해요.</div>
+        <div>🗺️ 필드는 숲속·바닷속·사막·우주·눈나라·공룡섬 6곳이에요.</div>
+        <div>🌲 필드의 친구를 톡 누르면 인사하고, 끌어서 옮긴 자리는 기억돼요. 🎀로 소품을 놓고 🌙로 밤낮을 바꾸고 📸로 사진을 찍어요.</div>
+        <div>🥚 트랙에서 모은 알과 공부로 받은 알은 홈 화면 🥚 알 가게에서 특별한 붓·소품을 여는 데 써요.</div>
+        <div>🏁 트랙은 깃발까지 가는 코스(별 1~3개)와 끝없이 달리기를 고를 수 있어요.</div>
+        <div>📷 색칠하기 맨 아래 "내 그림 불러오기"로 직접 그린 선 그림이나 도안 사진을 넣을 수 있어요.</div>
+        <div>📚 공부모드는 정해진 개수를 끝내면 고고다이노 영상이 나와요(영상을 볼 수 없으면 알 선물). ⚙️ 설정에서 숫자 0~20, 거·고·구 글자, 영어 소문자, 내 이름 쓰기, 퀴즈를 고를 수 있어요.</div>
         <div>💾 그림은 이 기기 안에만 저장돼요 (${usage}). 📤 버튼으로 사진/공유로 내보낼 수 있어요.</div>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px; font-size:14px;">

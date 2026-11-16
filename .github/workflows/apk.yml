@@ -1,0 +1,44 @@
+name: apk
+# 안드로이드 APK(디버그 서명)를 만들어 Actions 결과물(artifact)로 올립니다.
+# 수동 실행(Run workflow)하거나, 앱/빌드 관련 파일이 바뀐 PR에서 자동으로 돌아갑니다.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'scripts/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - '.github/workflows/apk.yml'
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      # ubuntu 러너에는 안드로이드 SDK가 이미 설치돼 있습니다. 라이선스 동의와 필요한 플랫폼만 확인합니다.
+      - name: Android SDK 준비
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort | tail -1)"
+          echo "sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+      - run: npm install
+      - run: npm run android:sync
+      - run: ./gradlew assembleDebug
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gogodino-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

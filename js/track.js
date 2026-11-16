@@ -31,12 +31,24 @@ function trackSeededRandom(seed){
 const TRACK_THEMES = {
   forest: { label:'🌲 숲길',   sky:['#bfe9ff','#eaf9ff'], sun:'#fff2c4', hills:['#bfe0c9','#9fd0ac'], ground:['#8fd48a','#4fae5f','#284f2c'], edge:'#2a6b3c', dust:'214,199,168' },
   ocean:  { label:'🌊 바닷가', sky:['#9fe3f5','#e6fbff'], sun:'#fff8de', hills:['#7fd0e6','#2fb8cf'], ground:['#f5e2b0','#e0c27f','#a8874a'], edge:'#b8975a', dust:'240,226,190' },
+  snow:   { label:'❄️ 눈길',   sky:['#8fb4e8','#eef6ff'], sun:'#fffbe6', hills:['#cfe0f4','#b3cbe8'], ground:['#ffffff','#dfecf9','#9fbad8'], edge:'#8fb0d6', dust:'240,248,255' },
+  space:  { label:'🚀 달나라', sky:['#070a36','#3a2a86'], sun:'#e8ebf8', hills:['#5a5f88','#7d82a2'], ground:['#b9bfd6','#8b90ab','#555a7a'], edge:'#6a6f8f', dust:'200,205,225' },
+  island: { label:'🌋 공룡섬', sky:['#ff9a6b','#fff0c9'], sun:'#fff3c4', hills:['#7a4a3a','#4a8a50'], ground:['#6cc063','#3f9650','#1d5a30'], edge:'#2c7a3e', dust:'120,170,100' },
   desert: { label:'🏜️ 사막',   sky:['#ffe2a8','#fff5dc'], sun:'#fff1c4', hills:['#f3cf94','#e3ab6c'], ground:['#f0c982','#e0ad63','#a9713a'], edge:'#a9713a', dust:'230,196,140' },
 };
 const TRACK_PREFS_KEY = 'gogodino_track_v1';
-let trackPrefs = { theme:'forest', bestDist:0, bestEggs:0 };
+let trackPrefs = { theme:'forest', bestDist:0, bestEggs:0, course:'300', stars:{} };
+// 코스: 깃발(결승선)까지 가면 끝나는 짧은 코스 2종 + 예전처럼 끝없이 달리기.
+// star2/star3 = 별 2개/3개를 받는 데 필요한 알 개수(결승선에 도착하면 별 1개는 항상 받음).
+const TRACK_COURSES = {
+  '300':  { label:'🏁 짧은 코스', goal:300, star2:5,  star3:8 },
+  '600':  { label:'🏁 긴 코스',   goal:600, star2:10, star3:16 },
+  'free': { label:'♾️ 끝없이',    goal:0 },
+};
 try{ Object.assign(trackPrefs, JSON.parse(localStorage.getItem(TRACK_PREFS_KEY) || '{}')); }catch(e){}
 if(!TRACK_THEMES[trackPrefs.theme]) trackPrefs.theme = 'forest';
+if(!TRACK_COURSES[trackPrefs.course]) trackPrefs.course = '300';
+if(!trackPrefs.stars || typeof trackPrefs.stars !== 'object') trackPrefs.stars = {};
 function saveTrackPrefs(){ try{ localStorage.setItem(TRACK_PREFS_KEY, JSON.stringify(trackPrefs)); }catch(e){} }
 
 function openTrackPick(){
@@ -52,6 +64,14 @@ function renderTrackThemeRow(){
     trackPrefs.theme = b.dataset.theme; saveTrackPrefs(); renderTrackThemeRow();
     speak(TRACK_THEMES[b.dataset.theme].label.replace(/^\S+\s/, ''));
   }));
+  const crow = document.getElementById('trackCourseRow');
+  const starText = (n)=> '⭐'.repeat(n) + '☆'.repeat(3-n);
+  crow.innerHTML = Object.entries(TRACK_COURSES).map(([id,c])=>
+    `<button class="theme-chip${trackPrefs.course===id?' active':''}" role="radio" aria-checked="${trackPrefs.course===id}" data-course="${id}">${c.label}${c.goal?` ${c.goal}m <span class="stars">${starText(trackPrefs.stars[id]||0)}</span>`:''}</button>`).join('');
+  crow.querySelectorAll('.theme-chip').forEach(b=> b.addEventListener('click', ()=>{
+    trackPrefs.course = b.dataset.course; saveTrackPrefs(); renderTrackThemeRow();
+    speak(TRACK_COURSES[b.dataset.course].label.replace(/^\S+\s/, ''));
+  }));
   const best = document.getElementById('trackBestLabel');
   best.textContent = trackPrefs.bestDist > 0 ? `🏆 최고 기록: ${trackPrefs.bestDist}m · 🥚 ${trackPrefs.bestEggs}개` : '🏆 아직 기록이 없어요. 첫 기록을 세워볼까요?';
 }
@@ -60,7 +80,7 @@ function renderTrackPickGrid(){
   const grid = document.getElementById('trackPickGrid');
   const list = savedCharacters.filter(s=>s.vehicleImage);
   if(list.length===0){
-    grid.innerHTML = `<div class="empty-cta"><div>변신할 수 있는 친구를 먼저 색칠하고 저장해주세요! (헬리 빼고 다 돼요)</div><button class="pill alt" onclick="openCharPick()">🖍️ 색칠하러 가기</button></div>`;
+    grid.innerHTML = `<div class="empty-cta"><div>변신할 수 있는 친구를 먼저 색칠하고 저장해주세요! (변신 도안이 있는 친구만 달릴 수 있어요)</div><button class="pill alt" onclick="openCharPick()">🖍️ 색칠하러 가기</button></div>`;
     return;
   }
   grid.innerHTML = list.map(s=>{
@@ -174,6 +194,140 @@ function buildTrackEggChunk(chunkIndex){
   return eggs;
 }
 
+// 부스터(🚀 앞으로 쌩!)와 점프대(🔴 높이 통!): 알처럼 물리 바디가 아닌 "밟으면 발동하는 자리"입니다.
+function buildTrackPadChunk(chunkIndex){
+  const xStart = chunkIndex * TRACK_CHUNK_SIZE, xEnd = xStart + TRACK_CHUNK_SIZE;
+  const rand = trackSeededRandom(chunkIndex * 9176 + 4242);
+  const pads = [];
+  for(let x=xStart+210; x<xEnd; x+=395){
+    const r1 = rand(), r2 = rand();
+    if(Math.abs(x) < 520 || r1 < 0.45) continue;
+    pads.push({ x, type: r2 < 0.5 ? 'boost' : 'spring', cool:0 });
+  }
+  return pads;
+}
+function triggerTrackPads(){
+  const { chassis, wheelF, wheelR } = track.car;
+  const cx = chassis.position.x;
+  track.chunks.forEach(chunk=>{
+    (chunk.pads || []).forEach(pad=>{
+      if(pad.cool > 0){ pad.cool--; return; }
+      if(Math.abs(pad.x - cx) > 70 || track.groundContacts <= 0) return;
+      pad.cool = 90;
+      if(pad.type === 'boost'){
+        const dir = chassis.velocity.x >= 0 ? 1 : -1;
+        [chassis, wheelF, wheelR].forEach(b=> Matter.Body.setVelocity(b, { x: dir*Math.min(24, Math.abs(b.velocity.x) + 11), y: b.velocity.y - 1.5 }));
+        trackToast('🚀 부스터!');
+        playChime('coin');
+      } else {
+        [chassis, wheelF, wheelR].forEach(b=> Matter.Body.setVelocity(b, { x: b.velocity.x, y: -18 }));
+        track.jumpCooldown = TRACK_JUMP_COOLDOWN;
+        trackToast('🔴 점프대!');
+        playSfx(SFX_JUMP, 0.55);
+      }
+    });
+  });
+}
+// (ctx.roundRect는 오래된 안드로이드 웹뷰에 없어서 직접 그립니다)
+function trackRoundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+function drawTrackPads(ctx, camX, W){
+  const t = performance.now()/1000;
+  track.chunks.forEach(chunk=>{
+    (chunk.pads || []).forEach(pad=>{
+      if(Math.abs(pad.x - camX) > W/2 + 100) return;
+      const y = trackGroundY(pad.x);
+      const ang = Math.atan2(trackGroundY(pad.x+20) - trackGroundY(pad.x-20), 40);
+      ctx.save();
+      ctx.translate(pad.x, y); ctx.rotate(ang);
+      if(pad.type === 'boost'){
+        ctx.fillStyle = '#ff9f43'; ctx.strokeStyle = '#b3541e'; ctx.lineWidth = 3;
+        trackRoundRect(ctx, -46, -9, 92, 12, 6); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const sh = (t*60) % 22;
+        for(let k=-1; k<3; k++){
+          const x = -34 + k*22 + sh;
+          if(x < -38 || x > 34) continue;
+          ctx.beginPath(); ctx.moveTo(x, -7); ctx.lineTo(x+6, -3); ctx.lineTo(x, 1); ctx.stroke();
+        }
+      } else {
+        const squash = pad.cool > 70 ? 6 : 0;
+        ctx.fillStyle = '#8a8a96'; ctx.fillRect(-8, -14+squash, 16, 14-squash);
+        ctx.fillStyle = '#ff5c7a'; ctx.strokeStyle = '#a52c42'; ctx.lineWidth = 3;
+        trackRoundRect(ctx, -34, -24+squash, 68, 12, 6); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    });
+  });
+}
+// 결승선 깃발(코스 모드): 왼쪽으로 달려도 되도록 양쪽 같은 거리에 하나씩 세웁니다.
+function drawTrackFinish(ctx, camX, W){
+  if(!track.goal) return;
+  [1, -1].forEach(side=>{
+    const x = side * track.goal * 8;
+    if(Math.abs(x - camX) > W/2 + 120) return;
+    const y = trackGroundY(x);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#5c5c66'; ctx.fillRect(-4, -190, 8, 190);
+    for(let r=0;r<4;r++) for(let c=0;c<5;c++){
+      ctx.fillStyle = (r+c)%2 ? '#fff' : '#2e2350';
+      ctx.fillRect(4 + c*18, -190 + r*18, 18, 18);
+    }
+    ctx.strokeStyle = '#2e2350'; ctx.lineWidth = 2; ctx.strokeRect(4, -190, 90, 72);
+    ctx.restore();
+  });
+}
+// 결승선 도착: 별(1~3개)과 보너스 알을 주고, 다시 달릴지/계속 달릴지 고릅니다.
+function finishTrackCourse(){
+  if(!track || track.finished) return;
+  track.finished = true;
+  setTrackPaused(true);
+  trackDrivePower = 0;
+  const course = TRACK_COURSES[track.courseId];
+  const stars = track.eggCount >= course.star3 ? 3 : track.eggCount >= course.star2 ? 2 : 1;
+  const bonus = stars * 2;
+  if(stars > (trackPrefs.stars[track.courseId] || 0)) trackPrefs.stars[track.courseId] = stars;
+  recordTrackBest();
+  saveTrackPrefs();
+  addEggs(bonus);
+  celebrate({count:60});
+  speak(`도착! 별 ${['하나','둘','셋'][stars-1]}!`);
+  const snap = track.snap;
+  showChoiceDialog(`<div>🏁 도착!</div><div class="finish-stars">${'⭐'.repeat(stars)}<span>${'☆'.repeat(3-stars)}</span></div>
+    <small>🥚 ${track.eggCount}개 모았어요 · 보너스 🥚 +${bonus}${stars<3?`<br>알을 ${stars===1?course.star2:course.star3}개 모으면 별이 하나 더!`:''}</small>`, [
+    { label:'🔁 다시 달리기', cls:'alt', value:'again' },
+    { label:'♾️ 계속 달리기', cls:'ghost', value:'go' },
+    { label:'← 나가기', cls:'ghost', value:'exit' },
+  ], (v)=>{
+    if(v === 'again'){ startTrack(snap); return; }
+    if(v === 'exit'){ stopTrack(); openTrackPick(); return; }
+    if(track){ track.goal = 0; setTrackPaused(false); }   // 닫거나 "계속 달리기": 깃발을 지나 자유롭게 계속
+  });
+}
+// ---- 잠깐 멈추기 ----
+function setTrackPaused(p){
+  if(!track) return;
+  track.paused = !!p;
+  track.lastTime = null; track.accumulator = 0;
+  const btn = document.getElementById('trackPauseBtn');
+  if(btn) btn.textContent = track.paused ? '▶' : '⏸';
+  const eEl = engineEl();
+  if(eEl){ if(track.paused) eEl.pause(); else if(!bgmMuted) eEl.play().catch(()=>{}); }
+}
+function toggleTrackPause(){
+  if(!track) return;
+  if(track.finished) track.goal = 0;   // 도착 창을 그냥 닫았다면 깃발을 지나 자유롭게 계속
+  setTrackPaused(!track.paused);
+  speak(track.paused ? '잠깐 멈춤' : '출발');
+}
+
 // 차 위치를 기준으로 필요한 청크는 만들고, 너무 멀어진 청크는 정리합니다. 매 프레임 호출해도
 // 가벼운 편(청크가 새로 필요할 때만 실제로 바디를 생성)이라 trackTick에서 매번 불러도 됩니다.
 function trackUpdateChunks(){
@@ -186,7 +340,7 @@ function trackUpdateChunks(){
     const groundBodies = buildTrackGroundChunk(track.world, ci);
     const obstacleBodies = buildTrackObstacleChunk(track.world, ci);
     const eggs = buildTrackEggChunk(ci);
-    track.chunks.set(ci, { groundBodies, obstacleBodies, eggs });
+    track.chunks.set(ci, { groundBodies, obstacleBodies, eggs, pads: buildTrackPadChunk(ci) });
     obstacleBodies.forEach(b=> track.obstacles.push(b));
   }
   const unloadMin = Math.floor((carX - TRACK_UNLOAD_RADIUS) / TRACK_CHUNK_SIZE);
@@ -309,6 +463,7 @@ async function startTrack(snap){
       theme: TRACK_THEMES[trackPrefs.theme] || TRACK_THEMES.forest,
       collected: new Set(), eggCount: 0, nextMilestone: 100, maxDist: 0,
       lastTime: null, accumulator: 0,
+      courseId: trackPrefs.course, goal: (TRACK_COURSES[trackPrefs.course] || {}).goal || 0, finished:false, paused:false,
     };
     trackUpdateChunks(); // 시작 지점(x=0) 주변 바닥/장애물을 미리 만들어둠
 
@@ -324,6 +479,7 @@ async function startTrack(snap){
     });
 
     trackDrivePower = 0;
+    const pb = document.getElementById('trackPauseBtn'); if(pb) pb.textContent = '⏸';
     updateTrackHud();
     trackRAF = requestAnimationFrame(trackTick);
   }catch(e){
@@ -417,6 +573,7 @@ function trackTick(now){
   // 탭 전환 등으로 오래 멈췄다 돌아오면 한꺼번에 따라잡지 않도록 상한을 둡니다.
   track.accumulator += Math.min(100, now - track.lastTime);
   track.lastTime = now;
+  if(track.paused){ track.accumulator = 0; drawTrack(); trackRAF = requestAnimationFrame(trackTick); return; }
   updateEngineSound();
   let steps = 0;
   while(track && track.accumulator >= TRACK_STEP_MS && steps < 6){
@@ -441,6 +598,7 @@ function trackFixedStep(){
   spawnDustParticles();
   updateDustParticles();
   collectTrackEggs();
+  triggerTrackPads();
 
   // 뒤집힘 자동 복구: 차체가 거의 뒤집힌 각도(대략 115도 이상 기운 상태)로 한동안
   // 회복하지 못하면, 사용자가 버튼을 누르지 않아도 자동으로 하늘에서 새 차가 떨어집니다.
@@ -466,6 +624,7 @@ function trackFixedStep(){
     showTrackMilestone(`${track.nextMilestone}m 돌파! 🎉`);
     track.nextMilestone += 100;
   }
+  if(track.goal && !track.finished && track.maxDist >= track.goal) finishTrackCourse();
 }
 
 function collectTrackEggs(){
@@ -476,6 +635,7 @@ function collectTrackEggs(){
       if(Math.abs(egg.x - c.x) < 120 && Math.abs(egg.y - c.y) < 95){
         track.collected.add(egg.key);
         track.eggCount++;
+        addEggs(1);   // 모은 알은 지갑에 쌓여 알 가게에서 쓸 수 있습니다
         playChime('coin');
         if(track.eggCount % 10 === 0) showTrackMilestone(`🥚 ${track.eggCount}개 모았어요!`);
         return false;
@@ -621,10 +781,18 @@ function drawTrack(){
   track.obstacles.forEach(o=>{
     if(Math.abs(o.position.x - camX) < W/2 + 120) drawTrackObstacle(ctx, o);
   });
+  drawTrackPads(ctx, camX, W);
+  drawTrackFinish(ctx, camX, W);
   drawTrackEggs(ctx, camX, W);
   drawDustParticles(ctx);
   drawTrackCar(ctx, track.car, track.vImg);
   ctx.restore();
+  if(track.paused && !track.finished){
+    ctx.fillStyle = 'rgba(46,35,80,.45)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${Math.round(Math.min(W,H)*0.11)}px 'Jua', sans-serif`;
+    ctx.fillText('⏸ 잠깐 멈춤', W/2, H/2);
+  }
 }
 
 function updateTrackHud(){
@@ -632,7 +800,7 @@ function updateTrackHud(){
   if(!hud || !track) return;
   const dist = Math.round(Math.abs(track.car.chassis.position.x - track.startX)/8);
   const best = Math.max(trackPrefs.bestDist, track.maxDist);
-  const text = `📏 ${dist}m   🥚 ${track.eggCount}   🏆 ${best}m`;
+  const text = track.goal ? `🏁 ${Math.min(dist, track.goal)} / ${track.goal}m   🥚 ${track.eggCount}` : `📏 ${dist}m   🥚 ${track.eggCount}   🏆 ${best}m`;
   if(hud.textContent !== text) hud.textContent = text;
 }
 
