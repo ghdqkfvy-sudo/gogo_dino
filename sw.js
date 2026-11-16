@@ -9,11 +9,11 @@
 // 씁니다. 예전엔 외부 파일이라 캐시하지 않아서, 오프라인에서는 글꼴이 빠지고 숫자 따라쓰기
 // 안내선 모양도 달라졌습니다.
 
-const CACHE_NAME = 'gogodino-cache-v4';
+const CACHE_NAME = 'gogodino-cache-v5';
 const FONT_CACHE = 'gogodino-fonts-v1';
 const PRECACHE = [
   './', 'index.html', 'matter.min.js', 'css/app.css',
-  'js/common.js', 'js/coloring.js', 'js/field.js', 'js/fields_extra.js', 'js/track.js', 'js/study.js', 'js/main.js',
+  'js/common.js', 'js/coloring.js', 'js/field.js', 'js/fields_extra.js', 'js/track.js', 'js/study.js', 'js/main.js', 'js/capacitor-plugins.js',
   'manifest.json', 'icons/icon.svg', 'icons/icon-192.png',
 ];
 

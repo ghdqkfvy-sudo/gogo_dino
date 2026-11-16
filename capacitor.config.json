@@ -5,5 +5,9 @@
   "backgroundColor": "#fff3d6",
   "android": {
     "backgroundColor": "#fff3d6"
+  },
+  "server": {
+    "url": "https://splendorous-elf-933e85.netlify.app",
+    "errorPath": "error.html"
   }
 }
