@@ -384,6 +384,28 @@ function check(cond, msg){
   });
   check(tpl.ok && tpl.regions === 3 && tpl.stored === 1 && tpl.shown, `내 그림을 도안으로 등록 (회색 종이 사진도 영역 ${tpl.regions}개로 분리)`);
 
+  console.log('새 도안: 폴리·로이·엠버·헬리 / 헬리 변신 / 페리');
+  const nd = await page.evaluate(async ()=>{
+    const out = {};
+    for(const [id, form] of [['poli','src'],['roy','src'],['amber','src'],['helly','src'],['helly','vehicleSrc'],['peri','src'],['peri','vehicleSrc']]){
+      const def = getDef(id); const a = await loadAndAnalyze(id + '_' + form + '_t', def[form]);
+      let n = 0; for(let l=0;l<a.regionCount;l++){ if(l===a.bgLabel) continue; const m = getRegionMask(a,l); if(m && m.w > 12 && m.h > 12) n++; }
+      out[id + (form === 'src' ? '' : '_v')] = n;
+    }
+    const peri = getDef('peri');
+    out.periOk = !!peri && peri.franchise === 'gogodino' && voiceFor('peri').gender === 'female' && !!getDef('helly').vehicleSrc;
+    // 예전 도안(ver 1)으로 저장한 폴리를 이어서 칠하면, 어긋난 붓칠 대신 새 종이에서 시작
+    const c = document.createElement('canvas'); c.width = c.height = 50; c.getContext('2d').fillStyle = '#f00'; c.getContext('2d').fillRect(0,0,50,50);
+    await startColoring(getDef('poli'), { uid:'oldpoli', defId:'poli', paintData:{ base: c.toDataURL() } });
+    const d = currentChar.paintCanvas.getContext('2d').getImageData(0,0,50,50).data; let painted = 0; for(let i=3;i<d.length;i+=4) if(d[i]) painted++;
+    out.staleFresh = painted === 0 && currentChar.editingUid === 'oldpoli';
+    currentChar.dirty = false; go('screen-home');
+    return out;
+  });
+  check(['poli','roy','amber','helly','helly_v','peri','peri_v'].every(k=> nd[k] >= 10), '새 도안 7장 모두 칠할 칸이 충분함 (' + Object.entries(nd).filter(([k])=>!/Ok|Fresh/.test(k)).map(([k,v])=>k+':'+v).join(' ') + ')');
+  check(nd.periOk, '페리는 고고다이노 친구 + 여성 목소리, 헬리는 변신 도안 있음');
+  check(nd.staleFresh, '예전 도안으로 칠하던 그림은 어긋나지 않게 새로 칠하기(같은 친구에 덮어쓰기)');
+
   console.log('새 색칠 친구들');
   const fr = await page.evaluate(async ()=>{
     const ids = CHARACTERS.filter(c=>c.franchise==='friends').map(c=>c.id);

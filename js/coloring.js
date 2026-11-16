@@ -383,22 +383,28 @@ async function startColoring(def, resumeSnap){
   currentChar = null;
   updateUndoButtons();
 
+  // 도안이 새 그림으로 바뀐 뒤(ver가 다름)에는 예전 붓칠이 새 선과 어긋나므로 새 종이에서 시작합니다.
+  // (이 경우에도 저장하면 같은 친구 칸에 덮어써서, 필드에 데려간 친구는 그대로 이어집니다)
+  const stale = !!(resumeSnap && (resumeSnap.defVer || 1) !== (def.ver || 1));
+  const paint = (resumeSnap && !stale && resumeSnap.paintData) || {};
+  if(stale) toast('🆕 도안이 새 그림으로 바뀌어서 처음부터 칠해요!');
+
   try{
     const baseAnalysis = await loadAndAnalyze(def.id + '_base', def.src);
     const baseCanvas = blankPaintCanvas(baseAnalysis);
-    if(resumeSnap && resumeSnap.paintData && resumeSnap.paintData.base){
-      const img = await loadImage(resumeSnap.paintData.base);
+    if(paint.base){
+      const img = await loadImage(paint.base);
       baseCanvas.getContext('2d').drawImage(img, 0, 0);
     }
-    const forms = { base: { analysis: baseAnalysis, paintCanvas: baseCanvas, undo:[], redo:[], ops:[], base: snapBase(baseCanvas, resumeSnap && resumeSnap.paintData && resumeSnap.paintData.base) } };
+    const forms = { base: { analysis: baseAnalysis, paintCanvas: baseCanvas, undo:[], redo:[], ops:[], base: snapBase(baseCanvas, paint.base) } };
     if(hasVehicle){
       const vAnalysis = await loadAndAnalyze(def.id + '_vehicle', def.vehicleSrc);
       const vCanvas = blankPaintCanvas(vAnalysis);
-      if(resumeSnap && resumeSnap.paintData && resumeSnap.paintData.vehicle){
-        const vImg = await loadImage(resumeSnap.paintData.vehicle);
+      if(paint.vehicle){
+        const vImg = await loadImage(paint.vehicle);
         vCanvas.getContext('2d').drawImage(vImg, 0, 0);
       }
-      forms.vehicle = { analysis: vAnalysis, paintCanvas: vCanvas, undo:[], redo:[], ops:[], base: snapBase(vCanvas, resumeSnap && resumeSnap.paintData && resumeSnap.paintData.vehicle) };
+      forms.vehicle = { analysis: vAnalysis, paintCanvas: vCanvas, undo:[], redo:[], ops:[], base: snapBase(vCanvas, paint.vehicle) };
     }
     if(currentScreenId() !== 'screen-color') return; // 불러오는 사이에 아이가 이미 나갔으면 중단
 
@@ -1018,10 +1024,10 @@ async function saveCharacter(){
     if(idx >= 0){
       isUpdate = true;
       prev = Object.assign({}, savedCharacters[idx]);
-      Object.assign(savedCharacters[idx], { image, vehicleImage, paintData });
+      Object.assign(savedCharacters[idx], { image, vehicleImage, paintData, defVer: def.ver || 1 });
     } else {
       uid = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
-      savedCharacters.push({ uid, defId: currentChar.defId, name: def.name, image, vehicleImage, paintData });
+      savedCharacters.push({ uid, defId: currentChar.defId, name: def.name, image, vehicleImage, paintData, defVer: def.ver || 1 });
     }
     // 새로 저장한 친구를 필드의 "+ 친구 추가"에서 만들었다면 그 필드에 바로 넣어줍니다.
     const origin = coloringOrigin;

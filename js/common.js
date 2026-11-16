@@ -284,11 +284,14 @@ const CHARACTERS = [
   {id:'poki',  name:'포키',  src:'characters/poki.jpg',  vehicleSrc:'characters/poki_v.jpg', franchise:'gogodino'},
   {id:'anki',  name:'안키',  src:'characters/anki.jpg',  vehicleSrc:'characters/anki_v.jpg', franchise:'gogodino'},
   {id:'storm', name:'스톰',  src:'characters/storm.jpg', vehicleSrc:'characters/storm_v.jpg', franchise:'gogodino'},
-  // 로보카폴리 4종 (2026-09-12 추가) - 헬리는 변신(차량) 모드 도안이 따로 없어 vehicleSrc 없음
-  {id:'poli',  name:'폴리',  src:'characters/poli.jpg',  vehicleSrc:'characters/poli_v.jpg', franchise:'robocarpoli'},
-  {id:'roy',   name:'로이',  src:'characters/roy.jpg',   vehicleSrc:'characters/roy_v.jpg',  franchise:'robocarpoli'},
-  {id:'amber', name:'엠버',  src:'characters/amber.jpg', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli'},
-  {id:'helly', name:'헬리',  src:'characters/helly.jpg', franchise:'robocarpoli'},
+  {id:'peri',  name:'페리',  src:'characters/peri.jpg',  vehicleSrc:'characters/peri_v.jpg',  franchise:'gogodino'},
+  // 로보카폴리 4종 - 2026-11-16 보호자가 준 새 기본 모습 도안으로 교체(ver:2), 헬리 변신 도안 추가.
+  // ver: 기본 모습 도안을 바꾸면 숫자를 올립니다. 예전 도안으로 칠하던 그림은 선이 어긋나므로 "이어서 칠하기" 대신 새로 칠합니다.
+  // src 뒤의 ?v= 는 기기/브라우저에 남은 예전 그림 파일 대신 새 파일을 받게 하려는 표시입니다.
+  {id:'poli',  name:'폴리',  src:'characters/poli.jpg?v=2',  vehicleSrc:'characters/poli_v.jpg',  franchise:'robocarpoli', ver:2},
+  {id:'roy',   name:'로이',  src:'characters/roy.jpg?v=2',   vehicleSrc:'characters/roy_v.jpg',   franchise:'robocarpoli', ver:2},
+  {id:'amber', name:'엠버',  src:'characters/amber.jpg?v=2', vehicleSrc:'characters/amber_v.jpg', franchise:'robocarpoli', ver:2},
+  {id:'helly', name:'헬리',  src:'characters/helly.jpg?v=2', vehicleSrc:'characters/helly_v.jpg', franchise:'robocarpoli', ver:2},
   // 새 친구들 - 이 앱을 위해 직접 그린 오리지널 도안(공룡·탈것·동물). 변신 도안은 없습니다.
   {id:'titi',      name:'티티',    src:'characters/friend_titi.png',      franchise:'friends'},
   {id:'ppul',      name:'뿔뿔이',  src:'characters/friend_ppul.png',      franchise:'friends'},
@@ -334,6 +337,7 @@ const CHARACTER_VOICES = {
   poki:  { pitch:1.2,  rate:1.0  },
   anki:  { pitch:0.7,  rate:0.8  },                   // 안키 - 덩치 큰 안킬로사우루스
   storm: { pitch:0.85, rate:1.05 },
+  peri:  { pitch:1.45, rate:0.95, gender:'female' },  // 페리 - 여성 캐릭터
   poli:  { pitch:1.0,  rate:0.9  },
   roy:   { pitch:0.65, rate:0.8  },                   // 로이 - 큰 소방차
   amber: { pitch:1.5,  rate:0.9,  gender:'female' },  // 엠버 - 여성 캐릭터
@@ -357,6 +361,7 @@ const CHARACTER_LINES = {
   poli:  ['안녕! 나는 폴리야', '출동! 안전이 제일 중요해', '도움이 필요하면 불러줘', '우리 모두 안전하게 놀자', '순찰 중이야, 이상 없음!'],
   roy:   ['안녕! 나는 로이야', '불이 나면 내가 출동할게', '삐뽀삐뽀! 소방차 출동!', '걱정 마, 내가 있잖아', '불조심, 꼭 해야 해!'],
   amber: ['안녕! 나는 엠버야', '다친 친구는 없니?', '구급차가 달려갑니다', '모두 건강하게 지내자', '아프면 꼭 말해줘'],
+  peri:  ['안녕! 나는 페리야', '다친 친구는 내가 도와줄게', '같이 놀자!', '삐뽀삐뽀, 페리 출동!', '모두 건강하게 지내자'],
   helly: ['안녕! 나는 헬리야', '프로펠러가 빙글빙글!', '하늘에서 내려다볼까?', '높이높이 날아가자', '위에서 보면 다 보여!'],
 };
 // 대사가 따로 없는 친구(고고다이노 친구들, 새 친구들, 내 그림)는 이름을 넣은 공통 대사를 씁니다.
