@@ -375,6 +375,7 @@ function renderScene(){
       sceneW, sceneH, lastGreet: 0,
       facing: 1, showingVehicle: false, stepSeed: i*1.7, held: false, lastX: 0,
       voice: voiceFor(snap.defId || snap.uid), // 친구마다 다른 목소리로 인사
+      lines: linesFor(snap.defId || snap.uid, snap.name), greeted: false, lastLine: -1,
       doTransform: null,
     };
     fieldSprites.push(spriteState);
@@ -467,11 +468,18 @@ function greetSprite(sp){
   hop.querySelectorAll('.sprite-bubble').forEach(b=>b.remove());
   const bubble = document.createElement('div');
   bubble.className = 'sprite-bubble';
-  bubble.textContent = `안녕! 나는 ${sp.name}${koYa(sp.name)}`;
+  // 처음 누르면 자기소개, 그다음부터는 대사를 돌아가며(같은 대사가 연속으로 나오지 않게) 말합니다.
+  let idx = 0;
+  if(sp.greeted && sp.lines.length > 1){
+    do{ idx = 1 + Math.floor(Math.random() * (sp.lines.length - 1)); }while(idx === sp.lastLine && sp.lines.length > 2);
+  }
+  sp.greeted = true; sp.lastLine = idx;
+  const line = sp.lines[idx];
+  bubble.textContent = line;
   hop.appendChild(bubble);
-  setTimeout(()=> bubble.remove(), 1800);
+  setTimeout(()=> bubble.remove(), 2600);
   playChime('pop');
-  speak(`안녕! 나는 ${sp.name}${koYa(sp.name)}`, sp.voice);
+  speak(line, sp.voice);
   if(sp.doTransform) setTimeout(sp.doTransform, 450);
 }
 
@@ -523,7 +531,7 @@ function checkFriendMeetings(now){
         sp.hop.querySelectorAll('.sprite-bubble').forEach(x=>x.remove());
         const bubble = document.createElement('div');
         bubble.className = 'sprite-bubble';
-        bubble.textContent = k === 0 ? '안녕!' : '반가워!';
+        bubble.textContent = k === 0 ? ['안녕!', '어, 만났다!', '같이 놀자!'][Math.floor(Math.random()*3)] : ['반가워!', '안녕, 안녕!', '좋아, 놀자!'][Math.floor(Math.random()*3)];
         sp.hop.appendChild(bubble);
         setTimeout(()=> bubble.remove(), 1500);
       });

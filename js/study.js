@@ -635,10 +635,15 @@ function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender, variant){
 let nsActiveUtterance = null;
 let nsNoVoiceWarned = false;
 // voice: 캐릭터별 목소리 {pitch, rate, gender} (없으면 기본 안내 목소리)
+// 기기 음성의 높낮이(pitch)를 크게 바꾸면 사람 목소리가 아니라 떨리는 기계음처럼 들립니다.
+// 그래서 캐릭터 설정값(CHARACTER_VOICES)이 극단적이어도 1.0 쪽으로 당겨서 자연스러운 범위
+// (0.85~1.25)에 두고, 친구마다의 차이는 음성 종류(variant)와 말하는 속도(rate)로 더 크게 줍니다.
 function nsVoiceParams(voice){
+  const rate = 0.85 * ((voice && voice.rate) || 1);
+  const pitch = 1 + (((voice && voice.pitch) || 1.05) - 1) * 0.4;
   return {
-    rate: Math.max(0.5, Math.min(1.6, 0.85 * ((voice && voice.rate) || 1))),
-    pitch: Math.max(0.3, Math.min(2, (voice && voice.pitch) || 1.05)),
+    rate: Math.max(0.65, Math.min(1.15, rate)),
+    pitch: Math.max(0.85, Math.min(1.25, pitch)),
   };
 }
 function nsWebSpeakNow(text, lang, charVoice){
@@ -1534,7 +1539,7 @@ function openParentHelp(){
       <div class="help-list">
         <div>🖍️ <b>크레용</b>은 문지른 자리만, <b>채우기</b>는 누른 부위 전체를 칠해요. 어느 쪽이든 선 밖으로는 번지지 않아요. ↶/↷로 되돌릴 수 있어요.</div>
         <div>🎨 <b>문양</b>도 색과 똑같이 칠해지고, 작은 무늬가 반복돼 원단처럼 보여요.</div>
-        <div>🔄 헬리를 뺀 모든 친구는 <b>변신</b> 도안이 있어요. 변신 도안을 칠해서 저장한 친구는 트랙 모드에서 달릴 수 있어요.</div>
+        <div>🔄 고고다이노·로보카폴리 친구들(헬리 제외)은 <b>변신</b> 도안이 있어요. 변신 도안을 칠해서 저장한 친구는 트랙 모드에서 달릴 수 있어요. 🌈 새 친구들은 변신 없이 색칠만 해요.</div>
         <div>🌲 필드의 친구를 톡 누르면 인사하고, 끌어서 옮긴 자리는 기억돼요. 🎀로 소품을 놓고 🌙로 밤낮을 바꾸고 📸로 사진을 찍어요.</div>
         <div>🥚 트랙에서 모은 알과 공부로 받은 알은 홈 화면 🥚 알 가게에서 특별한 붓·소품을 여는 데 써요.</div>
         <div>🏁 트랙은 깃발까지 가는 코스(별 1~3개)와 끝없이 달리기를 고를 수 있어요.</div>

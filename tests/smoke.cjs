@@ -359,6 +359,21 @@ function check(cond, msg){
   });
   check(tpl.ok && tpl.regions === 3 && tpl.stored === 1 && tpl.shown, `내 그림을 도안으로 등록 (회색 종이 사진도 영역 ${tpl.regions}개로 분리)`);
 
+  console.log('새 색칠 친구들');
+  const fr = await page.evaluate(async ()=>{
+    const ids = CHARACTERS.filter(c=>c.franchise==='friends').map(c=>c.id);
+    const out = [];
+    for(const id of ids){
+      const def = getDef(id); const a = await loadAndAnalyze(id + '_base', def.src);
+      let paintable = 0; for(let l=0;l<a.regionCount;l++){ if(l===a.bgLabel) continue; const m = getRegionMask(a,l); if(m && m.w > 12 && m.h > 12) paintable++; }
+      out.push({ id, paintable, bgShare: (()=>{ let n=0; for(let i=0;i<a.labelMap.length;i++) if(a.labelMap[i]===a.bgLabel) n++; return n/a.labelMap.length; })() });
+    }
+    return { ids, out, voices: ids.every(i=> !!voiceFor(i)), thumbs: document.querySelectorAll('.char-thumb[data-char="bear"]').length };
+  });
+  check(fr.ids.length === 10, `새 친구 도안 ${fr.ids.length}종 등록`);
+  check(fr.out.every(o=> o.paintable >= 6 && o.bgShare < 0.9), '새 친구들 모두 칠할 수 있는 칸이 6개 이상 (' + fr.out.map(o=>o.id+':'+o.paintable).join(' ') + ')');
+  check(fr.voices && fr.thumbs === 1, '새 친구들 목소리와 선택 화면 표시');
+
   console.log('트랙 코스 / 일시정지');
   const tk = await page.evaluate(async ()=>{
     trackPrefs.course = '300'; trackPrefs.stars = {};
@@ -458,7 +473,10 @@ function check(cond, msg){
     delete speechSynthesis.speaking; delete speechSynthesis.pending;
     return out;
   });
-  check(Math.abs(kids[0].pitch - kids[1].pitch) >= 0.5 && kids[0].rate !== kids[1].rate && kids[0].voice !== kids[1].voice, `율/온 목소리가 확실히 다름 (높낮이 ${kids[0].pitch.toFixed(2)}/${kids[1].pitch.toFixed(2)}, 음성 ${kids[0].voice}/${kids[1].voice})`);
+  check(Math.abs(kids[0].pitch - kids[1].pitch) >= 0.15 && Math.abs(kids[0].rate - kids[1].rate) >= 0.15 && kids[0].voice !== kids[1].voice, `율/온 목소리가 확실히 다름 (높낮이 ${kids[0].pitch.toFixed(2)}/${kids[1].pitch.toFixed(2)}, 속도 ${kids[0].rate.toFixed(2)}/${kids[1].rate.toFixed(2)}, 음성 ${kids[0].voice}/${kids[1].voice})`);
+  check(kids.every(k=> k.pitch >= 0.85 && k.pitch <= 1.25 && k.rate <= 1.15), '목소리 높낮이가 기계음이 되지 않는 자연스러운 범위(0.85~1.25)'); 
+  const lines = await page.evaluate(()=>{ const a = linesFor('default-kid-1','율'), b = linesFor('default-kid-2','온'), g = linesFor('rex','렉스'); return { a:a.length, b:b.length, intro:a[0]+'|'+b[0]+'|'+g[0], uniq: new Set(a.concat(b)).size === a.length + b.length }; });
+  check(lines.a >= 5 && lines.b >= 5 && lines.uniq && lines.intro === '안녕! 나는 율이야|안녕, 나는 온이야|안녕! 나는 렉스야', '율·온 대사가 각각 5개 이상, 첫 줄은 자기소개 (' + lines.intro + ')');
   check(vickyV.pitch > rexV.pitch && amberV.pitch > ankiV.pitch && yulV.pitch > rexV.pitch, '여성/아이 캐릭터는 더 높은 목소리');
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));

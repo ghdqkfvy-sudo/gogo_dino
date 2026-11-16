@@ -77,7 +77,7 @@ function renderTrackPickGrid(){
   const grid = document.getElementById('trackPickGrid');
   const list = savedCharacters.filter(s=>s.vehicleImage);
   if(list.length===0){
-    grid.innerHTML = `<div class="empty-cta"><div>변신할 수 있는 친구를 먼저 색칠하고 저장해주세요! (헬리 빼고 다 돼요)</div><button class="pill alt" onclick="openCharPick()">🖍️ 색칠하러 가기</button></div>`;
+    grid.innerHTML = `<div class="empty-cta"><div>변신할 수 있는 친구를 먼저 색칠하고 저장해주세요! (변신 도안이 있는 친구만 달릴 수 있어요)</div><button class="pill alt" onclick="openCharPick()">🖍️ 색칠하러 가기</button></div>`;
     return;
   }
   grid.innerHTML = list.map(s=>{
