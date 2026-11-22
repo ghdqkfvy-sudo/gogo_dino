@@ -389,6 +389,7 @@ function clearSpriteIntervals(){
   spriteIntervals = {};
 }
 
+let fieldPropAppearIdx = -1;   // 방금 놓은 소품은 "뿅" 하고 나타나게
 function renderScene(){
   const sceneEl = document.getElementById('sceneEl');
   sceneEl.querySelectorAll('.sprite').forEach(s=>s.remove());
@@ -495,7 +496,8 @@ function renderScene(){
     if(spriteState.flying) wrap.classList.add('flying');
     attachSpriteInteraction(spriteState, sceneEl);
   });
-  renderProps(sceneEl, sceneW, sceneH, spriteBox);
+  renderProps(sceneEl, sceneW, sceneH, spriteBox, fieldPropAppearIdx);
+  fieldPropAppearIdx = -1;
   startFieldAnim();
 }
 
@@ -614,6 +616,7 @@ function startFieldAnim(){
       }
     });
     if(++frameNo % 30 === 0) checkFriendMeetings(now);
+    if(frameNo % 10 === 5) checkFriendBallKicks(now);
     fieldRAF = requestAnimationFrame(tick);
   }
   let frameNo = 0;
@@ -659,23 +662,24 @@ function toggleFieldNight(){
 }
 
 // ---- 꾸미기 소품 ----
-// 소품 움직임: idle = 가만히 있을 때의 작은 움직임, tap = 톡 눌렀을 때의 반응, say = 반응할 때 하는 말(효과음처럼)
+// 소품 움직임: idle = 가만히 있을 때의 작은 움직임, tap = 톡 눌렀을 때의 반응, say = 반응할 때 하는 말,
+// air = 공중에 떠 있는 소품(땅 그림자 없음), deco = 평소에 붙어 있는 장식(트리 전구, 굴뚝 연기, UFO 빛줄기 등)
 const PROP_MOTION = {
-  'prop-flower':   { idle:'sway',    tap:'spin',   say:'살랑살랑' },
-  'prop-ball':     { idle:'hop',     tap:'kick',   say:'뻥!' },
-  'prop-mushroom': { idle:'squish',  tap:'boing',  say:'뽀잉!' },
-  'prop-house':    { idle:'breathe', tap:'shake',  say:'똑똑, 누구 있어요?' },
-  'prop-balloon':  { idle:'float',   tap:'floatAway', say:'두둥실!' },
-  'prop-rainbow':  { idle:'shimmer', tap:'boing',  say:'반짝반짝 무지개!' },
-  'prop-shell':    { idle:'wiggle',  tap:'hermit', say:'소라게가 나왔어요!' },
-  'prop-palm':     { idle:'sway',    tap:'shake',  say:'코코넛이 툭!' },
-  'prop-star':     { idle:'twinkle', tap:'spin',   say:'반짝!' },
-  'prop-rocket':   { idle:'hover',   tap:'launch', say:'3, 2, 1, 발사!' },
-  'prop-ufo':      { idle:'drift',   tap:'zip',    say:'슝슝!' },
-  'prop-snowman':  { idle:'wobble',  tap:'boing',  say:'안녕, 나는 눈사람이야!' },
-  'prop-xtree':    { idle:'twinkle', tap:'shake',  say:'반짝반짝 트리!' },
-  'prop-egg':      { idle:'wiggle',  tap:'hatch',  say:'뿅! 아기 공룡이 나왔어요!' },
-  'prop-bone':     { idle:'wiggle',  tap:'spin',   say:'멍멍이 간식!' },
+  'prop-flower':   { idle:'sway',    tap:'bloom',   say:'꽃잎이 날아가요!' },
+  'prop-ball':     { idle:'hop',     tap:'kick',    say:'뻥!' },
+  'prop-mushroom': { idle:'squish',  tap:'trampoline', say:'뽀잉뽀잉!' },
+  'prop-house':    { idle:'breathe', tap:'puppy',   say:'멍멍! 누가 왔나?', deco:'smoke' },
+  'prop-balloon':  { idle:'float',   tap:'pop',     say:'펑!', air:true },
+  'prop-rainbow':  { idle:'shimmer', tap:'stars',   say:'반짝반짝 무지개!', air:true },
+  'prop-shell':    { idle:'wiggle',  tap:'hermit',  say:'소라게가 나왔어요!' },
+  'prop-palm':     { idle:'sway',    tap:'coconut', say:'코코넛이 툭!' },
+  'prop-star':     { idle:'twinkle', tap:'stars',   say:'반짝!', air:true, deco:'glow' },
+  'prop-rocket':   { idle:'hover',   tap:'launch',  say:'3, 2, 1, 발사!' },
+  'prop-ufo':      { idle:'drift',   tap:'alien',   say:'안녕, 지구 친구들!', air:true, deco:'beam' },
+  'prop-snowman':  { idle:'wobble',  tap:'snow',    say:'안녕, 나는 눈사람이야!' },
+  'prop-xtree':    { idle:'breathe', tap:'gifts',   say:'선물이 나왔어요!', deco:'lights' },
+  'prop-egg':      { idle:'wiggle',  tap:'hatch',   say:'뿅! 아기 공룡이 나왔어요!' },
+  'prop-bone':     { idle:'wiggle',  tap:'dog',     say:'멍멍! 냠냠!' },
 };
 const PROP_LONG_PRESS_MS = 650;   // 꾹 누르면 "필드에서 빼기" 창
 function propBurst(el, emoji){
@@ -691,69 +695,211 @@ function propBurst(el, emoji){
     setTimeout(()=> b.remove(), 900);
   }
 }
-function propAct(el, inner, pr, it, sceneEl){
+// 소품 위에 잠깐 나타나는 효과 하나(꽃잎, 선물, 강아지, 코코넛 등). fx = CSS 애니메이션 이름(fx-*),
+// vars = 위치/방향 같은 CSS 변수, ms 뒤에 사라집니다.
+function propFx(el, emoji, fx, ms, vars){
+  const f = document.createElement('span');
+  f.className = 'prop-fx fx-' + fx;
+  f.textContent = emoji;
+  Object.entries(vars || {}).forEach(([k, v])=> f.style.setProperty('--' + k, v));
+  el.appendChild(f);
+  setTimeout(()=> f.remove(), ms);
+  return f;
+}
+const rnd = (a, b)=> a + Math.random() * (b - a);
+// 평소에 붙어 있는 장식: 트리 전구, 굴뚝 연기, 별빛, UFO 빛줄기
+function addPropDeco(el, deco){
+  if(deco === 'lights'){
+    const spots = [[50,22],[40,40],[60,42],[33,58],[52,60],[68,62],[45,76],[62,78]];
+    const colors = ['#ff5c7a','#ffd54f','#7fd0ff','#8be24a','#c99bff','#ffb347'];
+    spots.forEach(([x,y], i)=>{
+      const d = document.createElement('i');
+      d.className = 'tree-light';
+      d.style.left = x + '%'; d.style.top = y + '%';
+      d.style.background = colors[i % colors.length];
+      d.style.color = colors[i % colors.length];
+      d.style.animationDelay = (-(i * 0.23)).toFixed(2) + 's';
+      el.appendChild(d);
+    });
+    const top = document.createElement('i'); top.className = 'tree-star'; top.textContent = '⭐'; el.appendChild(top);
+  } else if(deco === 'smoke'){
+    for(let i=0;i<3;i++){
+      const sm = document.createElement('i');
+      sm.className = 'chimney-smoke';
+      sm.style.animationDelay = (-(i * 1.1)).toFixed(1) + 's';
+      el.appendChild(sm);
+    }
+  } else if(deco === 'beam'){
+    const bm = document.createElement('i'); bm.className = 'ufo-beam'; el.appendChild(bm);
+  } else if(deco === 'glow'){
+    const g = document.createElement('i'); g.className = 'star-glow'; el.appendChild(g);
+  }
+}
+function propAct(el, inner, pr, it, sceneEl, opts){
+  opts = opts || {};
   const m = PROP_MOTION[pr.id] || { tap:'boing' };
   if(el._busy) return;
   el._busy = true;
-  const done = (ms)=> setTimeout(()=>{ inner.classList.remove('act-' + m.tap); el._busy = false; }, ms);
-  playChime(m.tap === 'launch' || m.tap === 'hatch' ? 'fanfare' : 'pop');
-  if(m.say) speak(m.say);
-  if(m.tap === 'kick'){
-    // 공 차기: 옆으로 데굴데굴 굴러가며 통통 튀고, 멈춘 자리를 기억합니다.
-    const dir = pr.x > 0.75 ? -1 : pr.x < 0.25 ? 1 : (Math.random() < 0.5 ? -1 : 1);
-    const toX = Math.max(0.05, Math.min(0.95, pr.x + dir * (0.18 + Math.random()*0.12)));
-    inner.style.setProperty('--roll', (dir * 720) + 'deg');
-    inner.classList.add('act-kick');
-    el.style.transition = 'left .9s cubic-bezier(.2,.7,.3,1)';
-    pr.x = toX;
-    el.style.left = (toX * sceneEl.clientWidth) + 'px';
-    setTimeout(()=>{ el.style.transition = ''; persistState(); }, 950);
-    done(950);
-    return;
+  const done = (ms, cls)=> setTimeout(()=>{ if(cls) inner.classList.remove(cls); el._busy = false; }, ms);
+  playChime(['launch','hatch','gifts','pop','alien'].includes(m.tap) ? 'fanfare' : 'pop');
+  if(m.say && !opts.quiet) speak(m.say);
+  switch(m.tap){
+    case 'kick': {
+      // 공 차기: 옆으로 데굴데굴 굴러가며 통통 튀고, 흙먼지가 일고, 멈춘 자리를 기억합니다.
+      const dir = opts.dir || (pr.x > 0.75 ? -1 : pr.x < 0.25 ? 1 : (Math.random() < 0.5 ? -1 : 1));
+      const toX = Math.max(0.05, Math.min(0.95, pr.x + dir * (0.18 + Math.random()*0.12)));
+      inner.style.setProperty('--roll', (dir * 720) + 'deg');
+      inner.classList.add('act-kick');
+      el.style.transition = 'left .9s cubic-bezier(.2,.7,.3,1)';
+      pr.x = toX;
+      el.style.left = (toX * sceneEl.clientWidth) + 'px';
+      [0, 300, 620].forEach(t=> setTimeout(()=> propFx(el, '💨', 'puff', 700, { dir: -dir }), t));
+      setTimeout(()=>{ el.style.transition = ''; persistState(); }, 950);
+      return done(950, 'act-kick');
+    }
+    case 'hatch': {
+      // 공룡알 부화: 🥚 흔들흔들(금이 가는 소리처럼 톡톡) → 🦖 아기 공룡 → 잠시 뒤 다시 🥚
+      inner.classList.add('act-hatch');
+      setTimeout(()=>{ inner.textContent = '🦖'; propBurst(el, '💚'); propBurst(el, '✨'); propFx(el, '🥚', 'shell', 900); }, 1000);
+      setTimeout(()=>{ inner.textContent = it.emoji; }, 3200);
+      return done(3300, 'act-hatch');
+    }
+    case 'hermit': {
+      inner.classList.add('act-shake');
+      propFx(el, '🦀', 'crab', 3000, { dir: pr.x > 0.8 ? '-1' : '1' });
+      setTimeout(()=> inner.classList.remove('act-shake'), 600);
+      return done(3000);
+    }
+    case 'gifts': {
+      // 트리: 전구가 무지개색으로 번쩍 → 선물 상자들이 톡톡 튀어나오고 → 눈이 살짝 내림
+      inner.classList.add('lights-party');
+      inner.classList.add('act-shake');
+      ['🎁','🎁','🧸','🍭'].forEach((g, i)=> setTimeout(()=> propFx(el, g, 'gift', 2600, { gx: ((i - 1.5) * 34) + 'px' }), 350 + i * 180));
+      for(let i=0;i<8;i++) setTimeout(()=> propFx(el, '❄️', 'fall', 1800, { fx: rnd(-60, 60).toFixed(0) + 'px' }), i * 130);
+      setTimeout(()=>{ inner.classList.remove('lights-party'); inner.classList.remove('act-shake'); }, 2200);
+      return done(2700);
+    }
+    case 'puppy': {
+      // 집: 문이 덜컹 → 강아지가 빼꼼 나와 꼬리 흔들고 다시 들어감, 굴뚝 연기 펑
+      inner.classList.add('act-shake');
+      propFx(el, '🐶', 'peek', 2600);
+      for(let i=0;i<3;i++) setTimeout(()=> propFx(el, '☁️', 'rise', 1400, { rx: rnd(4, 26).toFixed(0) + 'px' }), i * 200);
+      setTimeout(()=> inner.classList.remove('act-shake'), 700);
+      return done(2600);
+    }
+    case 'pop': {
+      // 풍선: 점점 부풀다가 펑! 색종이가 흩날리고, 새 풍선이 다시 부풀어 오름
+      inner.classList.add('act-inflate');
+      setTimeout(()=>{
+        inner.classList.remove('act-inflate'); inner.classList.add('act-popped');
+        propBurst(el, '🎊'); propBurst(el);
+        for(let i=0;i<10;i++) propFx(el, ['🟥','🟨','🟦','🟩','🟪'][i % 5], 'confetti', 1600, { fx: rnd(-70, 70).toFixed(0) + 'px', rot: rnd(-400, 400).toFixed(0) + 'deg' });
+      }, 1100);
+      setTimeout(()=>{ inner.classList.remove('act-popped'); inner.classList.add('act-regrow'); }, 2300);
+      setTimeout(()=> inner.classList.remove('act-regrow'), 3200);
+      return done(3200);
+    }
+    case 'coconut': {
+      inner.classList.add('act-shake');
+      [0, 380].forEach((t, i)=> setTimeout(()=> propFx(el, '🥥', 'coconut', 1700, { cx: (i ? -22 : 26) + 'px' }), 300 + t));
+      setTimeout(()=> inner.classList.remove('act-shake'), 800);
+      return done(1900);
+    }
+    case 'alien': {
+      // UFO: 빛줄기가 환해지고 외계인이 내려와 손 흔들고 다시 올라감
+      inner.classList.add('beam-on');
+      propFx(el, '👽', 'alien', 3000);
+      setTimeout(()=> inner.classList.remove('beam-on'), 3000);
+      return done(3000);
+    }
+    case 'launch': {
+      inner.classList.add('act-launch');
+      // 발사 직전 연기, 올라가는 동안 불꽃
+      for(let i=0;i<4;i++) propFx(el, '☁️', 'smokeOut', 1300, { sx: ((i - 1.5) * 26) + 'px' });
+      propFx(inner, '🔥', 'flame', 2400);   // 불꽃은 로켓 안쪽에 붙여서 같이 날아감
+      return done(2400, 'act-launch');
+    }
+    case 'bloom': {
+      inner.classList.add('act-bloom');
+      for(let i=0;i<7;i++) setTimeout(()=> propFx(el, '🌸', 'petal', 1800, { fx: rnd(-50, 70).toFixed(0) + 'px', rot: rnd(-200, 200).toFixed(0) + 'deg' }), i * 90);
+      setTimeout(()=> propFx(el, '🦋', 'butterfly', 2600), 300);
+      return done(1000, 'act-bloom');
+    }
+    case 'stars': {
+      inner.classList.add('act-spin');
+      for(let i=0;i<6;i++){
+        const ang = (i / 6) * Math.PI * 2;
+        propFx(el, i % 2 ? '⭐' : '🌠', 'arc', 1400, { ax: (Math.cos(ang) * 90).toFixed(0) + 'px', ay: (Math.sin(ang) * 70 - 20).toFixed(0) + 'px' });
+      }
+      return done(900, 'act-spin');
+    }
+    case 'snow': {
+      inner.classList.add('act-boing');
+      for(let i=0;i<12;i++) setTimeout(()=> propFx(el, '❄️', 'fall', 1900, { fx: rnd(-80, 80).toFixed(0) + 'px' }), i * 110);
+      return done(900, 'act-boing');
+    }
+    case 'trampoline': {
+      inner.classList.add('act-trampoline');
+      setTimeout(()=> propFx(el, '🐸', 'jumper', 1500), 150);
+      return done(1500, 'act-trampoline');
+    }
+    case 'dog': {
+      propFx(el, '🐶', 'runIn', 2600, { dir: pr.x > 0.5 ? '1' : '-1' });
+      setTimeout(()=>{ inner.classList.add('act-gone'); propFx(el, '💕', 'rise', 1200, { rx: '6px' }); }, 1200);
+      setTimeout(()=> inner.classList.remove('act-gone'), 2700);
+      return done(2700);
+    }
+    default: {
+      inner.classList.add('act-' + m.tap);
+      propBurst(el);
+      return done(800, 'act-' + m.tap);
+    }
   }
-  if(m.tap === 'hatch'){
-    // 공룡알 부화: 🥚 흔들흔들 → 🦖 아기 공룡 → 잠시 뒤 다시 🥚 (공룡알이라 병아리 단계 없이 바로 공룡)
-    inner.classList.add('act-hatch');
-    setTimeout(()=>{ inner.textContent = '🦖'; propBurst(el, '💚'); propBurst(el, '✨'); }, 1000);
-    setTimeout(()=>{ inner.textContent = it.emoji; }, 3200);
-    done(3300);
-    return;
-  }
-  if(m.tap === 'hermit'){
-    // 소라를 누르면 안에서 소라게가 빼꼼 나와 옆으로 종종걸음 치다가 다시 쏙 들어갑니다.
-    inner.classList.add('act-shake');
-    const crab = document.createElement('span');
-    crab.className = 'prop-crab';
-    crab.style.setProperty('--dir', pr.x > 0.8 ? '-1' : '1');
-    crab.textContent = '🦀';
-    el.appendChild(crab);
-    setTimeout(()=>{ inner.classList.remove('act-shake'); }, 600);
-    setTimeout(()=>{ crab.remove(); el._busy = false; }, 3000);
-    return;
-  }
-  inner.classList.add('act-' + m.tap);
-  if(m.tap !== 'launch' && m.tap !== 'floatAway') propBurst(el);
-  done({ launch:2400, floatAway:2600, zip:1500, shake:700, spin:800, boing:700 }[m.tap] || 800);
 }
-function renderProps(sceneEl, sceneW, sceneH, spriteBox){
+// 돌아다니던 친구가 공에 닿으면 저절로 공을 찹니다(친구가 오는 방향의 반대쪽으로).
+function checkFriendBallKicks(now){
+  const sceneEl = document.getElementById('sceneEl');
+  if(!sceneEl) return;
+  const sr = sceneEl.getBoundingClientRect();
+  sceneEl.querySelectorAll('.prop[data-prop="prop-ball"]').forEach(el=>{
+    if(el._busy || (el._lastAutoKick && now - el._lastAutoKick < 3500)) return;
+    const br = el.getBoundingClientRect();
+    const bx = br.left + br.width/2, by = br.top + br.height/2;
+    for(const sp of fieldSprites){
+      if(sp.held || sp.flying) continue;
+      const r = sp.wrap.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      if(Math.abs(cx - bx) < r.width * 0.42 && by > r.top + r.height * 0.55 && by < r.bottom + 24){
+        el._lastAutoKick = now;
+        el._kick(cx < bx ? 1 : -1);
+        break;
+      }
+    }
+  });
+}
+function renderProps(sceneEl, sceneW, sceneH, spriteBox, appearIdx){
   sceneEl.querySelectorAll('.prop').forEach(p=>p.remove());
   fieldLayout[currentField].props.forEach((pr, idx)=>{
     const it = shopItem(pr.id);
     if(!it) return;
     const m = PROP_MOTION[pr.id] || {};
     const el = document.createElement('div');
-    el.className = 'prop';
+    el.className = 'prop' + (m.air ? ' air' : '') + (idx === appearIdx ? ' appear' : '');
+    el.dataset.prop = pr.id;
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', it.label + ' (톡 누르면 움직이고, 꾹 누르면 빼기)');
+    if(!m.air){ const sh = document.createElement('i'); sh.className = 'prop-shadow'; el.appendChild(sh); }
     const inner = document.createElement('span');
     inner.className = 'prop-inner idle-' + (m.idle || 'none');
     inner.style.animationDelay = (-(idx * 0.37) % 2).toFixed(2) + 's';   // 같은 소품끼리 똑같이 움직이지 않게
     inner.textContent = it.emoji;
     el.appendChild(inner);
+    if(m.deco) addPropDeco(inner, m.deco);   // 장식은 소품 안쪽에 붙여서 흔들릴 때 같이 움직이게
     el.style.fontSize = Math.round(spriteBox * 0.42) + 'px';
     el.style.left = (pr.x * sceneW) + 'px';
     el.style.top = (pr.y * sceneH) + 'px';
     el.style.zIndex = 2 + Math.round(pr.y * 20);
+    if(pr.id === 'prop-ball') el._kick = (dir)=> propAct(el, inner, pr, it, sceneEl, { dir, quiet:true });
     sceneEl.appendChild(el);
     let start = null, pressTimer = null;
     const clearPress = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; } };
@@ -826,6 +972,7 @@ function openPropPicker(){
     const groundY = FIELD_GROUND_Y[currentField];
     const y0 = groundY ? 0.66 : 0.3;
     list.push({ id, x: 0.15 + Math.random()*0.7, y: y0 + Math.random()*0.28 });
+    fieldPropAppearIdx = list.length - 1;
     persistState();
     closeDialog();
     renderScene();

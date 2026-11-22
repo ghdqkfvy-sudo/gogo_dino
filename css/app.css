@@ -679,7 +679,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 }
 .prop.dragging{cursor:grabbing; z-index:45 !important; transform:translate(-50%,-50%) scale(1.15);}
 .prop.pressed .prop-inner{transform:scale(1.2); filter:drop-shadow(0 0 8px #fff);}
-.prop-inner{display:inline-block; transform-origin:50% 90%; will-change:transform;}
+.prop-inner{display:inline-block; position:relative; transform-origin:50% 90%; will-change:transform;}
 .sprite.flying .sprite-shadow{display:none;}
 .sprite.flying .sprite-inner img{filter:drop-shadow(0 14px 10px rgba(0,0,0,.18));}
 /* 소품 평소 움직임 */
@@ -714,8 +714,7 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .prop-inner.act-zip{animation:propZip 1.5s ease-in-out;}
 .prop-inner.act-hatch{animation:propShake .5s ease-in-out 2, propBoing .7s cubic-bezier(.3,1.6,.5,1) 1s;}
 /* 소라게: 소라 안에서 빼꼼 → 옆으로 종종 → 다시 쏙 */
-.prop-crab{position:absolute; left:50%; top:62%; font-size:.62em; pointer-events:none; z-index:1;
-  transform:translate(-50%,-50%) scale(.2); opacity:0; animation:hermitOut 3s ease-in-out forwards;}
+
 @keyframes hermitOut{
   0%{transform:translate(-50%,-50%) scale(.2); opacity:0;}
   12%{transform:translate(-50%,-90%) scale(1); opacity:1;}
@@ -816,3 +815,73 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .voice-check-btns{display:flex; gap:8px; flex-wrap:wrap;}
 .voice-check-btns .pill{font-size:13px; padding:10px 14px;}
 .voice-check small{opacity:.65; font-size:11.5px;}
+
+/* =====================================================================
+   소품 애니메이션 2차: 그림자·등장·장식(트리 전구/굴뚝 연기/UFO 빛/별빛)·소품별 반응 효과
+   ===================================================================== */
+.prop-shadow{position:absolute; left:50%; bottom:-.06em; width:.78em; height:.15em; border-radius:50%; transform:translateX(-50%);
+  background:radial-gradient(ellipse at center, rgba(20,30,20,.32), rgba(20,30,20,0) 70%); pointer-events:none; z-index:-1;}
+.prop.appear{animation:propAppear .7s cubic-bezier(.3,1.6,.5,1) both;}
+@keyframes propAppear{0%{transform:translate(-50%,-50%) scale(0) rotate(-30deg);}100%{transform:translate(-50%,-50%) scale(1) rotate(0);}}
+/* 장식 */
+.tree-light{position:absolute; width:.085em; height:.085em; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none;
+  box-shadow:0 0 .07em .03em currentColor; animation:lightBlink 1.3s ease-in-out infinite;}
+@keyframes lightBlink{0%,100%{opacity:1; transform:translate(-50%,-50%) scale(1.15);}50%{opacity:.25; transform:translate(-50%,-50%) scale(.8);}}
+.lights-party .tree-light{animation:lightParty .3s linear infinite;}
+@keyframes lightParty{0%{filter:hue-rotate(0deg) brightness(1.6); opacity:1;}100%{filter:hue-rotate(360deg) brightness(1.6); opacity:1;}}
+.tree-star{position:absolute; left:50%; top:-4%; font-size:.3em; font-style:normal; transform:translate(-50%,-50%); pointer-events:none; animation:starGlow 1.6s ease-in-out infinite;}
+@keyframes starGlow{0%,100%{filter:drop-shadow(0 0 .1em #fff6a8) brightness(1); transform:translate(-50%,-50%) scale(1);}50%{filter:drop-shadow(0 0 .35em #ffe15a) brightness(1.3); transform:translate(-50%,-50%) scale(1.25) rotate(15deg);}}
+.chimney-smoke{position:absolute; left:68%; top:4%; width:.16em; height:.16em; border-radius:50%; background:rgba(255,255,255,.85); pointer-events:none; animation:chimney 3.3s ease-out infinite;}
+@keyframes chimney{0%{transform:translate(0,0) scale(.4); opacity:0;}15%{opacity:.9;}100%{transform:translate(.25em,-.9em) scale(1.8); opacity:0;}}
+.ufo-beam{position:absolute; left:50%; top:58%; width:.75em; height:1.15em; transform:translateX(-50%); pointer-events:none; z-index:-1;
+  background:linear-gradient(rgba(190,255,210,.7), rgba(190,255,210,0)); clip-path:polygon(36% 0, 64% 0, 100% 100%, 0 100%); animation:ufoBeamIdle 2.2s ease-in-out infinite;}
+@keyframes ufoBeamIdle{0%,100%{opacity:.15;}50%{opacity:.45;}}
+.beam-on .ufo-beam{animation:none; opacity:.9; height:1.9em; transition:height .4s;}
+.star-glow{position:absolute; left:50%; top:50%; width:1.7em; height:1.7em; transform:translate(-50%,-50%); border-radius:50%; pointer-events:none; z-index:-1;
+  background:radial-gradient(rgba(255,240,150,.6), rgba(255,240,150,0) 65%); animation:propBreathe 1.8s ease-in-out infinite;}
+/* 반응 효과(잠깐 나타났다 사라지는 그림) */
+.prop-fx{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none; line-height:1; z-index:3; font-style:normal;}
+.fx-puff{top:88%; font-size:.3em; animation:fxPuff .7s ease-out forwards;}
+@keyframes fxPuff{0%{transform:translate(-50%,-50%) scale(.4); opacity:.9;}100%{transform:translate(calc(-50% + var(--dir,1) * 34px), -90%) scale(1.5); opacity:0;}}
+.fx-shell{top:40%; font-size:.4em; animation:fxShell .9s ease-out forwards;}
+@keyframes fxShell{0%{transform:translate(-50%,-50%) scale(1); opacity:1;}100%{transform:translate(-50%,120%) rotate(160deg) scale(.4); opacity:0;}}
+.fx-crab{top:62%; font-size:.62em; z-index:1; transform:translate(-50%,-50%) scale(.2); opacity:0; animation:hermitOut 3s ease-in-out forwards;}
+.fx-gift{top:78%; font-size:.38em; animation:fxGift 2.6s ease-out forwards;}
+@keyframes fxGift{0%{transform:translate(-50%,-50%) scale(0); opacity:1;}22%{transform:translate(calc(-50% + var(--gx,0px)), -230%) scale(1.1);}42%{transform:translate(calc(-50% + var(--gx,0px)), 10%) scale(1,.85);}52%{transform:translate(calc(-50% + var(--gx,0px)), -40%) scale(1);}62%{transform:translate(calc(-50% + var(--gx,0px)), 10%);}85%{opacity:1;}100%{transform:translate(calc(-50% + var(--gx,0px)), 10%); opacity:0;}}
+.fx-fall{top:-25%; font-size:.22em; animation:fxFall 1.9s linear forwards;}
+@keyframes fxFall{0%{transform:translate(calc(-50% + var(--fx,0px)), 0) rotate(0); opacity:0;}10%{opacity:1;}100%{transform:translate(calc(-50% + var(--fx,0px) + 14px), 650%) rotate(200deg); opacity:0;}}
+.fx-peek{top:74%; font-size:.42em; animation:fxPeek 2.6s ease-in-out forwards;}
+@keyframes fxPeek{0%{transform:translate(-50%,-30%) scale(.2); opacity:0;}15%{transform:translate(-50%,-75%) scale(1); opacity:1;}30%,50%,70%{transform:translate(-50%,-75%) rotate(-10deg);}40%,60%{transform:translate(-50%,-75%) rotate(10deg);}85%{transform:translate(-50%,-75%) scale(1); opacity:1;}100%{transform:translate(-50%,-30%) scale(.2); opacity:0;}}
+.fx-rise{top:12%; left:calc(50% + var(--rx,0px)); font-size:.3em; animation:fxRise 1.4s ease-out forwards;}
+@keyframes fxRise{0%{transform:translate(-50%,-50%) scale(.5); opacity:.95;}100%{transform:translate(-50%,-300%) scale(1.6); opacity:0;}}
+.fx-confetti{font-size:.18em; animation:fxConfetti 1.6s ease-out forwards;}
+@keyframes fxConfetti{0%{transform:translate(-50%,-50%) scale(1); opacity:1;}30%{transform:translate(calc(-50% + var(--fx,0px)), -260%) rotate(calc(var(--rot,0deg) * .4));}100%{transform:translate(calc(-50% + var(--fx,0px) * 1.3), 500%) rotate(var(--rot,0deg)); opacity:0;}}
+.prop-inner.act-inflate{animation:propInflate 1.1s ease-in forwards;}
+@keyframes propInflate{0%{transform:scale(1);}30%{transform:scale(1.18,1.1);}55%{transform:scale(1.3,1.38);}80%{transform:scale(1.55,1.48);}100%{transform:scale(1.7);}}
+.prop-inner.act-popped{opacity:0; transform:scale(1.7);}
+.prop-inner.act-regrow{animation:propRegrow .9s cubic-bezier(.3,1.6,.5,1);}
+@keyframes propRegrow{0%{transform:scale(0); opacity:0;}100%{transform:scale(1); opacity:1;}}
+.fx-coconut{top:22%; left:calc(50% + var(--cx,0px)); font-size:.3em; animation:fxCoconut 1.7s ease-in forwards;}
+@keyframes fxCoconut{0%{transform:translate(-50%,-50%) rotate(0);}40%{transform:translate(-50%,240%) rotate(180deg);}55%{transform:translate(-30%,150%) rotate(260deg);}70%{transform:translate(-10%,240%) rotate(340deg);}82%{transform:translate(0%,210%);}92%{transform:translate(10%,240%); opacity:1;}100%{transform:translate(10%,240%); opacity:0;}}
+.fx-alien{top:62%; font-size:.4em; z-index:1; animation:fxAlien 3s ease-in-out forwards;}
+@keyframes fxAlien{0%{transform:translate(-50%,-50%) scale(.3); opacity:0;}25%{transform:translate(-50%,170%) scale(1); opacity:1;}35%,55%{transform:translate(-50%,170%) rotate(-12deg);}45%,65%{transform:translate(-50%,170%) rotate(12deg);}78%{transform:translate(-50%,170%) rotate(0); opacity:1;}100%{transform:translate(-50%,-50%) scale(.3); opacity:0;}}
+.fx-smokeOut{top:96%; left:calc(50% + var(--sx,0px)); font-size:.3em; animation:fxSmokeOut 1.3s ease-out forwards;}
+@keyframes fxSmokeOut{0%{transform:translate(-50%,-50%) scale(.4); opacity:.95;}100%{transform:translate(calc(-50% + var(--sx,0px)), -20%) scale(2); opacity:0;}}
+.fx-flame{top:100%; font-size:.36em; transform:translate(-50%,-30%) rotate(180deg); animation:fxFlame .12s ease-in-out infinite alternate;}
+@keyframes fxFlame{0%{transform:translate(-50%,-30%) rotate(180deg) scale(1,1);}100%{transform:translate(-50%,-25%) rotate(180deg) scale(.85,1.25);}}
+.prop-inner.act-bloom{animation:propBloom 1s cubic-bezier(.3,1.6,.5,1);}
+@keyframes propBloom{0%{transform:scale(1) rotate(0);}40%{transform:scale(1.35) rotate(-8deg);}100%{transform:scale(1) rotate(0);}}
+.fx-petal{top:30%; font-size:.2em; animation:fxPetal 1.8s ease-out forwards;}
+@keyframes fxPetal{0%{transform:translate(-50%,-50%) rotate(0); opacity:1;}100%{transform:translate(calc(-50% + var(--fx,0px)), -420%) rotate(var(--rot,90deg)); opacity:0;}}
+.fx-butterfly{top:20%; font-size:.3em; animation:fxButterfly 2.6s ease-in-out forwards;}
+@keyframes fxButterfly{0%{transform:translate(-50%,-50%) scale(.3); opacity:0;}15%{transform:translate(-20%,-150%) scale(1) rotate(-15deg); opacity:1;}35%{transform:translate(60%,-250%) rotate(15deg);}55%{transform:translate(-40%,-380%) rotate(-15deg);}75%{transform:translate(80%,-500%) rotate(10deg); opacity:1;}100%{transform:translate(40%,-650%) scale(.8); opacity:0;}}
+.fx-arc{font-size:.28em; animation:fxArc 1.4s ease-out forwards;}
+@keyframes fxArc{0%{transform:translate(-50%,-50%) scale(.3); opacity:1;}60%{opacity:1;}100%{transform:translate(calc(-50% + var(--ax,0px)), calc(-50% + var(--ay,0px))) scale(1.1) rotate(180deg); opacity:0;}}
+.prop-inner.act-trampoline{animation:propTrampoline 1.4s ease-in-out;}
+@keyframes propTrampoline{0%,100%{transform:scale(1);}15%{transform:scale(1.3,.65);}30%{transform:scale(.85,1.2);}45%{transform:scale(1.15,.85);}60%{transform:scale(.95,1.05);}}
+.fx-jumper{top:10%; font-size:.34em; animation:fxJumper 1.5s ease-in-out forwards;}
+@keyframes fxJumper{0%{transform:translate(-50%,0) scale(.6); opacity:0;}12%{transform:translate(-50%,0) scale(1); opacity:1;}45%{transform:translate(-50%,-420%) rotate(360deg);}75%{transform:translate(-50%,0) rotate(720deg) scale(1.1,.9);}90%{opacity:1;}100%{transform:translate(-50%,-60%) rotate(720deg); opacity:0;}}
+.fx-runIn{top:55%; font-size:.45em; animation:fxRunIn 2.6s ease-in-out forwards;}
+@keyframes fxRunIn{0%{transform:translate(calc(-50% + var(--dir,1) * 140px),-50%); opacity:0;}12%{opacity:1;}35%{transform:translate(calc(-50% + var(--dir,1) * 22px),-50%);}42%,56%{transform:translate(calc(-50% + var(--dir,1) * 22px),-70%) rotate(-8deg);}49%,63%{transform:translate(calc(-50% + var(--dir,1) * 22px),-50%) rotate(8deg);}80%{transform:translate(calc(-50% + var(--dir,1) * 30px),-50%); opacity:1;}100%{transform:translate(calc(-50% + var(--dir,1) * 160px),-50%); opacity:0;}}
+.prop-inner.act-gone{transition:transform .4s, opacity .4s; transform:scale(.4) rotate(40deg); opacity:.15;}
+@media (prefers-reduced-motion: reduce){ .prop-fx, .tree-light, .tree-star, .chimney-smoke, .ufo-beam, .star-glow, .prop.appear{animation:none !important;} }
