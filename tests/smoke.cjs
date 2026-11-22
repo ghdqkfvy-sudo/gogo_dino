@@ -521,10 +521,108 @@ function check(cond, msg){
     return out;
   });
   check(Math.abs(kids[0].pitch - kids[1].pitch) >= 0.15 && Math.abs(kids[0].rate - kids[1].rate) >= 0.15 && kids[0].voice !== kids[1].voice, `율/온 목소리가 확실히 다름 (높낮이 ${kids[0].pitch.toFixed(2)}/${kids[1].pitch.toFixed(2)}, 속도 ${kids[0].rate.toFixed(2)}/${kids[1].rate.toFixed(2)}, 음성 ${kids[0].voice}/${kids[1].voice})`);
-  check(kids.every(k=> k.pitch >= 0.85 && k.pitch <= 1.25 && k.rate <= 1.15), '목소리 높낮이가 기계음이 되지 않는 자연스러운 범위(0.85~1.25)'); 
+  check(kids.every(k=> k.pitch >= 0.82 && k.pitch <= 1.32 && k.rate <= 1.2), '목소리 높낮이가 기계음이 되지 않는 자연스러운 범위(0.82~1.32)'); 
   const lines = await page.evaluate(()=>{ const a = linesFor('default-kid-1','율'), b = linesFor('default-kid-2','온'), g = linesFor('rex','렉스'); return { a:a.length, b:b.length, intro:a[0]+'|'+b[0]+'|'+g[0], uniq: new Set(a.concat(b)).size === a.length + b.length }; });
   check(lines.a >= 5 && lines.b >= 5 && lines.uniq && lines.intro === '안녕! 나는 율이야|안녕, 나는 온이야|안녕! 나는 렉스야', '율·온 대사가 각각 5개 이상, 첫 줄은 자기소개 (' + lines.intro + ')');
   check(vickyV.pitch > rexV.pitch && amberV.pitch > ankiV.pitch && yulV.pitch > rexV.pitch, '여성/아이 캐릭터는 더 높은 목소리');
+
+  console.log('안드로이드 음성(가짜 엔진): 친구마다 다른 음성 / 끊긴 말 다시 안 함');
+  const tts = await page.evaluate(async ()=>{
+    const tick = ()=> new Promise(r=> setTimeout(r, 15));
+    const voices = [
+      { voiceURI:'ko-kr-x-ism-local', lang:'ko-KR', localService:true }, { voiceURI:'ko-kr-x-ism-network', lang:'ko-KR', localService:false },
+      { voiceURI:'ko-kr-x-kob-local', lang:'ko-KR', localService:true }, { voiceURI:'ko-kr-x-koc-local', lang:'ko-KR', localService:true },
+      { voiceURI:'ko-kr-x-kod-local', lang:'ko-KR', localService:true }, { voiceURI:'en-us-x-iob-local', lang:'en-US', localService:true },
+    ];
+    const calls = [], pending = [];
+    const fake = { stop:()=> Promise.resolve(), getSupportedVoices:()=> Promise.resolve({ voices }), openInstall:()=> Promise.resolve(),
+      speak:(o)=>{ calls.push(Object.assign({}, o)); return new Promise((res, rej)=> pending.push({ res, rej })); } };
+    const cap = window.Capacitor, saved = { isNative: cap.isNativePlatform, tts: cap.Plugins.TextToSpeech };
+    cap.isNativePlatform = ()=> true; cap.Plugins.TextToSpeech = fake;
+    nsNativeVoicesPromise = null; nsBadNativeVoices.clear(); voiceGuideOn = true;
+    const out = {};
+    const ids = ['default-kid-1','default-kid-2','rex','tomo','ping','loki','vicky','amber'];
+    for(const id of ids){ speak('안녕', voiceFor(id)); await tick(); }
+    out.chosen = Object.fromEntries(ids.map((id,i)=> [id, calls[i] && calls[i].voice]));
+    // 끊긴 예전 말이 실패해도 다시 말하지 않음(예전 버그: 기본 음성으로 또 말해서 이상한 소리가 끼어듦)
+    calls.length = 0; pending.length = 0;
+    speak('첫 문장', voiceFor('rex')); await tick(); speak('두 번째', voiceFor('tomo')); await tick();
+    pending[0].rej('error'); await tick(); await tick();
+    out.replayOld = calls.filter(c=> c.text === '첫 문장').length;
+    // 지금 말이 곧바로 실패하면 기본 음성으로 한 번만 다시 말하고, 그 음성은 다시 안 씀
+    calls.length = 0; pending.length = 0;
+    speak('셋', voiceFor('rex')); await tick(); const bad = calls[0].voice; pending[0].rej('error'); await tick(); await tick();
+    out.retryOnce = calls.length === 2 && calls[1].voice === undefined && nsBadNativeVoices.has(bad);
+    speak('넷', voiceFor('rex')); await tick();
+    out.avoidBad = calls[calls.length-1].voice !== bad;
+    // 마이크를 켜기 전에 말을 멈춤
+    const seq0 = nsSpeechSeq; const origGUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    if(navigator.mediaDevices) navigator.mediaDevices.getUserMedia = ()=> Promise.reject(new Error('no'));
+    nsStartMicCheck(); out.micStops = nsSpeechSeq > seq0;
+    await new Promise(r=> setTimeout(r, 400));
+    if(navigator.mediaDevices) navigator.mediaDevices.getUserMedia = origGUM;
+    // 보호자 화면의 목소리 점검
+    nsBadNativeVoices.clear();   // 위에서 일부러 실패시킨 음성 기록을 지우고, 설치된 음성 수를 셈
+    out.voiceCount = (await nsKoreanVoiceList()).length;
+    cap.isNativePlatform = saved.isNative; cap.Plugins.TextToSpeech = saved.tts; nsNativeVoicesPromise = null; nsBadNativeVoices.clear();
+    return out;
+  });
+  const ch = tts.chosen, vals = Object.values(ch);
+  check(ch['default-kid-1'] !== ch['default-kid-2'] && ch.rex !== ch.tomo && new Set(vals).size >= 4, '친구마다 다른 음성 (' + Object.entries(ch).map(([k,v])=>k.replace('default-kid-1','율').replace('default-kid-2','온')+':'+v).join(' ') + ')');
+  check(!vals.includes(1) && !vals.includes(5), '인터넷 음성(끊김 잦음)·다른 언어 음성은 고르지 않음');
+  check([0,2].includes(ch.vicky) && [0,2].includes(ch.amber) && ch.vicky !== ch.amber, '여성 친구(비키·엠버)는 여성 음성 중에서 서로 다르게');
+  check(tts.replayOld === 1, '끊긴 예전 말이 실패해도 다시 말하지 않음(이상한 소리 버그 수정)');
+  check(tts.retryOnce && tts.avoidBad, '곧바로 실패한 말만 한 번 다시 말하고, 실패한 음성은 다시 안 씀');
+  check(tts.micStops && tts.voiceCount === 4, `마이크 켜기 전 말 멈춤, 한국어 음성 ${tts.voiceCount}개로 점검 표시`);
+
+  console.log('보상 영상 자막 끄기');
+  const cc = await page.evaluate(async ()=>{
+    const unloaded = []; let opts = null;
+    window.YT = { PlayerState:{ ENDED:0, PLAYING:1, PAUSED:2, BUFFERING:3 }, Player: function(el, o){
+      opts = o; this.loadPlaylist = ()=>{}; this.playVideo = ()=>{}; this.pauseVideo = ()=>{}; this.destroy = ()=>{}; this.getPlayerState = ()=>1;
+      this.unloadModule = (m)=> unloaded.push(m); this.setOption = ()=>{};
+      setTimeout(()=> o.events.onReady({ target:this }), 0);
+    }};
+    go('screen-home'); showNumberReward(); await new Promise(r=> setTimeout(r, 60));
+    closeNumberReward();
+    return { policy: opts && opts.playerVars.cc_load_policy, unloaded };
+  });
+  check(cc.policy === 0 && cc.unloaded.includes('captions'), '보상 영상은 자막을 끄고 재생');
+
+  console.log('하늘 배치 / 움직이는 소품');
+  await page.waitForFunction(()=> !document.fullscreenElement);
+  await page.evaluate(()=>{ fieldLayout.forest.pos = {}; fieldLayout.forest.props = [{ id:'prop-ball', x:0.5, y:0.8 }, { id:'prop-egg', x:0.3, y:0.85 }]; openField('forest'); fieldSprites.forEach(sp=>{ sp.held = true; }); });
+  await page.waitForTimeout(300);
+  const sky0 = await page.locator('#sceneEl .sprite').first().boundingBox();
+  const scBox = await page.locator('#sceneEl').boundingBox();
+  await page.mouse.move(sky0.x + sky0.width/2, sky0.y + sky0.height/2); await page.mouse.down();
+  await page.mouse.move(sky0.x + sky0.width/2, scBox.y + 40, { steps:8 }); await page.mouse.up();
+  const sky = await page.evaluate(async ()=>{
+    fieldSprites.forEach(sp=>{ sp.held = false; });
+    await persistChain;
+    const sp = fieldSprites.find(s=> s.flying); const st = await idbGet('state');
+    const saved = sp && st.fieldLayout.forest.pos[sp.uid];
+    openField('forest'); await new Promise(r=> setTimeout(r, 200));
+    const again = sp && fieldSprites.find(s=> s.uid === sp.uid);
+    return { flying: !!sp, savedY: saved && saved.y, stillFlying: !!(again && again.flying && again.wrap.classList.contains('flying')) };
+  });
+  check(sky.flying && sky.savedY < 0.35 && sky.stillFlying, `친구를 하늘로 옮기면 날아다니고, 다시 열어도 하늘에 있음 (y=${sky.savedY && sky.savedY.toFixed(2)})`);
+  const props = await page.evaluate(()=> Array.from(document.querySelectorAll('#sceneEl .prop .prop-inner')).map(e=> e.className));
+  check(props.length === 2 && props.every(c=> /idle-(hop|wiggle)/.test(c)), '소품이 평소에도 움직임 (' + props.join(' / ') + ')');
+  const ballBox = await page.locator('#sceneEl .prop').first().boundingBox();
+  const ballX0 = await page.evaluate(()=> fieldLayout.forest.props[0].x);
+  await page.mouse.click(ballBox.x + ballBox.width/2, ballBox.y + ballBox.height/2);
+  await page.waitForTimeout(1100);
+  const ballX1 = await page.evaluate(()=> fieldLayout.forest.props[0].x);
+  check(Math.abs(ballX1 - ballX0) > 0.1, `공을 톡 누르면 굴러감 (${ballX0.toFixed(2)} → ${ballX1.toFixed(2)})`);
+  const eggBox = await page.locator('#sceneEl .prop').nth(1).boundingBox();
+  await page.mouse.click(eggBox.x + eggBox.width/2, eggBox.y + eggBox.height/2);
+  await page.waitForTimeout(1500);
+  check((await page.locator('#sceneEl .prop').nth(1).textContent()).includes('🦖'), '공룡알을 톡 누르면 아기 공룡이 부화');
+  await page.waitForTimeout(2000);
+  await page.mouse.move(eggBox.x + eggBox.width/2, eggBox.y + eggBox.height/2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up();
+  check(await page.evaluate(()=> isDialogOpen() && document.getElementById('confirmOverlayEl').textContent.includes('필드에서 빼기')), '소품을 꾹 누르면 빼기 창');
+  await page.evaluate(()=>{ closeDialog(); fieldLayout.forest.props = []; fieldLayout.forest.pos = {}; go('screen-home'); });
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();

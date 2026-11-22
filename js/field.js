@@ -438,7 +438,8 @@ function renderScene(){
     // 끌어다 놓은 자리가 저장돼 있으면 그 자리에서 시작합니다.
     const sp0 = savedPos[snap.uid];
     if(sp0){
-      top = Math.max(usableTop, Math.min(usableBottom, sp0.y * sceneH));
+      // 하늘에 놓아둔 친구도 그 자리 그대로(땅 위로 끌어내리지 않음)
+      top = Math.max(FIELD_SKY_TOP, Math.min(usableBottom, sp0.y * sceneH));
       anchorLeft = Math.max(usableLeft, Math.min(Math.max(usableLeft, sceneW - boxW - 4), sp0.x * sceneW));
     }
     wrap.style.top = top + 'px';
@@ -456,7 +457,7 @@ function renderScene(){
     const variant = FIELD_WANDER_VARIANTS[i % FIELD_WANDER_VARIANTS.length];
     const spriteState = {
       uid: snap.uid, name: snap.name, wrap, inner: wrap.querySelector('.sprite-inner'), hop: wrap.querySelector('.sprite-hop'),
-      amplitude: wanderAmplitude, anchorLeft, top, boxW,
+      amplitude: wanderAmplitude, anchorLeft, top, boxW, flying: !!(groundSvgY && top < usableTop - 4),
       usableLeft, usableRight: Math.max(usableLeft, sceneW - boxW - 4), usableTop, usableBottom,
       minX: usableLeft - anchorLeft, maxX: Math.max(usableLeft, sceneW - boxW - 4) - anchorLeft,
       period: variant.period, phase: sp0 ? 0.25 : variant.phase + i*0.13, // 저장된 자리가 있으면 그 자리(이동 0)에서 걷기 시작
@@ -491,6 +492,7 @@ function renderScene(){
       };
       spriteIntervals[snap.uid] = setInterval(()=>{ if(!spriteState.held) spriteState.doTransform(); }, 4500 + i*733);
     }
+    if(spriteState.flying) wrap.classList.add('flying');
     attachSpriteInteraction(spriteState, sceneEl);
   });
   renderProps(sceneEl, sceneW, sceneH, spriteBox);
@@ -499,6 +501,13 @@ function renderScene(){
 
 // 친구를 톡 누르면: 폴짝 뛰며 이름으로 인사(말풍선+음성), 변신 가능한 친구는 변신도 합니다.
 // 꾹 눌러 끌면: 원하는 자리로 옮기고, 놓은 자리에서 다시 돌아다닙니다.
+// 하늘 배치: 땅이 있는 필드에서 친구를 땅보다 위로 올려 놓으면 "나는 친구"가 됩니다(그림자 없이 둥실둥실).
+const FIELD_SKY_TOP = 6;
+function setSpriteFlying(sp, top){
+  const flying = !!(FIELD_GROUND_Y[currentField] && top < sp.usableTop - 4);
+  sp.flying = flying;
+  sp.wrap.classList.toggle('flying', flying);
+}
 function attachSpriteInteraction(sp, sceneEl){
   const wrap = sp.wrap;
   let start = null;
@@ -516,9 +525,11 @@ function attachSpriteInteraction(sp, sceneEl){
     const sceneW = sceneEl.clientWidth;
     // 끄는 동안은 지금 보이는 위치(left + translateX)를 기준으로 손가락을 따라오게 합니다.
     const left = Math.max(sp.usableLeft - sp.lastX, Math.min(sceneW - sp.boxW - 4 - sp.lastX, start.left + dx));
-    const top = Math.max(sp.usableTop, Math.min(sp.usableBottom, start.top + dy));
+    // 땅 위뿐 아니라 하늘(장면 맨 위)까지 옮길 수 있습니다. 땅보다 위로 올리면 하늘을 나는 친구가 됩니다.
+    const top = Math.max(FIELD_SKY_TOP, Math.min(sp.usableBottom, start.top + dy));
     wrap.style.left = left + 'px';
     wrap.style.top = top + 'px';
+    setSpriteFlying(sp, top);
   });
   const end = (e)=>{
     if(!start || e.pointerId !== start.id) return;
@@ -532,6 +543,7 @@ function attachSpriteInteraction(sp, sceneEl){
       sp.anchorLeft = visualLeft;
       wrap.style.left = visualLeft + 'px';
       sp.top = parseFloat(wrap.style.top)||sp.top;
+      setSpriteFlying(sp, sp.top);
       sp.minX = sp.usableLeft - visualLeft;
       sp.maxX = sp.usableRight - visualLeft;
       const t = (performance.now() - fieldAnimT0)/1000;
@@ -584,7 +596,11 @@ function startFieldAnim(){
       sp.lastX = x;
       const dir = fieldWaveDir(theta);
       let bobY, rot;
-      if(sp.showingVehicle){
+      if(sp.flying){
+        // 하늘에 있는 친구: 천천히 둥실둥실 떠다니며 살짝 기울어짐
+        bobY = Math.sin(t*1.7 + sp.stepSeed) * 9;
+        rot = Math.sin(t*1.1 + sp.stepSeed) * 5;
+      } else if(sp.showingVehicle){
         bobY = Math.sin(t*10 + sp.stepSeed) * 2;
         rot = Math.sin(t*20 + sp.stepSeed) * 1.6;
       } else {
@@ -643,57 +659,140 @@ function toggleFieldNight(){
 }
 
 // ---- 꾸미기 소품 ----
+// 소품 움직임: idle = 가만히 있을 때의 작은 움직임, tap = 톡 눌렀을 때의 반응, say = 반응할 때 하는 말(효과음처럼)
+const PROP_MOTION = {
+  'prop-flower':   { idle:'sway',    tap:'spin',   say:'살랑살랑' },
+  'prop-ball':     { idle:'hop',     tap:'kick',   say:'뻥!' },
+  'prop-mushroom': { idle:'squish',  tap:'boing',  say:'뽀잉!' },
+  'prop-house':    { idle:'breathe', tap:'shake',  say:'똑똑, 누구 있어요?' },
+  'prop-balloon':  { idle:'float',   tap:'floatAway', say:'두둥실!' },
+  'prop-rainbow':  { idle:'shimmer', tap:'boing',  say:'반짝반짝 무지개!' },
+  'prop-shell':    { idle:'wiggle',  tap:'boing',  say:'바다 소리가 들려!' },
+  'prop-palm':     { idle:'sway',    tap:'shake',  say:'코코넛이 툭!' },
+  'prop-star':     { idle:'twinkle', tap:'spin',   say:'반짝!' },
+  'prop-rocket':   { idle:'hover',   tap:'launch', say:'3, 2, 1, 발사!' },
+  'prop-ufo':      { idle:'drift',   tap:'zip',    say:'슝슝!' },
+  'prop-snowman':  { idle:'wobble',  tap:'boing',  say:'안녕, 나는 눈사람이야!' },
+  'prop-xtree':    { idle:'twinkle', tap:'shake',  say:'반짝반짝 트리!' },
+  'prop-egg':      { idle:'wiggle',  tap:'hatch',  say:'뿅! 아기 공룡이 나왔어요!' },
+  'prop-bone':     { idle:'wiggle',  tap:'spin',   say:'멍멍이 간식!' },
+};
+const PROP_LONG_PRESS_MS = 650;   // 꾹 누르면 "필드에서 빼기" 창
+function propBurst(el, emoji){
+  // 소품 둘레로 작은 반짝이가 퍼져 나갑니다.
+  for(let i=0;i<7;i++){
+    const b = document.createElement('span');
+    b.className = 'prop-burst';
+    const ang = (i / 7) * Math.PI * 2 + Math.random()*0.4;
+    b.style.setProperty('--bx', (Math.cos(ang) * (40 + Math.random()*24)).toFixed(0) + 'px');
+    b.style.setProperty('--by', (Math.sin(ang) * (40 + Math.random()*24) - 14).toFixed(0) + 'px');
+    b.textContent = emoji || ['✨','⭐','💫'][i % 3];
+    el.appendChild(b);
+    setTimeout(()=> b.remove(), 900);
+  }
+}
+function propAct(el, inner, pr, it, sceneEl){
+  const m = PROP_MOTION[pr.id] || { tap:'boing' };
+  if(el._busy) return;
+  el._busy = true;
+  const done = (ms)=> setTimeout(()=>{ inner.classList.remove('act-' + m.tap); el._busy = false; }, ms);
+  playChime(m.tap === 'launch' || m.tap === 'hatch' ? 'fanfare' : 'pop');
+  if(m.say) speak(m.say);
+  if(m.tap === 'kick'){
+    // 공 차기: 옆으로 데굴데굴 굴러가며 통통 튀고, 멈춘 자리를 기억합니다.
+    const dir = pr.x > 0.75 ? -1 : pr.x < 0.25 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+    const toX = Math.max(0.05, Math.min(0.95, pr.x + dir * (0.18 + Math.random()*0.12)));
+    inner.style.setProperty('--roll', (dir * 720) + 'deg');
+    inner.classList.add('act-kick');
+    el.style.transition = 'left .9s cubic-bezier(.2,.7,.3,1)';
+    pr.x = toX;
+    el.style.left = (toX * sceneEl.clientWidth) + 'px';
+    setTimeout(()=>{ el.style.transition = ''; persistState(); }, 950);
+    done(950);
+    return;
+  }
+  if(m.tap === 'hatch'){
+    // 공룡알 부화: 🥚 → 🐣 → 🦖 → 다시 🥚
+    inner.classList.add('act-hatch');
+    setTimeout(()=>{ inner.textContent = '🐣'; propBurst(el, '✨'); }, 500);
+    setTimeout(()=>{ inner.textContent = '🦖'; propBurst(el, '💚'); }, 1300);
+    setTimeout(()=>{ inner.textContent = it.emoji; }, 3200);
+    done(3300);
+    return;
+  }
+  inner.classList.add('act-' + m.tap);
+  if(m.tap !== 'launch' && m.tap !== 'floatAway') propBurst(el);
+  done({ launch:2400, floatAway:2600, zip:1500, shake:700, spin:800, boing:700 }[m.tap] || 800);
+}
 function renderProps(sceneEl, sceneW, sceneH, spriteBox){
   sceneEl.querySelectorAll('.prop').forEach(p=>p.remove());
-  fieldLayout[currentField].props.forEach(pr=>{
+  fieldLayout[currentField].props.forEach((pr, idx)=>{
     const it = shopItem(pr.id);
     if(!it) return;
+    const m = PROP_MOTION[pr.id] || {};
     const el = document.createElement('div');
     el.className = 'prop';
     el.setAttribute('role', 'button');
-    el.setAttribute('aria-label', it.label);
-    el.textContent = it.emoji;
+    el.setAttribute('aria-label', it.label + ' (톡 누르면 움직이고, 꾹 누르면 빼기)');
+    const inner = document.createElement('span');
+    inner.className = 'prop-inner idle-' + (m.idle || 'none');
+    inner.style.animationDelay = (-(idx * 0.37) % 2).toFixed(2) + 's';   // 같은 소품끼리 똑같이 움직이지 않게
+    inner.textContent = it.emoji;
+    el.appendChild(inner);
     el.style.fontSize = Math.round(spriteBox * 0.42) + 'px';
     el.style.left = (pr.x * sceneW) + 'px';
     el.style.top = (pr.y * sceneH) + 'px';
     el.style.zIndex = 2 + Math.round(pr.y * 20);
     sceneEl.appendChild(el);
-    let start = null;
+    let start = null, pressTimer = null;
+    const clearPress = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; } };
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
-      start = { x:e.clientX, y:e.clientY, px:pr.x, py:pr.y, moved:false, id:e.pointerId };
+      start = { x:e.clientX, y:e.clientY, px:pr.x, py:pr.y, moved:false, longPressed:false, id:e.pointerId };
+      clearPress();
+      pressTimer = setTimeout(()=>{
+        pressTimer = null;
+        if(!start || start.moved) return;
+        start.longPressed = true;
+        el.classList.add('pressed');
+        speak(it.label);
+        showChoiceDialog(`<div style="font-size:48px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div>`, [
+          { label:'✕ 필드에서 빼기', cls:'ghost', value:'remove' },
+          { label:'닫기', cls:'alt', value:null },
+        ], (v)=>{
+          el.classList.remove('pressed');
+          if(v !== 'remove') return;
+          const list = fieldLayout[currentField].props;
+          const k = list.indexOf(pr);
+          if(k >= 0) list.splice(k, 1);
+          persistState();
+          renderScene();
+        }, { vertical:true });
+      }, PROP_LONG_PRESS_MS);
     });
     el.addEventListener('pointermove', (e)=>{
-      if(!start || e.pointerId !== start.id) return;
+      if(!start || e.pointerId !== start.id || start.longPressed) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       if(!start.moved && Math.hypot(dx, dy) < 8) return;
+      clearPress();
       start.moved = true; el.classList.add('dragging');
       pr.x = Math.max(0.04, Math.min(0.96, start.px + dx / sceneEl.clientWidth));
-      pr.y = Math.max(0.08, Math.min(0.95, start.py + dy / sceneEl.clientHeight));
+      pr.y = Math.max(0.06, Math.min(0.95, start.py + dy / sceneEl.clientHeight));
       el.style.left = (pr.x * sceneEl.clientWidth) + 'px';
       el.style.top = (pr.y * sceneEl.clientHeight) + 'px';
     });
     const end = (e)=>{
       if(!start || e.pointerId !== start.id) return;
-      const moved = start.moved; start = null;
+      clearPress();
+      const { moved, longPressed } = start; start = null;
       el.classList.remove('dragging');
+      if(longPressed) return;
       if(moved){ el.style.zIndex = 2 + Math.round(pr.y * 20); persistState(); return; }
-      speak(it.label);
-      showChoiceDialog(`<div style="font-size:48px;line-height:1.2;">${it.emoji}</div><div>${it.label}</div>`, [
-        { label:'✕ 필드에서 빼기', cls:'ghost', value:'remove' },
-        { label:'닫기', cls:'alt', value:null },
-      ], (v)=>{
-        if(v !== 'remove') return;
-        const list = fieldLayout[currentField].props;
-        const k = list.indexOf(pr);
-        if(k >= 0) list.splice(k, 1);
-        persistState();
-        renderScene();
-      }, { vertical:true });
+      propAct(el, inner, pr, it, sceneEl);
     };
     el.addEventListener('pointerup', end);
-    el.addEventListener('pointercancel', end);
+    el.addEventListener('pointercancel', (e)=>{ clearPress(); if(start && e.pointerId === start.id){ start = null; el.classList.remove('dragging'); } });
   });
 }
 const FIELD_PROP_LIMIT = 12;
@@ -701,7 +800,7 @@ function openPropPicker(){
   const items = SHOP_ITEMS.filter(i=>i.kind==='prop');
   const el = showChoiceDialog(`
     <div>🎀 필드 꾸미기 <span class="egg-pill">🥚 <b class="egg-count">${wallet.eggs}</b></span></div>
-    <small>누르면 필드에 놓여요. 끌어서 옮기고, 톡 누르면 뺄 수 있어요.</small>
+    <small>누르면 필드에 놓여요. 끌어서 옮기고, 톡 누르면 움직이고, 꾹 누르면 뺄 수 있어요.</small>
     <div class="shop-grid">${items.map(it=>{
       const open = isUnlocked(it.id);
       return `<button class="shop-cell${open?' open':''}" data-prop="${it.id}" aria-label="${it.label}${open?'':' (잠김)'}">

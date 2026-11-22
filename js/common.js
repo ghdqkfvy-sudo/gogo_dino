@@ -328,26 +328,28 @@ function getDef(id){
 // 다른 목소리처럼 들리게 합니다(덩치 큰 친구는 낮고 느리게, 작은 친구는 높고 빠르게).
 // gender:'female'인 친구(비키, 엠버)는 기기에 여성 음성이 따로 있으면 그 음성을 고릅니다.
 // pitch/rate 기준값은 1.0(보통 목소리)입니다.
+// variant: 기기에 한국어 음성이 여러 개 설치돼 있으면 친구마다 "몇 번째 음성"을 쓸지 정합니다.
+// 옆에 나란히 서는 친구끼리 겹치지 않게 0~3을 섞어 두었습니다(음성이 2개뿐이면 0/2, 1/3이 같은 음성).
+// gender:'female' 친구는 여성 음성들 중에서 variant 번째를 고릅니다. pitch/rate 기준은 1.0입니다.
 const CHARACTER_VOICES = {
-  rex:   { pitch:0.8,  rate:0.9  },                   // 렉스 - 듬직한 대장
-  tomo:  { pitch:1.1,  rate:1.0  },                   // 토모 - 씩씩하고 빠르게
-  vicky: { pitch:1.45, rate:0.9,  gender:'female' },  // 비키 - 여성 캐릭터
-  ping:  { pitch:1.3,  rate:1.05 },                   // 핑 - 작고 귀엽게
-  loki:  { pitch:0.95, rate:0.95 },
-  poki:  { pitch:1.2,  rate:1.0  },
-  anki:  { pitch:0.7,  rate:0.8  },                   // 안키 - 덩치 큰 안킬로사우루스
-  storm: { pitch:0.85, rate:1.05 },
-  peri:  { pitch:1.45, rate:0.95, gender:'female' },  // 페리 - 여성 캐릭터
-  poli:  { pitch:1.0,  rate:0.9  },
-  roy:   { pitch:0.65, rate:0.8  },                   // 로이 - 큰 소방차
-  amber: { pitch:1.5,  rate:0.9,  gender:'female' },  // 엠버 - 여성 캐릭터
-  helly: { pitch:1.25, rate:1.05 },
-  titi:  { pitch:1.1,  rate:1.0  }, ppul:  { pitch:0.9,  rate:0.9  }, deung: { pitch:0.8,  rate:0.85 },
-  fire:  { pitch:0.85, rate:0.95 }, police:{ pitch:1.0,  rate:1.1  }, plane: { pitch:1.15, rate:1.1  },
-  rocket:{ pitch:1.2,  rate:1.15 }, butterfly:{ pitch:1.5, rate:1.0, gender:'female' },
-  fish:  { pitch:1.4,  rate:1.05 }, bear:  { pitch:0.75, rate:0.85 },
-  // 율과 온은 한눈에(한귀에) 구분되도록 높낮이·빠르기를 크게 벌렸습니다.
-  // variant: 기기에 같은 언어 음성이 여러 개 있으면 율은 첫 번째, 온은 두 번째 음성을 씁니다.
+  rex:   { pitch:0.8,  rate:0.9,  variant:2 },                   // 렉스 - 듬직한 대장
+  tomo:  { pitch:1.1,  rate:1.05, variant:3 },                   // 토모 - 씩씩하고 빠르게
+  vicky: { pitch:1.35, rate:0.95, variant:0, gender:'female' },  // 비키 - 여성 캐릭터
+  ping:  { pitch:1.35, rate:1.1,  variant:1 },                   // 핑 - 작고 귀엽게
+  loki:  { pitch:0.95, rate:0.95, variant:0 },
+  poki:  { pitch:1.2,  rate:1.0,  variant:1 },
+  anki:  { pitch:0.7,  rate:0.8,  variant:3 },                   // 안키 - 덩치 큰 안킬로사우루스
+  storm: { pitch:0.85, rate:1.1,  variant:2 },
+  peri:  { pitch:1.45, rate:0.95, variant:2, gender:'female' },  // 페리 - 여성 캐릭터
+  poli:  { pitch:1.0,  rate:0.95, variant:0 },
+  roy:   { pitch:0.7,  rate:0.85, variant:3 },                   // 로이 - 큰 소방차
+  amber: { pitch:1.5,  rate:0.9,  variant:1, gender:'female' },  // 엠버 - 여성 캐릭터
+  helly: { pitch:1.3,  rate:1.1,  variant:1 },
+  titi:  { pitch:1.2,  rate:1.05, variant:1 }, ppul:  { pitch:0.9,  rate:0.9,  variant:2 }, deung: { pitch:0.8,  rate:0.85, variant:3 },
+  fire:  { pitch:0.85, rate:0.95, variant:2 }, police:{ pitch:1.0,  rate:1.1,  variant:0 }, plane: { pitch:1.15, rate:1.1,  variant:1 },
+  rocket:{ pitch:1.25, rate:1.15, variant:3 }, butterfly:{ pitch:1.5, rate:1.0, variant:0, gender:'female' },
+  fish:  { pitch:1.4,  rate:1.05, variant:0 }, bear:  { pitch:0.75, rate:0.85, variant:2 },
+  // 율과 온: 서로 다른 음성 + 또렷한 빠르기 차이
   'default-kid-1': { pitch:1.5,  rate:1.15, variant:0 },  // 율 - 또랑또랑하고 조금 빠르게
   'default-kid-2': { pitch:1.0,  rate:0.9,  variant:1 },  // 온 - 차분하고 조금 천천히(다른 음성)
 };
