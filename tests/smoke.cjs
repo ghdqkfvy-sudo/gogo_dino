@@ -609,14 +609,18 @@ function check(cond, msg){
   check(sky.flying && sky.savedY < 0.35 && sky.stillFlying, `친구를 하늘로 옮기면 날아다니고, 다시 열어도 하늘에 있음 (y=${sky.savedY && sky.savedY.toFixed(2)})`);
   const props = await page.evaluate(()=> Array.from(document.querySelectorAll('#sceneEl .prop .prop-inner')).map(e=> e.className));
   check(props.length === 2 && props.every(c=> /idle-(hop|wiggle)/.test(c)), '소품이 평소에도 움직임 (' + props.join(' / ') + ')');
-  const ballBox = await page.locator('#sceneEl .prop').first().boundingBox();
+  // 친구들이 걸어다니다 소품 위를 지나가면 마우스 클릭이 친구에게 맞을 수 있어서, 소품 요소를 직접 누름
+  const tapProp = (n)=> page.evaluate((n)=>{ const el = document.querySelectorAll('#sceneEl .prop')[n]; const r = el.getBoundingClientRect();
+    const o = { bubbles:true, clientX:r.left + r.width/2, clientY:r.top + r.height/2, pointerId:7 };
+    el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new PointerEvent('pointerup', o)); }, n);
+  await page.evaluate(()=> fieldSprites.forEach(sp=>{ sp.held = true; }));   // 친구가 공을 먼저 차지 않게 잠깐 멈춤
   const ballX0 = await page.evaluate(()=> fieldLayout.forest.props[0].x);
-  await page.mouse.click(ballBox.x + ballBox.width/2, ballBox.y + ballBox.height/2);
+  await tapProp(0);
   await page.waitForTimeout(1100);
   const ballX1 = await page.evaluate(()=> fieldLayout.forest.props[0].x);
   check(Math.abs(ballX1 - ballX0) > 0.1, `공을 톡 누르면 굴러감 (${ballX0.toFixed(2)} → ${ballX1.toFixed(2)})`);
   const eggBox = await page.locator('#sceneEl .prop').nth(1).boundingBox();
-  await page.mouse.click(eggBox.x + eggBox.width/2, eggBox.y + eggBox.height/2);
+  await tapProp(1);
   await page.waitForTimeout(1500);
   const hatched = await page.locator('#sceneEl .prop').nth(1).textContent();
   check(hatched.includes('🦖') && !hatched.includes('🐣'), '공룡알을 톡 누르면 병아리 없이 아기 공룡이 부화');
@@ -625,11 +629,51 @@ function check(cond, msg){
   check(await page.evaluate(()=> isDialogOpen() && document.getElementById('confirmOverlayEl').textContent.includes('필드에서 빼기')), '소품을 꾹 누르면 빼기 창');
   await page.evaluate(()=>{ closeDialog(); fieldLayout.forest.props = [{ id:'prop-shell', x:0.5, y:0.85 }]; renderScene(); });
   await page.waitForTimeout(200);
-  const shellBox = await page.locator('#sceneEl .prop').first().boundingBox();
-  await page.mouse.click(shellBox.x + shellBox.width/2, shellBox.y + shellBox.height/2);
+  await tapProp(0);
   await page.waitForTimeout(500);
-  const shell = await page.evaluate(()=> ({ crab: !!document.querySelector('#sceneEl .prop .prop-crab'), label: shopItem('prop-shell').label }));
+  const shell = await page.evaluate(()=> ({ crab: !!document.querySelector('#sceneEl .prop .fx-crab'), label: shopItem('prop-shell').label }));
   check(shell.crab && shell.label === '소라', '소라를 톡 누르면 소라게가 나옴 (이름: ' + shell.label + ')');
+  // 소품별 반응: 트리 전구·선물, 풍선 펑+다시 부풀기, 집 강아지, 야자수 코코넛, UFO 외계인, 로켓 불꽃
+  await page.evaluate(()=>{ fieldLayout.forest.props = [
+    { id:'prop-xtree', x:0.12, y:0.8 }, { id:'prop-balloon', x:0.3, y:0.4 }, { id:'prop-house', x:0.45, y:0.8 },
+    { id:'prop-palm', x:0.6, y:0.8 }, { id:'prop-ufo', x:0.75, y:0.3 }, { id:'prop-rocket', x:0.9, y:0.8 } ]; renderScene(); });
+  await page.waitForTimeout(300);
+  const deco = await page.evaluate(()=> ({ lights: document.querySelectorAll('#sceneEl .tree-light').length, smoke: document.querySelectorAll('#sceneEl .chimney-smoke').length,
+    beam: document.querySelectorAll('#sceneEl .ufo-beam').length, shadows: document.querySelectorAll('#sceneEl .prop-shadow').length }));
+  check(deco.lights >= 6 && deco.smoke >= 1 && deco.beam === 1 && deco.shadows === 4, `평소 장식: 트리 전구 ${deco.lights}개, 굴뚝 연기, UFO 빛줄기, 땅 소품 그림자 ${deco.shadows}개`);
+  const fxSeen = await page.evaluate(async ()=>{
+    const els = Array.from(document.querySelectorAll('#sceneEl .prop'));
+    const seen = {};
+    const watch = (k, sel)=>{ const t0 = performance.now(); return new Promise(r=>{ const iv = setInterval(()=>{ if(document.querySelector(sel)){ seen[k] = true; clearInterval(iv); r(); } else if(performance.now() - t0 > 2500){ clearInterval(iv); r(); } }, 50); }); };
+    const tap = (el)=>{ const r = el.getBoundingClientRect(); const o = { bubbles:true, clientX:r.left + r.width/2, clientY:r.top + r.height/2, pointerId:9 }; el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new PointerEvent('pointerup', o)); };
+    els.forEach(tap);
+    await Promise.all([ watch('gift', '.fx-gift'), watch('confetti', '.fx-confetti'), watch('puppy', '.fx-peek'), watch('coconut', '.fx-coconut'), watch('alien', '.fx-alien'), watch('flame', '.fx-flame') ]);
+    await new Promise(r=> setTimeout(r, 1500));
+    seen.regrow = !!document.querySelector('#sceneEl .prop[data-prop="prop-balloon"] .act-regrow');
+    return seen;
+  });
+  const fxNames = ['gift','confetti','puppy','coconut','alien','flame','regrow'];
+  check(fxNames.every(k=> fxSeen[k]), '소품별 반응 (' + fxNames.map(k=> k + (fxSeen[k] ? '✓' : '✗')).join(' ') + ')');
+  // 친구가 공에 닿으면 저절로 참
+  // 앞의 하늘 배치 테스트에서 하늘로 옮긴 자리를 지움(하늘을 나는 친구는 공을 차지 않으므로)
+  await page.evaluate(()=>{ fieldLayout.forest.pos = {}; fieldLayout.forest.props = [{ id:'prop-ball', x:0.5, y:0.9 }]; renderScene(); fieldSprites.forEach(sp=>{ sp.held = true; }); });
+  await page.waitForTimeout(1200);   // 다른 친구들은 멈춰두고, 혹시 그 사이 차인 공이 멈출 때까지 기다림
+  const autoKick = await page.evaluate(async ()=>{
+    const ball = document.querySelector('#sceneEl .prop[data-prop="prop-ball"]'), sc = document.getElementById('sceneEl').getBoundingClientRect();
+    const sp = fieldSprites[0];
+    const br = ball.getBoundingClientRect();
+    // 친구를 공 바로 위(발이 공에 닿게)로 옮김
+    sp.wrap.style.transform = 'none'; sp.wrap.style.left = (br.left - sc.left + br.width/2 - sp.boxW/2) + 'px'; sp.wrap.style.top = (br.top - sc.top + br.height/2 - sp.wrap.offsetHeight * 0.85) + 'px';
+    sp.held = false; sp.lastX = 0; sp.amplitude = 0; sp.anchorLeft = parseFloat(sp.wrap.style.left); sp.minX = 0; sp.maxX = 0; sp.top = parseFloat(sp.wrap.style.top);
+    const x0 = fieldLayout.forest.props[0].x;
+    sp.held = true; checkFriendBallKicks(performance.now()); sp.held = false;   // 잡고 있는 친구는 차지 않음
+    const xHeld = fieldLayout.forest.props[0].x;
+    sp.wrap.style.top = sp.top + 'px'; checkFriendBallKicks(performance.now() + 5000);
+    await new Promise(r=> setTimeout(r, 1100));
+    fieldSprites.forEach(s=>{ s.held = false; });
+    return { x0, xHeld, x1: fieldLayout.forest.props[0].x };
+  });
+  check(autoKick.xHeld === autoKick.x0 && Math.abs(autoKick.x1 - autoKick.x0) > 0.1, `돌아다니던 친구가 공에 닿으면 저절로 참 (${autoKick.x0.toFixed(2)} → ${autoKick.x1.toFixed(2)})`);
   await page.evaluate(()=>{ fieldLayout.forest.props = []; fieldLayout.forest.pos = {}; go('screen-home'); });
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
