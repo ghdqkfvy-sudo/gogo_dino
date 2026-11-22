@@ -214,7 +214,7 @@ const SHOP_ITEMS = [
   { id:'prop-house',    kind:'prop', emoji:'🏠', label:'집', cost:8 },
   { id:'prop-balloon',  kind:'prop', emoji:'🎈', label:'풍선', cost:3 },
   { id:'prop-rainbow',  kind:'prop', emoji:'🌈', label:'무지개', cost:8 },
-  { id:'prop-shell',    kind:'prop', emoji:'🐚', label:'조개', cost:3 },
+  { id:'prop-shell',    kind:'prop', emoji:'🐚', label:'소라', cost:3 },
   { id:'prop-palm',     kind:'prop', emoji:'🌴', label:'야자수', cost:5 },
   { id:'prop-star',     kind:'prop', emoji:'🌟', label:'별', cost:3 },
   { id:'prop-rocket',   kind:'prop', emoji:'🚀', label:'로켓', cost:8 },

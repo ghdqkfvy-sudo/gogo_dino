@@ -618,11 +618,19 @@ function check(cond, msg){
   const eggBox = await page.locator('#sceneEl .prop').nth(1).boundingBox();
   await page.mouse.click(eggBox.x + eggBox.width/2, eggBox.y + eggBox.height/2);
   await page.waitForTimeout(1500);
-  check((await page.locator('#sceneEl .prop').nth(1).textContent()).includes('🦖'), '공룡알을 톡 누르면 아기 공룡이 부화');
+  const hatched = await page.locator('#sceneEl .prop').nth(1).textContent();
+  check(hatched.includes('🦖') && !hatched.includes('🐣'), '공룡알을 톡 누르면 병아리 없이 아기 공룡이 부화');
   await page.waitForTimeout(2000);
   await page.mouse.move(eggBox.x + eggBox.width/2, eggBox.y + eggBox.height/2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up();
   check(await page.evaluate(()=> isDialogOpen() && document.getElementById('confirmOverlayEl').textContent.includes('필드에서 빼기')), '소품을 꾹 누르면 빼기 창');
-  await page.evaluate(()=>{ closeDialog(); fieldLayout.forest.props = []; fieldLayout.forest.pos = {}; go('screen-home'); });
+  await page.evaluate(()=>{ closeDialog(); fieldLayout.forest.props = [{ id:'prop-shell', x:0.5, y:0.85 }]; renderScene(); });
+  await page.waitForTimeout(200);
+  const shellBox = await page.locator('#sceneEl .prop').first().boundingBox();
+  await page.mouse.click(shellBox.x + shellBox.width/2, shellBox.y + shellBox.height/2);
+  await page.waitForTimeout(500);
+  const shell = await page.evaluate(()=> ({ crab: !!document.querySelector('#sceneEl .prop .prop-crab'), label: shopItem('prop-shell').label }));
+  check(shell.crab && shell.label === '소라', '소라를 톡 누르면 소라게가 나옴 (이름: ' + shell.label + ')');
+  await page.evaluate(()=>{ fieldLayout.forest.props = []; fieldLayout.forest.pos = {}; go('screen-home'); });
 
   check(errors.length === 0, '페이지 오류 없음' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await browser.close();
