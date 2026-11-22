@@ -580,8 +580,10 @@ function nsRenderRevealStage(){
   `;
 }
 // 음성 이름으로 성별을 짐작합니다(기기마다 이름 규칙이 달라서, 알아볼 수 있는 이름만 맞춤).
-const NS_FEMALE_VOICE_RE = /female|여성|여자|yuna|heami|sunhi|seoyeon|sora|jimin|yujin/i;
-const NS_MALE_VOICE_RE = /(^|[^e])male|남성|남자|injoon|hyunsu|minsu|jihun/i;
+// 안드로이드는 음성 구분 이름(voiceURI)으로 짐작합니다: 구글 TTS ko-kr-x-ism·kob = 여성, koc·kod = 남성,
+// 삼성 TTS SMTf = 여성, SMTm = 남성. (기기·버전마다 다를 수 있어 어디까지나 '짐작'입니다)
+const NS_FEMALE_VOICE_RE = /female|여성|여자|yuna|heami|sunhi|seoyeon|sora|jimin|yujin|x-ism|x-kob|smtf/i;
+const NS_MALE_VOICE_RE = /(^|[^e])male|남성|남자|injoon|hyunsu|minsu|jihun|x-koc|x-kod|smtm/i;
 function nsMatchGender(list, gender, nameOf){
   if(!gender) return null;
   const re = gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE;
@@ -591,10 +593,11 @@ function nsPickVoice(lang, gender, variant){
   try{
     const prefix = (lang || 'ko-KR').slice(0,2);
     const voices = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
-    const byGender = nsMatchGender(voices, gender, v => v.name + ' ' + v.voiceURI);
-    if(byGender) return byGender;
-    // 성별 지정이 없으면 캐릭터마다 다른 음성(variant 번째)을 써서 목소리가 더 달라지게 합니다.
-    return voices.length ? voices[(variant || 0) % voices.length] : null;
+    if(!voices.length) return null;
+    // 여성 친구는 여성 음성들 중에서, 나머지는 전체 음성 중에서 variant 번째를 써서 친구마다 목소리가 달라지게 합니다.
+    const gendered = gender ? voices.filter(v => (gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE).test(v.name + ' ' + v.voiceURI)) : [];
+    const list = gendered.length ? gendered : voices;
+    return list[(variant || 0) % list.length];
   }catch(e){ return null; }
 }
 // 안드로이드 웹뷰는 Web Speech API(speechSynthesis)가 아예 없거나 음성 목록이 비어 소리가 안
@@ -604,26 +607,41 @@ function nsNativeTTS(){
   try{ return (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) || null; }
   catch(e){ return null; }
 }
-// 기기에 같은 언어 음성이 여러 개면 인터넷 기반(localService:false, 대개 더 자연스러운) 음성을
-// 우선 고릅니다. 목록 조회는 한 번만 하고 결과를 캐시해둡니다.
+// 기기에 같은 언어 음성이 여러 개면 친구마다 다른 음성을 고릅니다. 목록 조회는 한 번만 하고 캐시합니다.
+// 예전엔 인터넷 기반 음성(localService:false)을 우선 골랐는데, 와이파이가 약하거나 그 음성 데이터가
+// 아직 기기에 없으면 말하다가 오류가 나서 끊겼습니다. 이제는 기기에 설치된(local) 음성을 우선 쓰고,
+// 한 번 오류가 난 음성은 이번 실행 동안 다시 쓰지 않습니다.
 let nsNativeVoicesPromise = null;
-function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender, variant){
+const nsBadNativeVoices = new Set();
+function nsLoadNativeVoices(nativeTTS){
   if(!nsNativeVoicesPromise){
     nsNativeVoicesPromise = nativeTTS.getSupportedVoices()
       .then(res => (res && res.voices) || [])
       .catch(() => []);
   }
+  return nsNativeVoicesPromise;
+}
+// 한 언어의 음성 후보: 같은 목소리의 local/network 쌍은 하나로 합치고(local 우선), 오류 난 음성은 뺍니다.
+function nsNativeVoicePool(voices, lang){
   const prefix = (lang || 'ko-KR').slice(0,2).toLowerCase();
-  return nsNativeVoicesPromise.then(voices => {
-    if(!voices.length) return undefined;
-    const matched = voices.map((v,i)=>({...v, idx:i})).filter(v => (v.lang || '').toLowerCase().startsWith(prefix));
-    if(!matched.length) return undefined;
-    const byGender = nsMatchGender(matched, gender, v => (v.name || '') + ' ' + (v.voiceURI || ''));
-    if(byGender) return byGender.idx;
-    // 인터넷 기반(더 자연스러운) 음성을 앞에 두고, variant 번째 음성을 고릅니다.
-    const ordered = matched.filter(v => v.localService === false).concat(matched.filter(v => v.localService !== false));
-    return ordered[(variant || 0) % ordered.length].idx;
+  const byBase = new Map();
+  voices.forEach((v, idx)=>{
+    if(!(v.lang || '').toLowerCase().startsWith(prefix) || nsBadNativeVoices.has(idx)) return;
+    const base = String(v.voiceURI || idx).replace(/-(local|network)$/i, '');
+    const cur = byBase.get(base);
+    if(!cur || (cur.localService === false && v.localService !== false)) byBase.set(base, Object.assign({}, v, { idx }));
   });
+  return Array.from(byBase.values());
+}
+function nsPickFromPool(pool, gender, variant){
+  if(!pool.length) return undefined;
+  const nameOf = v => (v.voiceURI || '') + ' ' + (v.name || '');
+  const gendered = gender ? pool.filter(v => (gender === 'female' ? NS_FEMALE_VOICE_RE : NS_MALE_VOICE_RE).test(nameOf(v))) : [];
+  const list = gendered.length ? gendered : pool;
+  return list[(variant || 0) % list.length].idx;
+}
+function nsGetPreferredNativeVoiceIndex(nativeTTS, lang, gender, variant){
+  return nsLoadNativeVoices(nativeTTS).then(voices => nsPickFromPool(nsNativeVoicePool(voices, lang), gender, variant));
 }
 // 모바일 브라우저(특히 iOS Safari, 안드로이드 크롬)에서 소리가 안 나던 원인들:
 //  ① 음성 목록이 늦게 채워질 때 setTimeout으로 기다렸다가 말해서, "터치한 그 순간"에 말하지 않아
@@ -637,13 +655,13 @@ let nsNoVoiceWarned = false;
 // voice: 캐릭터별 목소리 {pitch, rate, gender} (없으면 기본 안내 목소리)
 // 기기 음성의 높낮이(pitch)를 크게 바꾸면 사람 목소리가 아니라 떨리는 기계음처럼 들립니다.
 // 그래서 캐릭터 설정값(CHARACTER_VOICES)이 극단적이어도 1.0 쪽으로 당겨서 자연스러운 범위
-// (0.85~1.25)에 두고, 친구마다의 차이는 음성 종류(variant)와 말하는 속도(rate)로 더 크게 줍니다.
+// (0.82~1.32)에 두고, 친구마다의 차이는 음성 종류(variant)와 말하는 속도(rate)로 더 크게 줍니다.
 function nsVoiceParams(voice){
   const rate = 0.85 * ((voice && voice.rate) || 1);
-  const pitch = 1 + (((voice && voice.pitch) || 1.05) - 1) * 0.4;
+  const pitch = 1 + (((voice && voice.pitch) || 1.05) - 1) * 0.55;
   return {
-    rate: Math.max(0.65, Math.min(1.15, rate)),
-    pitch: Math.max(0.85, Math.min(1.25, pitch)),
+    rate: Math.max(0.66, Math.min(1.2, rate)),
+    pitch: Math.max(0.82, Math.min(1.32, pitch)),
   };
 }
 function nsWebSpeakNow(text, lang, charVoice){
@@ -692,25 +710,47 @@ function nsUnlockWebSpeech(){
 document.addEventListener('pointerdown', nsUnlockWebSpeech, { once:true, capture:true });
 try{ if('speechSynthesis' in window) speechSynthesis.getVoices(); }catch(e){}
 
+// 말하기 순번: 새 말을 시작할 때마다 1씩 올라갑니다. 늦게 끝난(또는 실패한) 예전 말이 지금 말을 방해하지 않게 합니다.
+let nsSpeechSeq = 0;
+const NS_RETRY_WINDOW_MS = 700;   // 이 시간 안에 실패했을 때만(=아직 거의 말하지 않았을 때만) 다른 음성으로 한 번 더 말함
 function nsSpeak(text, lang, charVoice){
   lang = lang || 'ko-KR';
+  const seq = ++nsSpeechSeq;
   const nativeTTS = nsNativeTTS();
   if(nativeTTS){
     try{
       nativeTTS.stop().catch(()=>{});
       nsGetPreferredNativeVoiceIndex(nativeTTS, lang, charVoice && charVoice.gender, charVoice && charVoice.variant).then(voiceIdx=>{
+        if(seq !== nsSpeechSeq) return;   // 음성 목록을 기다리는 사이 다른 말이 시작됐으면 이 말은 버림
         const vp = nsVoiceParams(charVoice || { pitch:1.1 });
         const opts = { text, lang, rate:vp.rate, pitch:vp.pitch, volume:1.0, category:'ambient' };
         if(voiceIdx !== undefined) opts.voice = voiceIdx;
-        // 지정한 음성으로 실패하면 기본 음성으로, 그것도 안 되면 브라우저 음성으로 한 번 더 시도합니다.
-        nativeTTS.speak(opts)
-          .catch(()=>{ delete opts.voice; return nativeTTS.speak(opts); })
-          .catch(()=>{ if('speechSynthesis' in window) nsWebSpeak(text, lang, charVoice); else toast('소리 재생에 문제가 있었어요 🔇'); });
+        const t0 = Date.now();
+        // 예전엔 말하다 실패하면(설치 안 된 음성, 끊긴 인터넷 음성 등) 같은 문장을 기본 음성으로 무조건 다시 말해서,
+        // 다른 목소리가 잠깐 끼어들었다가 다음 말에 끊기는 "이상한 소리"가 났습니다. 이제는
+        //  ① 그 사이 다른 말이 시작됐으면 다시 말하지 않고, ② 이미 한참 말하던 중이었으면 반복하지 않으며,
+        //  ③ 실패한 음성은 이번 실행 동안 다시 고르지 않습니다.
+        nativeTTS.speak(opts).catch(()=>{
+          if(opts.voice !== undefined) nsBadNativeVoices.add(opts.voice);
+          if(seq !== nsSpeechSeq || Date.now() - t0 > NS_RETRY_WINDOW_MS) return;
+          delete opts.voice;
+          return nativeTTS.speak(opts).catch(()=>{
+            if(seq !== nsSpeechSeq) return;
+            if('speechSynthesis' in window) nsWebSpeak(text, lang, charVoice); else toast('소리 재생에 문제가 있었어요 🔇');
+          });
+        });
       });
     }catch(e){ nsWebSpeak(text, lang, charVoice); }
     return;
   }
   nsWebSpeak(text, lang, charVoice);
+}
+// 말하고 있던 소리를 멈춥니다(마이크를 켜기 전 등).
+function nsStopSpeech(){
+  nsSpeechSeq++;
+  const nativeTTS = nsNativeTTS();
+  if(nativeTTS){ try{ nativeTTS.stop().catch(()=>{}); }catch(e){} }
+  try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){}
 }
 // 앱 곳곳의 음성 안내(카드 이름, 캐릭터 이름, 필드 이름 등). 아직 글을 못 읽는 아이를 위한
 // 기능이라 기본으로 켜져 있고, 보호자 설정에서 끌 수 있습니다. 공부모드 발음은 항상 나옵니다.
@@ -1106,8 +1146,11 @@ function nsStartMicCheck(){
     nsUnlockTrace();
     return;
   }
-  const askedAt = performance.now();
-  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+  // 안내 음성이 나오는 도중에 마이크를 켜면 안드로이드가 소리 경로를 통화용으로 바꾸면서 음성이
+  // 잠깐 이상하게 들렸다가 끊길 수 있어서, 먼저 말을 멈추고 아주 잠깐 기다린 뒤 마이크를 켭니다.
+  nsStopSpeech();
+  const askedAt = performance.now() + 300;
+  new Promise(r=> setTimeout(r, 300)).then(()=> navigator.mediaDevices.getUserMedia({audio:true})).then(stream=>{
     if(!nsIsActive()){ stream.getTracks().forEach(t=>t.stop()); return; }
     ns._micStream = stream;
     let actx;
@@ -1436,6 +1479,12 @@ function showRewardFallback(){
   nsSpeak('참 잘했어요! 공룡알 선물을 받았어요!', 'ko-KR');
   nsRewardAutoClose = setTimeout(()=>{ if(nsIsRewardActive() && nsRewardFallback) closeNumberReward(); }, 15000);
 }
+function nsHideCaptions(player){
+  try{
+    if(player.unloadModule){ player.unloadModule('captions'); player.unloadModule('cc'); }
+    if(player.setOption) player.setOption('captions', 'track', {});
+  }catch(e){}
+}
 function showNumberReward(){
   const pick = nsPickReward();
   const host = document.getElementById('nsRewardVideoHost');
@@ -1462,10 +1511,13 @@ function showNumberReward(){
       // 순서(index)를 기억해 뒀다가 다른 편으로 바뀌는 순간에도 보상을 끝냅니다(한 번에 한 편만).
       let startedIndex = null;
       const playerOpts = {
-        playerVars: { autoplay:1, rel:0, playsinline:1, modestbranding:1, controls:0, disablekb:1, fs:0, iv_load_policy:3 },
+        // 자막: 퍼가기(embed) 플레이어는 YouTube 앱의 자막 설정을 따르지 않고 자동 자막을 켤 때가 있어서,
+        // cc_load_policy:0(기본으로 켜지 않음) + 재생이 시작될 때마다 자막 모듈을 내려서 확실히 끕니다.
+        playerVars: { autoplay:1, rel:0, playsinline:1, modestbranding:1, controls:0, disablekb:1, fs:0, iv_load_policy:3, cc_load_policy:0, hl:'ko' },
         events: {
           onReady: (e)=>{
             clearTimeout(nsRewardWatchdog);
+            nsHideCaptions(e.target);
             if(pick.list) e.target.loadPlaylist({ list: pick.list, listType:'playlist', index: pick.index });
             else e.target.playVideo();
             // 영상 칸만 전체화면으로 만들면 ✕ 버튼이 가려져서, ✕ 버튼까지 포함한 바깥 상자를 전체화면으로 만듭니다.
@@ -1480,6 +1532,7 @@ function showNumberReward(){
               if(startedIndex === null) startedIndex = idx;
               else if(idx !== startedIndex){ closeNumberReward(); return; }
             }
+            if(e.data === YT.PlayerState.PLAYING) nsHideCaptions(e.target);   // 재생목록 편이 바뀌거나 다시 재생될 때도 자막을 끔
             nsSetRewardPaused(e.data !== YT.PlayerState.PLAYING && e.data !== YT.PlayerState.BUFFERING);
           }
         }
@@ -1541,7 +1594,7 @@ function openParentHelp(){
         <div>🎨 <b>문양</b>도 색과 똑같이 칠해지고, 작은 무늬가 반복돼 원단처럼 보여요.</div>
         <div>🔄 고고다이노·로보카폴리 친구들은 모두 <b>변신</b> 도안이 있어요. 변신 도안을 칠해서 저장한 친구는 트랙 모드에서 달릴 수 있어요. 🌈 새 친구들은 변신 없이 색칠만 해요.</div>
         <div>🗺️ 필드는 숲속·바닷속·사막·우주·눈나라·공룡섬 6곳이에요.</div>
-        <div>🌲 필드의 친구를 톡 누르면 인사하고, 끌어서 옮긴 자리는 기억돼요. 🎀로 소품을 놓고 🌙로 밤낮을 바꾸고 📸로 사진을 찍어요.</div>
+        <div>🌲 필드의 친구를 톡 누르면 인사하고, 끌어서 옮긴 자리는 기억돼요. 하늘로 올리면 둥실 날아다녀요. 🎀 소품은 톡 누르면 움직이고(공 차기·로켓 발사·알 부화 등) 꾹 누르면 빠져요. 🌙로 밤낮을 바꾸고 📸로 사진을 찍어요.</div>
         <div>🥚 트랙에서 모은 알과 공부로 받은 알은 홈 화면 🥚 알 가게에서 특별한 붓·소품을 여는 데 써요.</div>
         <div>🏁 트랙은 깃발까지 가는 코스(별 1~3개)와 끝없이 달리기를 고를 수 있어요.</div>
         <div>📷 색칠하기 맨 아래 "내 그림 불러오기"로 직접 그린 선 그림이나 도안 사진을 넣을 수 있어요.</div>
@@ -1551,6 +1604,14 @@ function openParentHelp(){
       <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px; font-size:14px;">
         <label class="ns-settings-toggle" style="justify-content:flex-start;"><input type="checkbox" id="voiceGuideToggle" ${voiceGuideOn?'checked':''}> 음성 안내 (버튼·이름 읽어주기)</label>
         <label class="ns-settings-toggle" style="justify-content:flex-start;"><input type="checkbox" id="bgmToggle" ${!bgmMuted?'checked':''}> 배경음악·효과음</label>
+      </div>
+      <div class="voice-check" id="voiceCheck">
+        <div><b>🔊 친구 목소리</b> <span id="voiceCount">확인 중…</span></div>
+        <div class="voice-check-btns">
+          <button class="pill ghost" id="voiceDemoBtn" type="button">친구 목소리 들어보기</button>
+          <button class="pill ghost" id="voiceInstallBtn" type="button" hidden>음성 데이터 설치</button>
+        </div>
+        <small>한국어 음성이 여러 개 설치돼 있을수록 친구마다 목소리가 달라져요.</small>
       </div>`,
       [{ label:'닫기', cls:'alt', value:true }],
       ()=>{
@@ -1559,5 +1620,46 @@ function openParentHelp(){
         const bg = document.getElementById('bgmToggle');
         if(bg && bg.checked === bgmMuted) toggleBgmMute();
       }, { wide:true });
+    wireVoiceCheck();
   });
+}
+
+// ---- 목소리 점검(보호자 안내 화면) ----
+// 기기에 설치된 한국어 음성 개수를 보여주고, 친구들 목소리를 차례로 들려주고, 음성 데이터 설치 화면을 엽니다.
+async function nsKoreanVoiceList(){
+  const nativeTTS = nsNativeTTS();
+  if(nativeTTS){
+    const voices = await nsLoadNativeVoices(nativeTTS);
+    return nsNativeVoicePool(voices, 'ko-KR').map(v => (v.voiceURI || '') + (v.localService === false ? ' (인터넷)' : ''));
+  }
+  try{ return (speechSynthesis.getVoices() || []).filter(v => (v.lang || '').toLowerCase().startsWith('ko')).map(v => v.name); }
+  catch(e){ return []; }
+}
+const VOICE_DEMO_IDS = ['default-kid-1', 'default-kid-2', 'rex', 'vicky', 'poli', 'amber', 'anki', 'peri'];
+let voiceDemoTimer = null;
+function playVoiceDemo(i){
+  clearTimeout(voiceDemoTimer);
+  if(i >= VOICE_DEMO_IDS.length || !isDialogOpen()) return;
+  const id = VOICE_DEMO_IDS[i];
+  const def = getDef(id) || DEFAULT_FIELD_FRIENDS.find(f=>f.uid===id);
+  const name = def ? def.name : id;
+  nsSpeak(`안녕! 나는 ${name}${koYa(name)}`, 'ko-KR', voiceFor(id));
+  voiceDemoTimer = setTimeout(()=> playVoiceDemo(i + 1), 2300);
+}
+function wireVoiceCheck(){
+  const countEl = document.getElementById('voiceCount');
+  nsKoreanVoiceList().then(list=>{
+    if(!countEl) return;
+    countEl.textContent = list.length ? `한국어 음성 ${list.length}개` : '한국어 음성을 찾지 못했어요';
+    countEl.title = list.join(', ');
+    countEl.classList.toggle('warn', list.length < 2);
+  });
+  const demo = document.getElementById('voiceDemoBtn');
+  if(demo) demo.addEventListener('click', ()=> playVoiceDemo(0));
+  const install = document.getElementById('voiceInstallBtn');
+  const nativeTTS = nsNativeTTS();
+  if(install && nativeTTS && nativeTTS.openInstall){
+    install.hidden = false;
+    install.addEventListener('click', ()=>{ try{ nativeTTS.openInstall().catch(()=>{}); }catch(e){} });
+  }
 }
