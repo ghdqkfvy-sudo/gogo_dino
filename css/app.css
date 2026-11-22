@@ -713,6 +713,17 @@ button.pill:disabled{opacity:.4; cursor:default;}
 .prop-inner.act-floatAway{animation:propFloatAway 2.6s ease-in-out;}
 .prop-inner.act-zip{animation:propZip 1.5s ease-in-out;}
 .prop-inner.act-hatch{animation:propShake .5s ease-in-out 2, propBoing .7s cubic-bezier(.3,1.6,.5,1) 1s;}
+/* 소라게: 소라 안에서 빼꼼 → 옆으로 종종 → 다시 쏙 */
+.prop-crab{position:absolute; left:50%; top:62%; font-size:.62em; pointer-events:none; z-index:1;
+  transform:translate(-50%,-50%) scale(.2); opacity:0; animation:hermitOut 3s ease-in-out forwards;}
+@keyframes hermitOut{
+  0%{transform:translate(-50%,-50%) scale(.2); opacity:0;}
+  12%{transform:translate(-50%,-90%) scale(1); opacity:1;}
+  30%{transform:translate(calc(-50% + var(--dir,1) * 70%),-60%) rotate(-8deg);}
+  45%{transform:translate(calc(-50% + var(--dir,1) * 140%),-60%) rotate(8deg);}
+  60%{transform:translate(calc(-50% + var(--dir,1) * 150%),-75%) rotate(0);}
+  80%{transform:translate(-50%,-70%) scale(1); opacity:1;}
+  100%{transform:translate(-50%,-50%) scale(.2); opacity:0;}}
 @keyframes propSpin{from{transform:rotate(0) scale(1);}50%{transform:rotate(200deg) scale(1.3);}to{transform:rotate(360deg) scale(1);}}
 @keyframes propBoing{0%{transform:translateY(0) scale(1);}30%{transform:translateY(-45%) scale(.9,1.15);}60%{transform:translateY(0) scale(1.2,.82);}100%{transform:translateY(0) scale(1);}}
 @keyframes propShake{0%,100%{transform:rotate(0);}20%{transform:rotate(-14deg);}40%{transform:rotate(12deg);}60%{transform:rotate(-9deg);}80%{transform:rotate(6deg);}}

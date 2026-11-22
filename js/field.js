@@ -667,7 +667,7 @@ const PROP_MOTION = {
   'prop-house':    { idle:'breathe', tap:'shake',  say:'똑똑, 누구 있어요?' },
   'prop-balloon':  { idle:'float',   tap:'floatAway', say:'두둥실!' },
   'prop-rainbow':  { idle:'shimmer', tap:'boing',  say:'반짝반짝 무지개!' },
-  'prop-shell':    { idle:'wiggle',  tap:'boing',  say:'바다 소리가 들려!' },
+  'prop-shell':    { idle:'wiggle',  tap:'hermit', say:'소라게가 나왔어요!' },
   'prop-palm':     { idle:'sway',    tap:'shake',  say:'코코넛이 툭!' },
   'prop-star':     { idle:'twinkle', tap:'spin',   say:'반짝!' },
   'prop-rocket':   { idle:'hover',   tap:'launch', say:'3, 2, 1, 발사!' },
@@ -712,12 +712,23 @@ function propAct(el, inner, pr, it, sceneEl){
     return;
   }
   if(m.tap === 'hatch'){
-    // 공룡알 부화: 🥚 → 🐣 → 🦖 → 다시 🥚
+    // 공룡알 부화: 🥚 흔들흔들 → 🦖 아기 공룡 → 잠시 뒤 다시 🥚 (공룡알이라 병아리 단계 없이 바로 공룡)
     inner.classList.add('act-hatch');
-    setTimeout(()=>{ inner.textContent = '🐣'; propBurst(el, '✨'); }, 500);
-    setTimeout(()=>{ inner.textContent = '🦖'; propBurst(el, '💚'); }, 1300);
+    setTimeout(()=>{ inner.textContent = '🦖'; propBurst(el, '💚'); propBurst(el, '✨'); }, 1000);
     setTimeout(()=>{ inner.textContent = it.emoji; }, 3200);
     done(3300);
+    return;
+  }
+  if(m.tap === 'hermit'){
+    // 소라를 누르면 안에서 소라게가 빼꼼 나와 옆으로 종종걸음 치다가 다시 쏙 들어갑니다.
+    inner.classList.add('act-shake');
+    const crab = document.createElement('span');
+    crab.className = 'prop-crab';
+    crab.style.setProperty('--dir', pr.x > 0.8 ? '-1' : '1');
+    crab.textContent = '🦀';
+    el.appendChild(crab);
+    setTimeout(()=>{ inner.classList.remove('act-shake'); }, 600);
+    setTimeout(()=>{ crab.remove(); el._busy = false; }, 3000);
     return;
   }
   inner.classList.add('act-' + m.tap);
